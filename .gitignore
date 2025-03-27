@@ -1,0 +1,14 @@
+node_modules
+dist
+out
+.DS_Store
+*.log*
+
+#database
+file-index.db
+file-index.db-journal
+file-index.db-shm
+file-index.db-wal
+
+#custom icons
+custom-app-icons
