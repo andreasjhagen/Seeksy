@@ -1,71 +1,146 @@
+import { fileDB } from '../../services/database/database.js'
 import { BaseHandler } from '../BaseHandler'
 import { IPC } from '../ipcChannels'
 
 export class DatabaseItemHandler extends BaseHandler {
-  constructor(fileDB) {
+  constructor() {
     super()
-    this.fileDB = fileDB
     this.registerHandlers({
       [IPC.BACKEND.INDEXER_QUICK_SEARCH]: this.handleQuickSearch.bind(this),
-      [IPC.BACKEND.INDEXER_ADVANCED_SEARCH]: this.handleAdvancedSearch.bind(this),
+      [IPC.BACKEND.INDEXER_FILTERED_SEARCH]: this.handleFilteredSearch.bind(this),
       [IPC.FRONTEND.FAVORITES_ADD]: this.handleFavoriteAdd.bind(this),
       [IPC.FRONTEND.FAVORITES_REMOVE]: this.handleFavoriteRemove.bind(this),
       [IPC.FRONTEND.FAVORITES_CHECK]: this.handleFavoriteCheck.bind(this),
       [IPC.FRONTEND.FAVORITES_GET_ALL]: this.handleGetAllFavorites.bind(this),
       [IPC.FRONTEND.NOTES_SET]: this.handleSetNotes.bind(this),
       [IPC.FRONTEND.NOTES_GET]: this.handleGetNotes.bind(this),
-      [IPC.FRONTEND.FIND_SIMILAR_IMAGES]: this.handleFindSimilarImages.bind(this),
     })
   }
 
+  /**
+   * Handle quick search requests
+   * @param {Event} _ - The IPC event (unused)
+   * @param {string} query - The search query
+   * @returns {Promise<Object>} The search results
+   */
   async handleQuickSearch(_, query) {
-    return this.fileDB.quickSearch(query)
+    try {
+      return await fileDB.quickSearch(query)
+    } catch (error) {
+      console.error('Quick search failed:', error)
+      return { error: 'Search failed', message: error.message }
+    }
   }
 
-  async handleAdvancedSearch(_, searchParams) {
-    return this.fileDB.advancedSearch(searchParams)
+  /**
+   * Handle filtered search requests
+   * @param {Event} _ - The IPC event (unused)
+   * @param {Object} searchParams - The search parameters including filters
+   * @returns {Promise<Object>} The filtered search results
+   */
+  async handleFilteredSearch(_, searchParams) {
+    try {
+      return await fileDB.filteredSearch(searchParams)
+    } catch (error) {
+      console.error('Filtered search failed:', error)
+      return { error: 'Search failed', message: error.message }
+    }
   }
 
+  /**
+   * Add an item to favorites
+   * @param {Event} _ - The IPC event (unused)
+   * @param {string} itemPath - Path to the item
+   * @param {string} type - Type of item (file, folder, application, emoji)
+   * @returns {Promise<Object>} Result of the operation
+   */
   async handleFavoriteAdd(_, itemPath, type) {
-    return this.fileDB.addToFavorites(itemPath, type)
+    try {
+      return await fileDB.addToFavorites(itemPath, type)
+    } catch (error) {
+      console.error('Failed to add favorite:', error)
+      return { success: false, error: error.message }
+    }
   }
 
+  /**
+   * Remove an item from favorites
+   * @param {Event} _ - The IPC event (unused)
+   * @param {string} itemPath - Path to the item
+   * @returns {Promise<Object>} Result of the operation
+   */
   async handleFavoriteRemove(_, itemPath) {
-    return this.fileDB.removeFromFavorites(itemPath)
+    try {
+      return await fileDB.removeFromFavorites(itemPath)
+    } catch (error) {
+      console.error('Failed to remove favorite:', error)
+      return { success: false, error: error.message }
+    }
   }
 
+  /**
+   * Check if an item is in favorites
+   * @param {Event} _ - The IPC event (unused)
+   * @param {string} itemPath - Path to the item
+   * @returns {Promise<boolean>} Whether the item is a favorite
+   */
   async handleFavoriteCheck(_, itemPath) {
-    return this.fileDB.isFavorite(itemPath)
+    try {
+      return await fileDB.isFavorite(itemPath)
+    } catch (error) {
+      console.error('Failed to check favorite status:', error)
+      return false
+    }
   }
 
+  /**
+   * Get all favorite items
+   * @returns {Promise<Array>} List of all favorite items
+   */
   async handleGetAllFavorites() {
-    return this.fileDB.getAllFavorites()
+    try {
+      return await fileDB.getAllFavorites()
+    } catch (error) {
+      console.error('Failed to get all favorites:', error)
+      return []
+    }
   }
 
+  /**
+   * Set notes for an item
+   * @param {Event} _ - The IPC event (unused)
+   * @param {string} itemPath - Path to the item
+   * @param {string} notes - Note content
+   * @returns {Promise<Object>} Result of the operation
+   */
   async handleSetNotes(_, itemPath, notes) {
-    return {
-      success: this.fileDB.setNotes(itemPath, notes),
-      notes,
+    try {
+      const success = await fileDB.setNotes(itemPath, notes)
+      return { success, notes }
+    } catch (error) {
+      console.error('Failed to set notes:', error)
+      return { success: false, error: error.message }
     }
   }
 
+  /**
+   * Get notes for an item
+   * @param {Event} _ - The IPC event (unused)
+   * @param {string} itemPath - Path to the item
+   * @returns {Promise<Object>} The notes content
+   */
   async handleGetNotes(_, itemPath) {
-    return {
-      success: true,
-      notes: this.fileDB.getNotes(itemPath),
+    try {
+      const notes = await fileDB.getNotes(itemPath)
+      return { success: true, notes }
+    } catch (error) {
+      console.error('Failed to get notes:', error)
+      return { success: false, error: error.message }
     }
-  }
-
-  async handleFindSimilarImages(_, itemPath) {
-    const query = this.fileDB.findSimilarImages(itemPath, {
-      threshold: 0.85,
-      limit: 20,
-    })
-    return query.success ? query.results : []
   }
 }
 
 // Changed to match other handlers' export pattern
-export default function setupDatabaseItemHandlers(fileDB) {
-  return new DatabaseItemHandler(fileDB)
+export default function setupDatabaseItemHandlers() {
+  return new DatabaseItemHandler()
 }

@@ -1,6 +1,27 @@
 @import 'tailwindcss';
+/*Since we generate them dynamically for each result section,
+based on the config in the store, we have to force tailwind to always render them */
+@source inline("grid-cols-1");
+@source inline("grid-cols-2");
+@source inline("grid-cols-3");
+@source inline("grid-cols-4");
+@source inline("grid-cols-5");
+@source inline("grid-cols-6");
+@source inline("grid-cols-7");
+@source inline("grid-cols-8");
+@source inline("grid-cols-9");
+@source inline("grid-cols-10");
+@source inline("grid-cols-11");
+@source inline("grid-cols-12");
 
 @config '../../../../tailwind.config.js';
+
+/* High DPI display support */
+@media screen and (min-resolution: 2dppx) {
+  html {
+    font-size: 16px; /* Slightly reduced base font size for high DPI */
+  }
+}
 
 /*
   The default border color has changed to `currentColor` in Tailwind CSS v4,

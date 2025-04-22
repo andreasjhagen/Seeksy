@@ -4,11 +4,12 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { IPC_CHANNELS } from '../../../../main/ipc/ipcChannels'
 import { useKeyboardNavigation } from '../../composables/useKeyboardNavigation'
 import { useSearchResultsStore } from '../../stores/search-results-store'
+import { useSettingsStore } from '../../stores/settings-store'
 import OpenSettingsButton from './OpenSettingsButton.vue'
 
 const emit = defineEmits(['toggle-search-mode'])
 const searchStore = useSearchResultsStore()
-const { filters, isLoading, isAdvancedMode } = storeToRefs(searchStore)
+const { filters, isLoading, isFilteredMode } = storeToRefs(searchStore)
 const { hasActiveFilters } = storeToRefs(searchStore)
 
 const searchInput = ref(null)
@@ -16,6 +17,9 @@ const searchQuery = computed({
   get: () => searchStore.query,
   set: value => searchStore.setQuery(value),
 })
+
+const { focusResults, initializeSelection } = useKeyboardNavigation()
+const { hasAnyResults } = storeToRefs(searchStore)
 
 onMounted(() => {
   focusSearchInput()
@@ -49,11 +53,7 @@ function handleToggleMode() {
   searchStore.toggleSearchMode()
 }
 
-const { focusResults } = useKeyboardNavigation()
-
-const { hasAnyResults } = storeToRefs(searchStore)
-
-// Update the focus handler to be more robust
+// Update the focus handler to use our new keyboard navigation
 async function handleFocusResults(event) {
   if (hasAnyResults.value) {
     event.preventDefault()
@@ -87,7 +87,7 @@ defineExpose({
           >
           <div class="flex items-center gap-1">
             <button
-              title="Toggle Advanced Search"
+              title="Toggle Filtered Search"
               type="button"
               class="flex items-center justify-center p-2 text-gray-600 transition-colors rounded-lg cursor-pointer dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
               @click="handleToggleMode"
@@ -99,9 +99,9 @@ defineExpose({
         </div>
       </div>
 
-      <!-- Advanced Search Filters -->
+      <!-- FILTERED SEARCH -->
       <div
-        v-if="isAdvancedMode"
+        v-if="isFilteredMode"
         class="flex flex-col gap-2 p-4 border border-gray-200 bg-gray-50 dark:bg-gray-700 rounded-xl dark:border-gray-600"
       >
         <!-- File Type Filter -->

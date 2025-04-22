@@ -1,92 +1,253 @@
 <script setup>
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, provide, ref, watch, nextTick } from 'vue'
 import { useContextMenu } from '../../composables/useContextMenu'
 import { useKeyboardNavigation } from '../../composables/useKeyboardNavigation'
 import { useSearchActions } from '../../composables/useSearchActions'
-import { useSearchResultsStore } from '../../stores/search-results-store'
+import { RESULT_TYPES, useSearchResultsStore } from '../../stores/search-results-store'
 import { useSelectionStore } from '../../stores/selection-store'
 import { useSettingsStore } from '../../stores/settings-store'
-import ContextMenu from './ContextMenu.vue'
-import AppResults from './result-sections/AppResults.vue'
-import DiskResults from './result-sections/DiskResults.vue'
-import EmojiResults from './result-sections/EmojiResults.vue'
+import AppResults from './ext-applications/AppResults.vue'
+import DiskResults from './ext-disk/DiskResults.vue'
+import EmojiResults from './ext-emoji/EmojiResults.vue'
 
+// Create a global reactive reference for dragged section type
+// This will be provided to all ResultSection components
+const draggedSectionType = { value: ref(null) }
+provide('draggedSectionType', draggedSectionType)
+
+// Store references and composables
 const searchStore = useSearchResultsStore()
 const settingsStore = useSettingsStore()
 const selectionStore = useSelectionStore()
+const contextMenu = useContextMenu()
 const diskResultsRef = ref(null)
-const { navigateSelection, navigateTab, initializeSelection, getVisibleSections } = useKeyboardNavigation()
-const { handleLaunch, handleOpenFile, handleShowInDirectory, handleCopyEmoji } = useSearchActions()
+const resultsContainer = ref(null)
+
+// Destructure search actions
+const { 
+  navigateVertical, 
+  navigateHorizontal, 
+  navigateSection, 
+  initializeSelection, 
+  getVisibleSections 
+} = useKeyboardNavigation()
+
+const { 
+  handleLaunch, 
+  handleOpenFile, 
+  handleShowInDirectory, 
+  handleCopyEmoji 
+} = useSearchActions()
 
 const { isLoading, hasSearched, hasAnyResults } = storeToRefs(searchStore)
-const results = computed(() => searchStore.getAllResults)
 
-const { showContextMenu, contextMenuPosition, handleContextMenu, handleContextMenuClose } = useContextMenu()
+/**
+ * Get result types with content, sorted by either custom order or default priority
+ */
+const availableResultTypes = computed(() => {
+  // Get result types with content
+  const resultTypes = searchStore.resultGroups.filter(rt => rt.content.length > 0)
+  
+  // Early return if no results or no custom order
+  if (!resultTypes.length) return []
+  
+  const customOrder = settingsStore.settings.sectionOrder
+  if (!customOrder || !customOrder.length) {
+    return resultTypes.sort((a, b) => a.priority - b.priority)
+  }
 
-function isSearchTypeEnabled(typeName) {
-  return (
-    settingsStore.settings.includedSearchTypes?.find(type => type.name === typeName)?.enabled
-    ?? false
-  )
+  // Create a map for efficient lookups - O(1) access
+  const orderMap = new Map(customOrder.map((name, index) => [name, index]))
+
+  // Sort by custom order or priority
+  return resultTypes.sort((a, b) => {
+    const aOrder = orderMap.has(a.name) ? orderMap.get(a.name) : Number.MAX_SAFE_INTEGER
+    const bOrder = orderMap.has(b.name) ? orderMap.get(b.name) : Number.MAX_SAFE_INTEGER
+
+    // If both have custom order, use it
+    if (aOrder !== Number.MAX_SAFE_INTEGER && bOrder !== Number.MAX_SAFE_INTEGER) {
+      return aOrder - bOrder
+    }
+
+    // If only one has custom order, prioritize it
+    if (aOrder !== Number.MAX_SAFE_INTEGER) return -1
+    if (bOrder !== Number.MAX_SAFE_INTEGER) return 1
+
+    // Fall back to default priority
+    return a.priority - b.priority
+  })
+})
+
+// Create Sets for faster lookups
+const collapsedSectionsSet = computed(() => 
+  new Set(settingsStore.settings.collapsedSections || [])
+)
+
+const enabledSearchTypesMap = computed(() => {
+  const map = new Map()
+  if (!settingsStore.settings.includedSearchTypes) return map
+  
+  for (const type of settingsStore.settings.includedSearchTypes) {
+    map.set(type.name, type.enabled !== false) // default to true if not specified
+  }
+  return map
+})
+
+/**
+ * Check if a section is collapsed
+ */
+function isSectionCollapsed(sectionName) {
+  return collapsedSectionsSet.value.has(sectionName)
 }
 
+/**
+ * Check if a search type is enabled in settings
+ */
+function isSearchTypeEnabled(typeName) {
+  return enabledSearchTypesMap.value.get(typeName) !== false
+}
+
+/**
+ * Handle section collapse/expand toggling
+ */
+function handleSectionCollapse(sectionName, isCollapsed) {
+  // Get current collapsed sections
+  const collapsedSections = [...(settingsStore.settings.collapsedSections || [])]
+  const index = collapsedSections.indexOf(sectionName)
+
+  // Check if state actually changed to avoid unnecessary updates
+  if (isCollapsed && index === -1) {
+    collapsedSections.push(sectionName)
+  }
+  else if (!isCollapsed && index !== -1) {
+    collapsedSections.splice(index, 1)
+  }
+  else {
+    // No change needed
+    return
+  }
+
+  // Save to settings
+  settingsStore.updateSetting('collapsedSections', collapsedSections)
+
+  // If we're collapsing the current section, reset selection
+  if (isCollapsed && selectionStore.selectedSection === sectionName) {
+    selectionStore.clearSelection()
+    nextTick(() => initializeSelection())
+  }
+}
+
+/**
+ * Handle section reordering with optimized updates
+ */
+function handleSectionReorder({ from, to }) {
+  // Get current order or initialize with default order
+  let currentOrder = [...(settingsStore.settings.sectionOrder || [])]
+
+  // If current order is empty, initialize with default order from visible sections
+  if (currentOrder.length === 0) {
+    currentOrder = availableResultTypes.value.map(rt => rt.name)
+  }
+
+  // Find indices
+  const fromIndex = currentOrder.indexOf(from)
+  const toIndex = currentOrder.indexOf(to)
+
+  // Add sections if they don't exist in the order
+  if (fromIndex === -1) currentOrder.push(from)
+  if (toIndex === -1) currentOrder.push(to)
+
+  // Get updated indices
+  const fromIndexUpdated = currentOrder.indexOf(from)
+  const toIndexUpdated = currentOrder.indexOf(to)
+
+  // No change needed if indices are the same
+  if (fromIndexUpdated === toIndexUpdated) return
+
+  // Reorder the array efficiently
+  currentOrder.splice(fromIndexUpdated, 1) // Remove the 'from' item
+  
+  // Calculate new position for insertion
+  const newPosition = fromIndexUpdated < toIndexUpdated
+    ? toIndexUpdated - 1  // Moving down (adjust for removal)
+    : toIndexUpdated      // Moving up
+  
+  currentOrder.splice(newPosition, 0, from) // Insert at the new position
+
+  // Save the new order to settings
+  settingsStore.updateSetting('sectionOrder', currentOrder)
+}
+
+/**
+ * Execute action for the currently selected item
+ */
 function handleSelectedItem() {
   if (!selectionStore.selectedItem)
     return
 
-  switch (selectionStore.selectedSection) {
-    case 'apps':
+  const resultType = searchStore.getResultTypeByName(selectionStore.selectedSection)
+  if (!resultType)
+    return
+
+  // Execute appropriate action based on the section type
+  switch (resultType.name) {
+    case RESULT_TYPES.DISK:
+      handleOpenFile(selectionStore.selectedItem)
+      break
+    case RESULT_TYPES.APPLICATION:
       handleLaunch(selectionStore.selectedItem)
       break
-    case 'emoji':
+    case RESULT_TYPES.EMOJI:
       handleCopyEmoji(selectionStore.selectedItem.char)
-      break
-    case 'files':
-      handleOpenFile(selectionStore.selectedItem)
       break
   }
 }
 
+/**
+ * Handle item focus event
+ */
+function handleItemFocus(item, section) {
+  selectionStore.setSelectedItem(item, section)
+}
+
+/**
+ * Initialize selection when container is focused
+ */
+function onResultsFocus() {
+  if (!selectionStore.selectedItem && hasAnyResults.value) {
+    initializeSelection()
+  }
+}
+
+// Initialize selection when component is mounted
 onMounted(() => {
   if (hasAnyResults.value) {
-    initializeSelection()
+    // Use requestAnimationFrame for smooth initialization after DOM is ready
+    requestAnimationFrame(() => {
+      initializeSelection()
+    })
   }
 })
 
-// Watch for changes in results or visible sections to reset selection and ensure keyboard nav adapts
+// Watch for changes that might affect selection
 watch(
   [
-    () => results.value.applications.length,
-    () => results.value.emojis.length,
-    () => results.value.disk.length,
+    () => searchStore.resultsUpdateCounter,
     () => settingsStore.settings.includedSearchTypes,
+    () => settingsStore.settings.collapsedSections,
   ],
   () => {
     // Reset selection if current section is no longer visible
     const visibleSections = getVisibleSections()
-    if (!visibleSections.includes(selectionStore.selectedSection)) {
+    if (visibleSections.length > 0 && !visibleSections.includes(selectionStore.selectedSection)) {
       selectionStore.clearSelection()
       if (hasAnyResults.value) {
-        initializeSelection()
+        nextTick(() => initializeSelection())
       }
     }
   },
 )
-
-const handleTab = event => navigateTab(event.shiftKey)
-
-const resultsContainer = ref(null)
-
-function onResultsFocus() {
-  if (!selectionStore.selectedItem) {
-    initializeSelection()
-  }
-}
-
-function handleItemFocus(item, section) {
-  selectionStore.setSelectedItem(item, section)
-}
 </script>
 
 <template>
@@ -95,38 +256,62 @@ function handleItemFocus(item, section) {
     ref="resultsContainer"
     class="p-6 space-y-3 bg-gray-200 shadow-md rounded-2xl dark:bg-gray-800 focus:outline-hidden"
     tabindex="0"
-    @keydown.up.prevent="navigateSelection('up')"
-    @keydown.down.prevent="navigateSelection('down')"
-    @keydown.left.prevent="navigateSelection('left')"
-    @keydown.right.prevent="navigateSelection('right')"
-    @keydown.tab.prevent="handleTab"
+    @keydown.up.prevent="navigateVertical('up')"
+    @keydown.down.prevent="navigateVertical('down')"
+    @keydown.left.prevent="navigateHorizontal('left')"
+    @keydown.right.prevent="navigateHorizontal('right')"
+    @keydown.tab.exact.prevent="navigateSection()"
+    @keydown.shift.tab.exact.prevent="navigateSection(true)"
     @keydown.enter="handleSelectedItem"
     @focus="onResultsFocus"
   >
     <template v-if="hasAnyResults">
-      <AppResults
-        v-if="results.applications.length && isSearchTypeEnabled('apps')"
-        @contextmenu="handleContextMenu"
-        @launch="handleLaunch"
-        @item-focus="handleItemFocus"
-      />
+      <!-- Render each result type if it has content and is enabled -->
+      <template v-for="resultType in availableResultTypes" :key="resultType.name">
+        <template v-if="resultType.content.length && isSearchTypeEnabled(resultType.name)">
+          <!-- Application results -->
+          <AppResults
+            v-if="resultType.name === RESULT_TYPES.APPLICATION"
+            :result-type="resultType.name"
+            :is-collapsed="isSectionCollapsed(resultType.name)"
+            @toggle-collapse="handleSectionCollapse"
+            @section-reorder="handleSectionReorder"
+            @contextmenu="contextMenu.handleContextMenu"
+            @launch="handleLaunch"
+            @item-focus="handleItemFocus"
+          />
 
-      <EmojiResults
-        v-if="results.emojis.length && isSearchTypeEnabled('emoji')"
-        @copy="handleCopyEmoji"
-        @item-focus="handleItemFocus"
-      />
+          <!-- Emoji results -->
+          <EmojiResults
+            v-else-if="resultType.name === RESULT_TYPES.EMOJI"
+            custom-grid-gap="gap-1"
+            :result-type="resultType.name"
+            :is-collapsed="isSectionCollapsed(resultType.name)"
+            @toggle-collapse="handleSectionCollapse"
+            @section-reorder="handleSectionReorder"
+            @copy="handleCopyEmoji"
+            @item-focus="handleItemFocus"
+            @contextmenu="contextMenu.handleContextMenu"
+          />
 
-      <DiskResults
-        v-if="results.disk.length && isSearchTypeEnabled('files')"
-        ref="diskResultsRef"
-        @contextmenu="handleContextMenu"
-        @open-file="handleOpenFile"
-        @show-in-directory="handleShowInDirectory"
-        @item-focus="handleItemFocus"
-      />
+          <!-- Disk results -->
+          <DiskResults
+            v-else-if="resultType.name === RESULT_TYPES.DISK"
+            ref="diskResultsRef"
+            :result-type="resultType.name"
+            :is-collapsed="isSectionCollapsed(resultType.name)"
+            @toggle-collapse="handleSectionCollapse"
+            @section-reorder="handleSectionReorder"
+            @contextmenu="contextMenu.handleContextMenu"
+            @open-file="handleOpenFile"
+            @show-in-directory="handleShowInDirectory"
+            @item-focus="handleItemFocus"
+          />
+        </template>
+      </template>
     </template>
 
+    <!-- No results message -->
     <div
       v-if="!hasAnyResults && searchStore.query && !isLoading && searchStore.hasSearched"
       class="p-6 text-center transition-all duration-300"
@@ -141,14 +326,6 @@ function handleItemFocus(item, section) {
         </p>
       </div>
     </div>
-
-    <ContextMenu
-      :show="showContextMenu"
-      :position="contextMenuPosition"
-      @close="handleContextMenuClose"
-      @open-file="handleOpenFile"
-      @show-in-directory="handleShowInDirectory"
-    />
   </div>
 </template>
 
@@ -168,16 +345,8 @@ function handleItemFocus(item, section) {
   border-radius: 4px;
 }
 
-.scrollbar-track-transparent::-webkit-scrollbar-track {
-  background-color: transparent;
-  transition: background-color 0.3s ease;
-}
-
-.scrollbar-track-transparent:hover::-webkit-scrollbar-track {
-  background-color: rgba(128, 128, 128, 0.1);
-}
-
-.hover\:scrollbar-thumb-gray-500:hover::-webkit-scrollbar-thumb {
-  background-color: #6b7280;
+/* Fix the scrollbar issue in dark mode */
+.dark .scrollbar-thumb-gray-400::-webkit-scrollbar-thumb {
+  background-color: #4b5563;
 }
 </style>

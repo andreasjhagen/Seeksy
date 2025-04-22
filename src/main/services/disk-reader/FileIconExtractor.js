@@ -204,7 +204,7 @@ class FileIconExtractor {
     if (SteamIconExtractor.isSteamUrl(sourcePath)) {
       return this.extractSteamIcon(sourcePath)
     }
-    
+
     // Handle regular file paths
     return this.extractFileIcon(sourcePath)
   }

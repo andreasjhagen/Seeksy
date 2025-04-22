@@ -2,12 +2,11 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Node.js 16+](https://img.shields.io/badge/Node.js-16%2B-brightgreen)](https://nodejs.org)
-[![Built with Electron](https://img.shields.io/badge/Built%20with-Electron-47848F.svg)](https://www.electronjs.org/)
 [![Made with Vue](https://img.shields.io/badge/Made%20with-Vue%203-42b883.svg)](https://vuejs.org/)
 [![Build App for Win/Mac/Linux](https://github.com/andreasjhagen/seeksy/actions/workflows/release.yml/badge.svg)](https://github.com/andreasjhagen/seeksy/actions/workflows/release.yml)
 
 <p align="center">
-  <img src="./resources/trayIcon@4x.png" alt="Logo">
+  <img src="./resources/trayIcon@5x.png" alt="Logo">
 </p>
 
 A desktop search application, inspired by the macOS Spotlight, built with Electron and Vue. It offers fast file search, an application launcher and can also function as an emoji picker.
@@ -26,7 +25,7 @@ Runs seamlessly in the background, ready to open with **Ctrl + Space** (default 
 - 🎮 **App Launcher** - Auto-detects all applications and installed games (initial indexing may take a few minutes)
 - 🚀 **Intelligent Indexing** - Fast background content indexing with adaptive performance optimization
 - ⭐ **Favorites System** - Mark frequently used items as favorites for quick access
-- 🎨 **Customizable Settings** - Choose between dark/light mode, accent colors, and configurable search shortcut (default: Ctrl/Cmd + Space)
+- 🎨 **Customizable Settings** - Choose between dark/light mode, accent colors, and configurable search shortcut (default: Ctrl + Space)
 
 ## 🖼️ Screenshots
 

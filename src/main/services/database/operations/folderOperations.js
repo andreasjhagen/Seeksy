@@ -1,30 +1,58 @@
 import path from 'node:path'
 
 export const folderOperations = {
+  // Cache prepared statements for better performance
+  _folderStatements: {
+    getFolderFileCount: null,
+    getDirectCounts: null,
+    getSubFolders: null,
+    getFileCount: null,
+    updateFolder: null,
+    removeFolder: null,
+    getFolderInfo: null,
+  },
+
+  // Initialize statements when first needed
+  _initFolderStatements() {
+    if (!this._folderStatements.getFolderFileCount) {
+      this._folderStatements.getFolderFileCount = this.db.prepare('SELECT COUNT(*) as count FROM files WHERE folderPath = ?')
+      this._folderStatements.getDirectCounts = this.db.prepare(`
+        SELECT 
+          (SELECT COUNT(*) FROM files WHERE folderPath = ?) as fileCount,
+          (SELECT COUNT(*) FROM folders WHERE parentPath = ?) as childCount
+      `)
+      this._folderStatements.getSubFolders = this.db.prepare('SELECT path FROM folders WHERE parentPath = ?')
+      this._folderStatements.getFileCount = this.db.prepare('SELECT COUNT(*) as count FROM files WHERE folderPath = ?')
+      this._folderStatements.updateFolder = this.db.prepare(`
+        UPDATE folders 
+        SET directFileCount = ?,
+            directChildCount = ?,
+            totalFileCount = ?,
+            totalChildCount = ?,
+            indexedAt = ?
+        WHERE path = ?
+      `)
+      this._folderStatements.removeFolder = this.db.prepare('DELETE FROM folders WHERE path = ?')
+      this._folderStatements.getFolderInfo = this.db.prepare('SELECT * FROM folders WHERE path = ?')
+    }
+  },
+
   getFolderFileCount(folderPath) {
-    return this.db
-      .prepare('SELECT COUNT(*) as count FROM files WHERE folderPath = ?')
-      .get(folderPath)
-      .count
+    this._initFolderStatements()
+    return this._folderStatements.getFolderFileCount.get(folderPath).count
   },
 
   async updateFolderCounts(folderPath) {
-    const [directFileCount, directChildCount] = await Promise.all([
-      this.db.prepare('SELECT COUNT(*) as count FROM files WHERE folderPath = ?').get(folderPath).count,
-      this.db.prepare('SELECT COUNT(*) as count FROM folders WHERE parentPath = ?').get(folderPath).count,
-    ])
+    this._initFolderStatements()
 
-    // Calculate total counts recursively
+    // Get direct counts with a single query for better performance
+    const { fileCount: directFileCount, childCount: directChildCount }
+      = this._folderStatements.getDirectCounts.get(folderPath, folderPath)
+
+    // Calculate total counts recursively with cached prepared statements
     const getTotalCounts = (currentPath) => {
-      const subFolders = this.db
-        .prepare('SELECT path FROM folders WHERE parentPath = ?')
-        .all(currentPath)
-
-      let totalFileCount = this.db
-        .prepare('SELECT COUNT(*) as count FROM files WHERE folderPath = ?')
-        .get(currentPath)
-        .count
-
+      const subFolders = this._folderStatements.getSubFolders.all(currentPath)
+      let totalFileCount = this._folderStatements.getFileCount.get(currentPath).count
       let totalChildCount = subFolders.length
 
       for (const { path: subPath } of subFolders) {
@@ -39,19 +67,14 @@ export const folderOperations = {
     const totals = getTotalCounts(folderPath)
 
     // Update the current folder
-    this.db
-      .prepare(
-        `
-        UPDATE folders 
-        SET directFileCount = ?,
-            directChildCount = ?,
-            totalFileCount = ?,
-            totalChildCount = ?,
-            indexedAt = ?
-        WHERE path = ?
-      `,
-      )
-      .run(directFileCount, directChildCount, totals.files, totals.children, Date.now(), folderPath)
+    this._folderStatements.updateFolder.run(
+      directFileCount,
+      directChildCount,
+      totals.files,
+      totals.children,
+      Date.now(),
+      folderPath,
+    )
 
     // Update parent folder
     const parentPath = path.dirname(folderPath)
@@ -79,7 +102,7 @@ export const folderOperations = {
       modifiedAt: updates.modifiedAt || Date.now(),
       indexedAt: Date.now(),
       directChildCount: updates.directChildCount ?? existingFolder?.directChildCount ?? 0,
-      directFileCount: updates.directFileCount ?? this.getFolderFileCount(folderPath), // Now using the method directly
+      directFileCount: updates.directFileCount ?? this.getFolderFileCount(folderPath),
       watchedFolderPath: updates.watchedFolderPath ?? existingFolder?.watchedFolderPath ?? null,
     }
 
@@ -112,10 +135,12 @@ export const folderOperations = {
   },
 
   removeFolder(folderPath) {
-    return this.db.prepare('DELETE FROM folders WHERE path = ?').run(folderPath)
+    this._initFolderStatements()
+    return this._folderStatements.removeFolder.run(folderPath)
   },
 
   getFolderInfo(folderPath) {
-    return this.db.prepare('SELECT * FROM folders WHERE path = ?').get(folderPath)
+    this._initFolderStatements()
+    return this._folderStatements.getFolderInfo.get(folderPath)
   },
 }

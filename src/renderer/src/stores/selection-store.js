@@ -1,34 +1,31 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { useSearchResultsStore } from './search-results-store'
 
-//This store is used to manage the selected item in the search results (contextmenu, keyboard navigation, etc.)
+// This store is used to manage the selected item in the search results (contextmenu, keyboard navigation, etc.)
 export const useSelectionStore = defineStore('selection', {
   state: () => ({
     selectedItem: null,
     selectedSection: null,
-    sectionConfig: {
-      files: {
-        cols: 1,
-        priority: 3,
-        resultKey: 'disk',
-      },
-      apps: {
-        cols: 3,
-        priority: 1,
-        resultKey: 'applications',
-      },
-      emoji: {
-        cols: 8,
-        priority: 2,
-        resultKey: 'emojis',
-      },
-    },
   }),
 
   getters: {
     getSelectedItem: state => state.selectedItem,
     getSelectedSection: state => state.selectedSection,
+
+    getSectionConfig: state => (section) => {
+      if (!section && !state.selectedSection)
+        return { cols: 1 }
+
+      const sectionName = section || state.selectedSection
+      const searchStore = useSearchResultsStore()
+      const resultType = searchStore.resultGroups.find(r => r.name === sectionName)
+      return {
+        cols: resultType?.gridCols || 1,
+        priority: resultType?.priority || 999,
+      }
+    },
   },
+
   actions: {
     setSelectedItem(item, section) {
       this.selectedItem = item
@@ -52,33 +49,27 @@ export const useSelectionStore = defineStore('selection', {
 
     getValidSections() {
       const searchStore = useSearchResultsStore()
-      const results = searchStore.getAllResults
 
-      // Get valid sections and sort by priority
-      return Object.entries(this.sectionConfig)
-        .filter(([section, config]) => {
-          const items = results[config.resultKey]
-          return items && items.length > 0
-        })
-        .sort((a, b) => a[1].priority - b[1].priority)
-        .map(([section]) => section)
+      // Get valid sections with content and sort by priority
+      return searchStore.resultGroups
+        .filter(resultType => resultType.content.length > 0)
+        .sort((a, b) => a.priority - b.priority)
+        .map(resultType => resultType.name)
     },
 
     getItemsForSection(section) {
+      if (!section)
+        return []
+
       const searchStore = useSearchResultsStore()
-      const config = this.sectionConfig[section]
-      return searchStore.getAllResults[config.resultKey]
+      const resultType = searchStore.resultGroups.find(r => r.name === section)
+      return resultType?.content || []
     },
 
     getCurrentItems() {
       if (!this.selectedSection)
         return []
       return this.getItemsForSection(this.selectedSection)
-    },
-
-    getSectionConfig(section) {
-      const sectionName = section || this.selectedSection
-      return { cols: this.sectionConfig[sectionName]?.cols || 1 }
     },
   },
 })

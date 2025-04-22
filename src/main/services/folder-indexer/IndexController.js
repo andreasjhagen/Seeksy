@@ -446,11 +446,14 @@ export class IndexController extends EventEmitter {
         await Promise.all(
           batch.map(async (file) => {
             try {
-              await access(file.path)
+              // 'file' is the path directly, not an object with a path property
+              const filePath = typeof file === 'object' ? file.path : file
+              await access(filePath)
             }
             catch {
-              console.log(`Removing orphaned entry: ${file.path}`)
-              await fileDB.removePath(file.path)
+              const filePath = typeof file === 'object' ? file.path : file
+              console.log(`Removing orphaned entry: ${filePath}`)
+              await fileDB.removePath(filePath)
               removedCount++
             }
           }),

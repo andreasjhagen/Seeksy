@@ -85,17 +85,21 @@ async function onPauseResume() {
           :class="[
             actionButtonClass,
             isToggling ? 'opacity-75 cursor-wait' : '',
-            props.folder.isPaused ? 'hover:bg-emerald-300' : 'hover:bg-orange-300'
-          ]" :disabled="isToggling" @click="onPauseResume">
-          <span class="text-xs material-symbols-outlined"
-            :class="{ 'animate-spin': isToggling && buttonIcon === 'sync' }">
+            props.folder.isPaused ? 'hover:bg-emerald-300' : 'hover:bg-orange-300',
+          ]" :disabled="isToggling" @click="onPauseResume"
+        >
+          <span
+            class="text-xs material-symbols-outlined"
+            :class="{ 'animate-spin': isToggling && buttonIcon === 'sync' }"
+          >
             {{ buttonIcon }}
           </span>
           <span class="hidden sm:inline">{{ buttonText }}</span>
         </button>
         <button
           class="flex items-center p-0.5 text-xs text-white transition-all duration-200 bg-red-600 rounded-md cursor-pointer hover:bg-red-700"
-          title="Remove folder" @click="$emit('remove', props.folder.path)">
+          title="Remove folder" @click="$emit('remove', props.folder.path)"
+        >
           <span class="text-xs material-symbols-outlined">close</span>
         </button>
       </div>
@@ -103,12 +107,15 @@ async function onPauseResume() {
 
     <div class="grid items-center grid-cols-12 gap-2">
       <div class="col-span-9 relative h-1.5 bg-gray-200 rounded-full dark:bg-gray-700">
-        <div class="absolute h-full transition-all duration-300 rounded-full"
-          :class="[progressBarClass, props.folder.isPaused ? 'opacity-50' : '']" :style="{ width: `${progress}%` }" />
+        <div
+          class="absolute h-full transition-all duration-300 rounded-full"
+          :class="[progressBarClass, props.folder.isPaused ? 'opacity-50' : '']" :style="{ width: `${progress}%` }"
+        />
       </div>
 
       <div
-        class="col-span-3 flex justify-end gap-1.5 text-xs text-gray-600 dark:text-gray-400 shrink-0 whitespace-nowrap">
+        class="col-span-3 flex justify-end gap-1.5 text-xs text-gray-600 dark:text-gray-400 shrink-0 whitespace-nowrap"
+      >
         <span class="tabular-nums">{{ formatFileCount(props.folder.processedFiles, props.folder.totalFiles) }}</span>
         <span class="text-gray-500 dark:text-gray-500">
           Depth:{{ formatDepth(props.folder.depth) }}

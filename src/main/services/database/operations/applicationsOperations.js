@@ -1,13 +1,29 @@
 export const applicationsOperations = {
-  insertSystemApplication(application) {
-    const stmt = this.db.prepare(`
-            INSERT INTO applications (
-                    path, name, displayName, icon, 
-                    lastUpdated, isSystem, isCustomAdded, applicationType
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `)
+  // Cache prepared statements for better performance
+  _appStatements: {
+    insertSystemApp: null,
+    resetSystemApps: null,
+  },
 
-    return stmt.run(
+  // Initialize statements when first needed
+  _initAppStatements() {
+    if (!this._appStatements.insertSystemApp) {
+      this._appStatements.insertSystemApp = this.db.prepare(`
+        INSERT INTO applications (
+          path, name, displayName, icon, 
+          lastUpdated, isSystem, isCustomAdded, applicationType
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+
+      this._appStatements.resetSystemApps = this.db.prepare(
+        `DELETE FROM applications WHERE isCustomAdded = 0`,
+      )
+    }
+  },
+
+  insertSystemApplication(application) {
+    this._initAppStatements()
+    return this._appStatements.insertSystemApp.run(
       application.path,
       application.name,
       application.displayName,
@@ -18,7 +34,9 @@ export const applicationsOperations = {
       application.applicationType,
     )
   },
+
   resetSystemApplications() {
-    return this.db.prepare(`DELETE FROM applications WHERE isCustomAdded = 0`).run()
+    this._initAppStatements()
+    return this._appStatements.resetSystemApps.run()
   },
 }

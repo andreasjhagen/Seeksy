@@ -1,5 +1,5 @@
-import { computed, ref } from 'vue'
-import { IPC_CHANNELS } from '../../../main/ipc/ipcChannels'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { IPC, IPC_CHANNELS } from '../../../main/ipc/ipcChannels'
 
 export function useWatcherStatus() {
   const status = ref({
@@ -11,10 +11,42 @@ export function useWatcherStatus() {
     totalWatchers: 0,
   })
 
+  // Status update timer
+  let statusUpdateTimer = null
+
   async function updateWatcherStatus() {
-    const newStatus = await window.api.invoke(IPC_CHANNELS.INDEXER_GET_STATUS)
-    if (newStatus) {
-      status.value = newStatus
+    try {
+      const newStatus = await window.api.invoke(IPC_CHANNELS.INDEXER_GET_STATUS)
+      if (newStatus) {
+        status.value = newStatus
+        return true
+      }
+      return false
+    }
+    catch (error) {
+      console.error('Failed to update watcher status:', error)
+      return false
+    }
+  }
+
+  // Setup a status update listener that the main process can trigger
+  function setupStatusListener() {
+    window.api.on(IPC.BACKEND.INDEXER_GET_STATUS, async (event) => {
+      await updateWatcherStatus()
+    })
+  }
+
+  // Start periodic status updates when component mounts
+  function startStatusUpdates(interval = 1000) {
+    stopStatusUpdates()
+    statusUpdateTimer = setInterval(updateWatcherStatus, interval)
+  }
+
+  // Clear status updates when component unmounts
+  function stopStatusUpdates() {
+    if (statusUpdateTimer) {
+      clearInterval(statusUpdateTimer)
+      statusUpdateTimer = null
     }
   }
 
@@ -119,9 +151,22 @@ export function useWatcherStatus() {
     }
   }
 
+  const hasWatchedFolders = computed(() => status.value.totalWatchers > 0)
+
+  // Setup lifecycle hooks
+  onMounted(() => {
+    setupStatusListener()
+    updateWatcherStatus() // Initial status update
+    startStatusUpdates(2000) // Periodic updates every 2 seconds
+  })
+
+  onUnmounted(() => {
+    stopStatusUpdates()
+  })
+
   return {
     status,
-    hasWatchedFolders: computed(() => status.value.totalWatchers > 0),
+    hasWatchedFolders,
     updateWatcherStatus,
     toggleGlobalPause,
     addWatchPath,
@@ -130,5 +175,7 @@ export function useWatcherStatus() {
     formatFileCount,
     formatDepth,
     getFolderStatusInfo,
+    startStatusUpdates,
+    stopStatusUpdates,
   }
 }

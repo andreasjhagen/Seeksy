@@ -1,27 +1,18 @@
-import emoji from 'emojilib'
 import { acceptHMRUpdate, defineStore } from 'pinia'
-import { IPC_CHANNELS } from '../../../main/ipc/ipcChannels'
+import { RESULT_TYPES, resultTypesRegistry } from '../plugins/search/resultTypesRegistry'
+
+export { RESULT_TYPES } // Re-export for backward compatibility
 
 export const SEARCH_MODES = {
   QUICK: 'quick',
-  ADVANCED: 'advanced',
+  FILTERED: 'filtered',
 }
 
-export const RESULT_TYPES = {
-  DISK: 'disk',
-  APPLICATION: 'application',
-  EMOJI: 'emoji',
-}
-
-// Default state 
+// Default state
 function getDefaultState() {
   return {
     query: '',
-    results: {
-      [RESULT_TYPES.DISK]: [],
-      [RESULT_TYPES.APPLICATION]: [],
-      [RESULT_TYPES.EMOJI]: [],
-    },
+    resultGroups: resultTypesRegistry.getAllResultTypes(), // Get result types from registry
     filters: {
       type: [],
       tags: [],
@@ -38,6 +29,7 @@ function getDefaultState() {
     isLoading: false,
     searchMode: SEARCH_MODES.QUICK,
     hasSearched: false,
+    resultsUpdateCounter: 0, // Counter to trigger component updates
   }
 }
 
@@ -46,7 +38,7 @@ export const useSearchResultsStore = defineStore('searchResults', {
 
   getters: {
     hasActiveFilters: (state) => {
-      return state.searchMode === SEARCH_MODES.ADVANCED || (
+      return state.searchMode === SEARCH_MODES.FILTERED || (
         state.filters.type.length > 0
         || state.filters.tags.length > 0
         || state.filters.dateRange.from
@@ -57,27 +49,64 @@ export const useSearchResultsStore = defineStore('searchResults', {
       )
     },
 
-
-    diskResults: state => state.results[RESULT_TYPES.DISK],
-    applicationResults: state => state.results[RESULT_TYPES.APPLICATION],
-    emojiResults: state => state.results[RESULT_TYPES.EMOJI],
-    isAdvancedMode: state => state.searchMode === SEARCH_MODES.ADVANCED,
+    // Shorthand getters for individual result types
+    diskResults: state => state.resultGroups.find(r => r.name === RESULT_TYPES.DISK)?.content || [],
+    applicationResults: state => state.resultGroups.find(r => r.name === RESULT_TYPES.APPLICATION)?.content || [],
+    emojiResults: state => state.resultGroups.find(r => r.name === RESULT_TYPES.EMOJI)?.content || [],
+    isFilteredMode: state => state.searchMode === SEARCH_MODES.FILTERED,
 
     hasAnyResults(state) {
-      return Object.values(state.results).some(results => results.length > 0)
+      return state.resultGroups.some(resultType => resultType.content.length > 0)
     },
 
-    getAllResults: state => ({
-      disk: state.results[RESULT_TYPES.DISK],
-      applications: state.results[RESULT_TYPES.APPLICATION],
-      emojis: state.results[RESULT_TYPES.EMOJI],
-      query: state.query,
-    }),
+    getAllResults: (state) => {
+      // Maintain backward compatibility with the old format
+      return {
+        disk: state.resultGroups.find(r => r.name === RESULT_TYPES.DISK)?.content || [],
+        applications: state.resultGroups.find(r => r.name === RESULT_TYPES.APPLICATION)?.content || [],
+        emojis: state.resultGroups.find(r => r.name === RESULT_TYPES.EMOJI)?.content || [],
+        query: state.query,
+      }
+    },
+
+    // Get a result type by name
+    getResultTypeByName: state => (name) => {
+      return state.resultGroups.find(r => r.name === name)
+    },
   },
 
   actions: {
+    // Helper function to ensure objects are serializable for IPC
+    makeSerializable(obj) {
+      // If it's not an object or is null, return as is
+      if (typeof obj !== 'object' || obj === null) {
+        return obj
+      }
+
+      // Handle Date objects
+      if (obj instanceof Date) {
+        return obj.getTime()
+      }
+
+      // Handle arrays
+      if (Array.isArray(obj)) {
+        return obj.map(item => this.makeSerializable(item))
+      }
+
+      // Handle regular objects
+      const result = {}
+      for (const [key, value] of Object.entries(obj)) {
+        // Skip functions or other non-serializable types
+        if (typeof value !== 'function' && typeof value !== 'symbol') {
+          result[key] = this.makeSerializable(value)
+        }
+      }
+      return result
+    },
+
     // Search orchestrator
     async search() {
+      // Only clear results if there's no query AND no active filters
       if (!this.query.trim() && !this.hasActiveFilters) {
         this.clearResults()
         return
@@ -87,12 +116,50 @@ export const useSearchResultsStore = defineStore('searchResults', {
       this.hasSearched = true
 
       try {
-        if (this.searchMode === SEARCH_MODES.ADVANCED) {
-          await this.advancedSearch()
-        }
-        else {
-          await this.quickSearch()
-        }
+        const isFiltered = this.searchMode === SEARCH_MODES.FILTERED
+
+        // Create a serializable copy of the filters
+        const serializableFilters = this.makeSerializable(this.filters)
+
+        // Execute all search calls in parallel
+        const searchPromises = this.resultGroups.map(async (resultType) => {
+          try {
+            // Skip search for some result types based on conditions
+            if (resultType.name === RESULT_TYPES.DISK && !isFiltered && !this.query.trim()) {
+              return {
+                resultType: resultType.name,
+                results: [],
+              }
+            }
+
+            // For other result types, proceed with search
+            const results = await resultType.searchCall(this.query, serializableFilters, isFiltered)
+            return {
+              resultType: resultType.name,
+              results: Array.isArray(results) ? results : [],
+            }
+          }
+          catch (error) {
+            console.error(`Error searching ${resultType.name}:`, error)
+            return {
+              resultType: resultType.name,
+              results: [],
+            }
+          }
+        })
+
+        const searchResults = await Promise.all(searchPromises)
+
+        // Update content for each result type
+        searchResults.forEach(({ resultType, results }) => {
+          const targetType = this.resultGroups.find(r => r.name === resultType)
+          if (targetType) {
+            targetType.content = results
+          }
+        })
+        
+        // Increment counter to help components react to result changes
+        this.resultsUpdateCounter++
       }
       catch (error) {
         console.error('Search error:', error)
@@ -114,117 +181,13 @@ export const useSearchResultsStore = defineStore('searchResults', {
       }
     })(),
 
-    // Quick search implementation
-    async quickSearch() {
-      if (!this.query.trim()) {
-        this.clearResults()
-        return
+    // Helper to set results for a specific type
+    setResultsForType(typeName, results) {
+      const resultType = this.resultGroups.find(r => r.name === typeName)
+      if (resultType) {
+        resultType.content = Array.isArray(results) ? results : []
+        this.resultsUpdateCounter++
       }
-
-      this.isLoading = true
-      this.hasSearched = true
-
-      try {
-        const [diskResults, applicationResults] = await Promise.all([
-          window.api.invoke(IPC_CHANNELS.INDEXER_QUICK_SEARCH, this.query),
-          window.api.invoke(IPC_CHANNELS.APP_SEARCH, this.query),
-        ])
-
-        const emojiResults = this.searchEmojis(this.query)
-
-        this.setResults({
-          [RESULT_TYPES.DISK]: diskResults || [],
-          [RESULT_TYPES.APPLICATION]: applicationResults || [],
-          [RESULT_TYPES.EMOJI]: emojiResults || [],
-        })
-      }
-      catch (error) {
-        console.error('Quick search error:', error)
-        this.clearResults()
-      }
-      finally {
-        this.isLoading = false
-      }
-    },
-
-    // Emoji search helper
-    searchEmojis(query) {
-      const searchTerms = query.toLowerCase().split(' ')
-      return Object.entries(emoji)
-        .filter(([char, keywords]) =>
-          searchTerms.some(term =>
-            keywords.some(keyword => keyword.toLowerCase().includes(term)),
-          ),
-        )
-        .map(([char, keywords]) => ({
-          char,
-          name: keywords[0].replace(/_/g, ' '),
-        }))
-        .slice(0, 24)
-    },
-
-    // Advanced search implementation
-    async advancedSearch() {
-      if (!this.query.trim() && !this.hasActiveFilters) {
-        this.clearResults()
-        return
-      }
-
-      this.isLoading = true
-      this.hasSearched = true
-
-      try {
-        const searchParams = this.prepareAdvancedSearchParams()
-
-        const diskResults = await window.api.invoke(
-          IPC_CHANNELS.INDEXER_ADVANCED_SEARCH,
-          searchParams,
-        )
-
-        this.setResults({
-          [RESULT_TYPES.DISK]: diskResults || [],
-          [RESULT_TYPES.APPLICATION]: [],
-          [RESULT_TYPES.EMOJI]: [],
-        })
-      }
-      catch (error) {
-        console.error('Advanced search error:', error)
-        this.clearResults()
-      }
-      finally {
-        this.isLoading = false
-      }
-    },
-
-    // Helper to prepare search parameters
-    prepareAdvancedSearchParams() {
-      const searchParams = {
-        query: this.query,
-        filters: {
-          ...this.filters,
-          dateRange: {
-            from: this.filters.dateRange.from
-              ? new Date(this.filters.dateRange.from).getTime()
-              : null,
-            to: this.filters.dateRange.to
-              ? new Date(this.filters.dateRange.to).getTime()
-              : null,
-          },
-        },
-      }
-
-      return JSON.parse(JSON.stringify(searchParams))
-    },
-
-    // Helper to set results with validation
-    setResults(resultsObject) {
-      Object.keys(resultsObject).forEach((key) => {
-        if (this.results[key] !== undefined) {
-          this.results[key] = Array.isArray(resultsObject[key])
-            ? resultsObject[key]
-            : []
-        }
-      })
     },
 
     refreshSearch() {
@@ -237,10 +200,11 @@ export const useSearchResultsStore = defineStore('searchResults', {
     },
 
     clearResults() {
-      Object.keys(this.results).forEach((key) => {
-        this.results[key] = []
+      this.resultGroups.forEach((resultType) => {
+        resultType.content = []
       })
       this.hasSearched = false
+      this.resultsUpdateCounter++
     },
 
     resetFilters() {
@@ -249,29 +213,44 @@ export const useSearchResultsStore = defineStore('searchResults', {
     },
 
     resetState() {
-      Object.assign(this, getDefaultState())
+      // Update the state but keep results synchronized with registry
+      const newState = getDefaultState()
+      Object.assign(this, newState)
     },
 
+    // Generic filter toggle function that can handle any filter type
     toggleFilter(filterType, value) {
-      if (filterType === 'type') {
-        const index = this.filters.type.indexOf(value)
+      if (!this.filters[filterType]) {
+        console.warn(`Filter type '${filterType}' does not exist`)
+        return
+      }
+
+      if (Array.isArray(this.filters[filterType])) {
+        const index = this.filters[filterType].indexOf(value)
         if (index === -1) {
-          this.filters.type.push(value)
+          this.filters[filterType].push(value)
         }
         else {
-          this.filters.type.splice(index, 1)
+          this.filters[filterType].splice(index, 1)
         }
+      }
+      else if (typeof this.filters[filterType] === 'boolean') {
+        this.filters[filterType] = !this.filters[filterType]
+      }
+      else {
+        console.warn(`Filter type '${filterType}' is not supported for toggling`)
       }
     },
 
     toggleSearchMode() {
-      this.searchMode = this.searchMode === SEARCH_MODES.ADVANCED
+      this.searchMode = this.searchMode === SEARCH_MODES.FILTERED
         ? SEARCH_MODES.QUICK
-        : SEARCH_MODES.ADVANCED
+        : SEARCH_MODES.FILTERED
 
       // Execute a search when switching modes
-      if (this.hasSearched)
+      if (this.hasSearched) {
         this.search()
+      }
     },
 
     setSearchMode(mode) {
@@ -280,9 +259,53 @@ export const useSearchResultsStore = defineStore('searchResults', {
       }
       else {
         // For backward compatibility
-        this.searchMode = mode ? SEARCH_MODES.ADVANCED : SEARCH_MODES.QUICK
+        this.searchMode = mode ? SEARCH_MODES.FILTERED : SEARCH_MODES.QUICK
       }
     },
+
+    // Add a new result type
+    addResultType(resultType) {
+      if (!resultType || !resultType.name) {
+        console.error('Invalid result type - must have a name property')
+        return
+      }
+      
+      // Register with registry first
+      const registered = resultTypesRegistry.registerResultType(resultType)
+      if (!registered) return
+      
+      // Then update local state
+      const existingTypeIndex = this.resultGroups.findIndex(r => r.name === resultType.name)
+      if (existingTypeIndex !== -1) {
+        // Replace existing type with the new one
+        this.resultGroups.splice(existingTypeIndex, 1, resultType)
+      }
+      else {
+        // Add new type
+        this.resultGroups.push(resultType)
+      }
+      
+      this.resultsUpdateCounter++
+    },
+
+    // Remove a result type
+    removeResultType(typeName) {
+      // Remove from registry first
+      resultTypesRegistry.unregisterResultType(typeName)
+      
+      // Then update local state
+      const typeIndex = this.resultGroups.findIndex(r => r.name === typeName)
+      if (typeIndex !== -1) {
+        this.resultGroups.splice(typeIndex, 1)
+        this.resultsUpdateCounter++
+      }
+    },
+    
+    // Sync with registry to ensure store and registry are aligned
+    syncWithRegistry() {
+      this.resultGroups = resultTypesRegistry.getAllResultTypes()
+      this.resultsUpdateCounter++
+    }
   },
 })
 

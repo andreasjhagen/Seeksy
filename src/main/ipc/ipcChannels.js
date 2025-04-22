@@ -1,18 +1,19 @@
-// This is the new IPC channel definition constant, sorted by frontend, backend, and system
+// This is the new IPC channel definition constant, sorted by functional areas
 export const IPC = {
-  FRONTEND: {
+  WINDOW: {
     // Window management
-    HIDE_MAIN_WINDOW: 'hide-window',
-    SHOW_MAIN_WINDOW: 'show-window',
-    SHOW_SETTINGS_PAGE: 'show-settings-page',
-    SHOW_SEARCH_PAGE: 'show-search-page',
+    HIDE_MAIN_WINDOW: 'window:hide-main',
+    SHOW_MAIN_WINDOW: 'window:show-main',
+    SHOW_SETTINGS_PAGE: 'window:show-settings',
+    SHOW_SEARCH_PAGE: 'window:show-search',
+    WINDOW_OPENED: 'window:opened',
+    WINDOW_HIDDEN: 'window:hidden',
+    FOCUS_SEARCH: 'window:focus-search',
+    SEARCH_KEYCOMBO_DOWN: 'window:search-keycombo-down',
+    SEARCH_WINDOW_FOCUS_LOST: 'window:search-focus-lost',
+  },
 
-    // Callbacks
-    WINDOW_OPENED: 'show-window',
-    SEARCH_WINDOW_FOCUS_LOST: 'window-hidden',
-    FOCUS_SEARCH: 'focus-search-input',
-    SEARCH_KEYCOMBO_DOWN: 'search-keycombo-down',
-
+  FRONTEND: {
     // Disk operations
     OPEN_FOLDER_DIALOG: 'disk-reader:open-folder-dialog',
     GET_THUMBNAIL: 'disk-reader:get-thumbnail',
@@ -32,15 +33,10 @@ export const IPC = {
     NOTES_SET: 'notes:set',
     NOTES_GET: 'notes:get',
 
-    // Find similar images by phash
-    FIND_SIMILAR_IMAGES: 'find-similar-images',
-
-    // Shortcut management
-    VALIDATE_GLOBAL_SHORTCUT: 'settings:validate-shortcut',
-
     // Utils
-    GET_FILE_ICON: 'get-file-icon',
+    GET_FILE_ICON: 'file:get-icon',
   },
+
   BACKEND: {
     // Indexing operations
     WATCHER_GET_STATUS: 'watcher:get-status',
@@ -53,7 +49,7 @@ export const IPC = {
     INDEXER_GET_STATUS: 'indexer:get-status',
     INDEXER_REMOVE_PATH: 'indexer:remove-path',
     INDEXER_QUICK_SEARCH: 'indexer:quick-search',
-    INDEXER_ADVANCED_SEARCH: 'indexer:advanced-search',
+    INDEXER_FILTERED_SEARCH: 'indexer:filtered-search',
     INDEXER_CLEANUP: 'indexer:cleanup',
     INDEXER_RESET_DATABASE: 'indexer:reset-database',
     INDEXER_SET_PROCESSING_DELAY: 'indexer:set-processing-delay',
@@ -61,8 +57,6 @@ export const IPC = {
     // Performance settings
     INDEXER_SET_AUTO_PERFORMANCE: 'indexer:set-auto-performance',
     INDEXER_GET_PERFORMANCE_SETTINGS: 'indexer:get-performance-settings',
-
-    // New batch-related channels
     INDEXER_SET_BATCH_SIZE: 'indexer:set-batch-size',
     INDEXER_SET_ENABLE_BATCHING: 'indexer:set-enable-batching',
 
@@ -72,15 +66,19 @@ export const IPC = {
     SETTINGS_GET_ALL: 'settings:get-all',
     SETTINGS_CHANGED: 'settings:changed',
 
+    // Shortcut management
+    VALIDATE_GLOBAL_SHORTCUT: 'shortcut:validate',
+
     // Application operations
     APP_INDEX_REFRESH: 'apps:refresh-index',
     APP_SEARCH: 'apps:search',
     APP_LAUNCH: 'apps:launch',
   },
+
   SYSTEM: {
     // System info and updates
-    GET_SYSTEM_INFO: 'get-system-info',
-    CHECK_FOR_UPDATES: 'check-for-updates',
+    GET_SYSTEM_INFO: 'system:get-info',
+    CHECK_FOR_UPDATES: 'system:check-updates',
     SET_AUTO_START: 'system:set-auto-start',
     GET_AUTO_START: 'system:get-auto-start',
     SHOW_NOTIFICATION: 'system:show-notification',
@@ -94,6 +92,7 @@ export const IPC = {
 // For backwards compatibility, export all channels as flat map.
 // This will be deprecated in the future
 export const IPC_CHANNELS = {
+  ...IPC.WINDOW,
   ...IPC.FRONTEND,
   ...IPC.BACKEND,
   ...IPC.SYSTEM,

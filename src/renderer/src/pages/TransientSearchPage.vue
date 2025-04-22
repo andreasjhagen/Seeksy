@@ -1,22 +1,32 @@
 <script setup>
 import { onClickOutside } from '@vueuse/core'
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { IPC_CHANNELS } from '../../../main/ipc/ipcChannels'
-import FavoriteResults from '../components/search/FavoriteResults.vue'
+import ContextMenu from '../components/search/ContextMenu.vue'
+import FavoriteResults from '../components/search/favorites/FavoriteResults.vue'
 import NoWatchedFolders from '../components/search/NoWatchedFolders.vue'
 import SearchInterface from '../components/search/SearchInterface.vue'
 import SearchResults from '../components/search/SearchResults.vue'
+import { useContextMenu } from '../composables/useContextMenu'
+import { useKeyboardNavigation } from '../composables/useKeyboardNavigation'
+import { useSearchActions } from '../composables/useSearchActions'
 import { useWatcherStatus } from '../composables/useWatcherStatus'
 import { useSearchResultsStore } from '../stores/search-results-store'
+import { useSelectionStore } from '../stores/selection-store'
 import { useSettingsStore } from '../stores/settings-store'
 
 const searchStore = useSearchResultsStore()
+const selectionStore = useSelectionStore()
 const searchInterface = ref(null)
 const settingsStore = useSettingsStore()
+const contextMenu = useContextMenu()
+const { handleOpenFile, handleShowInDirectory, handleLaunch, handleCopyEmoji } = useSearchActions()
+const { focusResults, initializeSelection } = useKeyboardNavigation()
 
 const hasResults = computed(() => {
   return (
-    searchStore.diskResults.length || searchStore.applicationResults.length || searchStore.query
+    searchStore.hasAnyResults
+    || (searchStore.isFilteredMode && searchStore.hasActiveFilters)
   )
 })
 
@@ -46,36 +56,91 @@ function resetAnimation() {
   animationKey.value++
 }
 
-// Update status when window shows
-window.api.on(IPC_CHANNELS.SHOW_MAIN_WINDOW, () => {
-  resetAnimation()
-  updateWatcherStatus()
+function handleItemEdited() {
+  searchStore.refreshSearch()
+}
+
+// Handle keyboard shortcuts at the page level
+function handleKeyDown(event) {
+  // ESC - Exit the search
+  if (event.key === 'Escape') {
+    window.api.invoke(IPC_CHANNELS.HIDE_MAIN_WINDOW)
+    return
+  }
+
+  // Handle search input focus (Ctrl+F)
+  if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
+    event.preventDefault()
+    const searchInputEl = searchInterface.value?.$el.querySelector('input')
+    if (searchInputEl) {
+      searchInputEl.focus()
+      searchInputEl.select()
+    }
+  }
+
+  // No need for other keyboard handling here as it's managed in the child components
+}
+
+// Initial status update on mount
+onMounted(async () => {
+  // Initial status update
+  await updateWatcherStatus()
+
+  // Set up global keyboard event listener
+  window.addEventListener('keydown', handleKeyDown)
+
+  // Clean up event listener
+  return () => {
+    window.removeEventListener('keydown', handleKeyDown)
+  }
 })
-onMounted(updateWatcherStatus)
+
+// Update status when window shows - Use an async function to properly handle the Promise
+window.api.on(IPC_CHANNELS.SHOW_MAIN_WINDOW, async () => {
+  resetAnimation()
+  console.log('Window shown, updating watcher status')
+
+  // Initialize selection if there are results
+  if (searchStore.hasAnyResults && !selectionStore.selectedItem) {
+    await nextTick()
+    initializeSelection()
+  }
+
+  // Use try/catch to handle potential errors in the status update
+  try {
+    await updateWatcherStatus()
+    console.log('Watcher status updated successfully')
+  }
+  catch (error) {
+    console.error('Error updating watcher status:', error)
+  }
+})
 </script>
 
 <template>
   <div
     :key="animationKey"
     class="fixed inset-0 w-screen h-screen bg-black/0 animate-fade-in"
+    @keydown="handleKeyDown"
   >
     <div class="flex items-center justify-center w-full h-full">
       <div ref="searchContainer" class="flex flex-col w-full max-w-(--breakpoint-sm) px-4">
         <div class="flex flex-col gap-4">
           <SearchInterface
             ref="searchInterface"
-            :is-advanced-mode="searchStore.isAdvancedMode"
+            :is-filtered-mode="searchStore.isFilteredMode"
             :is-loading="searchStore.isLoading"
             @toggle-search-mode="toggleSearchMode"
           />
           <NoWatchedFolders v-if="!hasWatchedFolders" />
           <FavoriteResults v-if="!searchStore.query && !hasResults && settingsStore.settings.showFavorites" />
-          <SearchResults
-            v-if="hasResults"
-          />
+          <SearchResults v-if="hasResults" />
         </div>
       </div>
     </div>
+
+    <!-- Global context menu component -->
+    <ContextMenu @item-edited="handleItemEdited" />
   </div>
 </template>
 
@@ -85,7 +150,7 @@ onMounted(updateWatcherStatus)
     background-color: rgba(0, 0, 0, 0);
   }
   15% {
-    /* Start changing at the 0.2 second mark (33.33% of 0.6s total) */
+    /* Start changing at the 0.2 second mark (15% of total) */
     background-color: rgba(0, 0, 0, 0);
   }
   100% {
@@ -94,6 +159,6 @@ onMounted(updateWatcherStatus)
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.6s ease-in-out forwards; /* 0.6s total: 0.2s delay + 0.4s transition */
+  animation: fadeIn 0.6s ease-in-out forwards;
 }
 </style>

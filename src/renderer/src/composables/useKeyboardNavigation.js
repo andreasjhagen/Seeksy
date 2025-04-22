@@ -1,4 +1,4 @@
-import { nextTick } from 'vue'
+import { nextTick, computed, ref } from 'vue'
 import { useSearchResultsStore } from '../stores/search-results-store'
 import { useSelectionStore } from '../stores/selection-store'
 import { useSettingsStore } from '../stores/settings-store'
@@ -7,61 +7,75 @@ export function useKeyboardNavigation() {
   const selectionStore = useSelectionStore()
   const searchStore = useSearchResultsStore()
   const settingsStore = useSettingsStore()
+  
+  // Cache for DOM element selectors
+  const selectorCache = new Map()
+  
+  // Memoized computed property for visible sections to improve performance
+  const visibleSections = computed(() => {
+    // Get sections that have content
+    const sectionsWithContent = searchStore.resultGroups
+      .filter(resultType => resultType.content.length > 0)
+      .map(resultType => resultType.name)
+
+    // Apply custom ordering if available
+    const contentMap = new Set(sectionsWithContent)
+
+    // Apply custom ordering if available, otherwise sort by priority
+    const validOrderedSections = (settingsStore.settings.sectionOrder || [])
+      .filter(sectionName => contentMap.has(sectionName))
+
+    const unorderedSections = sectionsWithContent
+      .filter(sectionName => !validOrderedSections.includes(sectionName))
+
+    const orderedSections = validOrderedSections.length > 0
+      ? [...validOrderedSections, ...unorderedSections]
+      : searchStore.resultGroups
+          .filter(resultType => resultType.content.length > 0)
+          .sort((a, b) => a.priority - b.priority)
+          .map(resultType => resultType.name)
+
+    // Filter by enabled search types in settings and not collapsed
+    return orderedSections.filter((section) => {
+      const searchType = settingsStore.settings.includedSearchTypes?.find(
+        type => type.name === section,
+      )
+      const isEnabled = searchType?.enabled !== false // default to true if not specified
+      const isCollapsed = (settingsStore.settings.collapsedSections || []).includes(section)
+
+      return isEnabled && !isCollapsed
+    })
+  })
 
   /**
-   * Determines which sections are currently visible based on results and settings
-   * @returns {string[]} Array of visible section names
+   * Get all currently visible sections based on results, settings, and collapsed state
    */
   function getVisibleSections() {
-    const results = searchStore.getAllResults
-    const sections = []
-
-    // Check each section to see if it has results and is enabled in settings
-    if (results.applications.length && isSearchTypeEnabled('apps')) 
-      sections.push('apps')
-    
-    if (results.emojis.length && isSearchTypeEnabled('emoji')) 
-      sections.push('emoji')
-    
-    if (results.disk.length && isSearchTypeEnabled('files')) 
-      sections.push('files')
-
-    return sections
+    return visibleSections.value
   }
 
   /**
-   * Checks if a search type is enabled in settings
-   * @param {string} typeName The search type name to check
-   * @returns {boolean} Whether the search type is enabled
-   */
-  function isSearchTypeEnabled(typeName) {
-    return (
-      settingsStore.settings.includedSearchTypes?.find(type => type.name === typeName)?.enabled
-      ?? false
-    )
-  }
-
-  /**
-   * Initializes the selection with the first item of the first visible section
-   * @returns {boolean} True if selection was initialized, false otherwise
+   * Select the first item in the first visible section
    */
   function initializeSelection() {
-    const sections = getVisibleSections()
+    const sections = visibleSections.value
     if (!sections.length)
       return false
 
     const firstSection = sections[0]
     const items = selectionStore.getItemsForSection(firstSection)
-    if (!items.length)
-      return false
 
-    selectionStore.setSelectedItem(items[0], firstSection)
-    return true
+    if (items.length > 0) {
+      selectionStore.setSelectedItem(items[0], firstSection)
+      scrollItemIntoView(items[0])
+      return true
+    }
+
+    return false
   }
 
   /**
-   * Focuses the results container and initializes selection if needed
-   * @returns {Promise<boolean>} True if focus was successful
+   * Set focus to the results container
    */
   async function focusResults() {
     const resultsContainer = document.querySelector('[tabindex="0"]')
@@ -71,191 +85,388 @@ export function useKeyboardNavigation() {
     await nextTick()
     resultsContainer.focus()
 
-    // Always clear and reinitialize selection when focusing results
-    selectionStore.clearSelection()
-    return initializeSelection()
+    if (!selectionStore.selectedItem) {
+      return initializeSelection()
+    }
+
+    return true
   }
 
   /**
-   * Scrolls the selected item into view within the virtual list
-   * @param {any} item The item to scroll into view
+   * Create a DOM selector for a result item
+   * @param {Object} item - The result item
+   * @returns {string} - The DOM selector
    */
-  function scrollToItem(item) {
-    if (!item)
-      return
-
-    // Use setTimeout to ensure the DOM has updated
-    setTimeout(() => {
-      // Handle different identifier properties based on item type
-      const itemId = item.path || item.char || (item.id ? `id-${item.id}` : null)
-      if (!itemId) return
+  function createItemSelector(item) {
+    // Use cached selector if available
+    const cacheKey = JSON.stringify(item)
+    if (selectorCache.has(cacheKey)) {
+      return selectorCache.get(cacheKey)
+    }
+    
+    let selector
+    
+    if (item.path) {
+      // For disk items and applications (both have path)
+      selector = `[data-item-id="${CSS.escape(item.path)}"], [data-path="${CSS.escape(item.path)}"]`
       
-      const itemElement = document.getElementById(`result-item-${itemId}`)
-      if (!itemElement)
-        return
+      // Don't use JSON.stringify in selectors as it's unreliable
+      if (item.isApp || item.type === 'application') {
+        selector += `, [data-app-path="${CSS.escape(item.path)}"]`
+      }
+    }
+    else if (item.char) {
+      // For emojis
+      selector = `[data-char="${CSS.escape(item.char)}"]`
+    }
+    else if (item.id) {
+      selector = `[data-item-id="id-${CSS.escape(item.id)}"]`
+    }
+    else {
+      // Fallback to find by any available property in the item
+      const possibleAttributes = ['id', 'name', 'char', 'path']
+      for (const attr of possibleAttributes) {
+        if (item[attr]) {
+          selector = `[data-${attr}="${CSS.escape(item[attr])}"]`
+          break
+        }
+      }
+    }
+    
+    // Cache the selector
+    if (selector) {
+      selectorCache.set(cacheKey, selector)
+    }
+    
+    return selector
+  }
 
-      const container = itemElement.closest('[data-virtual-list]')
-      if (container) {
+  /**
+   * Scroll the selected item into view
+   */
+  function scrollItemIntoView(item) {
+    if (!item) return
+
+    // Use requestAnimationFrame for better performance
+    requestAnimationFrame(() => {
+      const selector = createItemSelector(item)
+      if (!selector) return
+      
+      // Query all possibilities at once
+      let itemElement = document.querySelector(selector)
+
+      // If we couldn't find by selector, try by result type + index
+      if (!itemElement && selectionStore.selectedSection) {
+        const resultType = selectionStore.selectedSection
+        const items = selectionStore.getItemsForSection(resultType)
+        const index = items.indexOf(item)
+        
+        if (index !== -1) {
+          const allItems = document.querySelectorAll(`[data-result-type="${resultType}"] *[tabindex]`)
+          if (allItems && index < allItems.length) {
+            itemElement = allItems[index]
+          }
+        }
+      }
+
+      if (itemElement) {
+        // Focus and scroll using modern smooth scrolling
+        itemElement.focus({ preventScroll: true })
         itemElement.scrollIntoView({
-          block: 'nearest',
           behavior: 'smooth',
-          scrollMode: 'if-needed',
+          block: 'nearest',
         })
       }
-    }, 0)
+    })
   }
 
   /**
-   * Navigates selection in the specified direction
-   * @param {string} direction Direction to navigate ('up', 'down', 'left', 'right')
+   * Move selection up or down within the current section or to adjacent sections
    */
-  function navigateSelection(direction) {
-    const sections = getVisibleSections()
-    if (!sections.length) return
-
-    // Initialize selection if none exists
-    if (!selectionStore.selectedSection || !selectionStore.selectedItem) {
-      initializeSelection()
-      return
+  function navigateVertical(direction) {
+    if (!selectionStore.selectedSection) {
+      return initializeSelection()
     }
 
-    // Skip if current section is not visible anymore
-    if (!sections.includes(selectionStore.selectedSection)) {
-      initializeSelection()
-      return
-    }
-
-    const currentItems = selectionStore.getCurrentItems()
-    const currentIndex = currentItems.findIndex(item => item === selectionStore.selectedItem)
-    const currentGrid = selectionStore.getSectionConfig()
-
-    const currentRow = Math.floor(currentIndex / currentGrid.cols)
-    const currentCol = currentIndex % currentGrid.cols
-
-    let newIndex = currentIndex
-    let newSection = selectionStore.selectedSection
-
-    switch (direction) {
-      case 'right':
-        if (currentCol < currentGrid.cols - 1 && currentIndex < currentItems.length - 1) {
-          newIndex = currentIndex + 1
-        }
-        break
-
-      case 'left':
-        if (currentCol > 0) {
-          newIndex = currentIndex - 1
-        }
-        break
-
-      case 'down': {
-        const nextRowIndex = currentIndex + currentGrid.cols
-        if (nextRowIndex < currentItems.length) {
-          newIndex = nextRowIndex
-        }
-        else {
-          const currentSectionIndex = sections.indexOf(selectionStore.selectedSection)
-          if (currentSectionIndex < sections.length - 1) {
-            newSection = sections[currentSectionIndex + 1]
-            newIndex = 0
-          }
-        }
-        break
-      }
-
-      case 'up': {
-        const prevRowIndex = currentIndex - currentGrid.cols
-        if (prevRowIndex >= 0) {
-          newIndex = prevRowIndex
-        }
-        else {
-          const currentSectionIndex = sections.indexOf(selectionStore.selectedSection)
-          if (currentSectionIndex > 0) {
-            newSection = sections[currentSectionIndex - 1]
-            const newItems = selectionStore.getItemsForSection(newSection)
-            const newGrid = selectionStore.getSectionConfig(newSection)
-            const lastRowStart = Math.floor((newItems.length - 1) / newGrid.cols) * newGrid.cols
-            const targetCol = Math.min(currentCol, newGrid.cols - 1)
-            newIndex = Math.min(lastRowStart + targetCol, newItems.length - 1)
-          }
-        }
-        break
-      }
-    }
-
-    if (newSection !== selectionStore.selectedSection) {
-      const newItems = selectionStore.getItemsForSection(newSection)
-      selectionStore.setSelectedItem(newItems[newIndex], newSection)
-    }
-    else if (newIndex !== currentIndex && newIndex >= 0 && newIndex < currentItems.length) {
-      selectionStore.selectedItem = currentItems[newIndex]
-    }
-
-    // Scroll the selected item into view
-    if (selectionStore.selectedItem) {
-      scrollToItem(selectionStore.selectedItem)
-    }
-  }
-
-  /**
-   * Handles tab navigation between sections
-   * @param {boolean} shiftKey Whether shift key is pressed
-   */
-  function navigateTab(shiftKey) {
-    const sections = getVisibleSections()
+    const sections = visibleSections.value
     if (!sections.length)
-      return
+      return false
 
-    if (!selectionStore.selectedSection || !selectionStore.selectedItem ||
-        !sections.includes(selectionStore.selectedSection)) {
-      initializeSelection()
-      return
+    const items = selectionStore.getItemsForSection(selectionStore.selectedSection)
+    if (!items.length)
+      return false
+
+    const currentIndex = items.findIndex(item => item === selectionStore.selectedItem)
+    if (currentIndex === -1)
+      return initializeSelection()
+
+    // Get the grid columns count for the current section
+    const resultType = searchStore.getResultTypeByName(selectionStore.selectedSection)
+    const gridCols = resultType?.gridCols || 1
+
+    let newIndex
+
+    if (direction === 'up') {
+      // Move up one row (subtract the number of columns)
+      newIndex = currentIndex - gridCols
+
+      // If we can't move up a full row, move to the previous section
+      if (newIndex < 0) {
+        const currentSectionIndex = sections.indexOf(selectionStore.selectedSection)
+
+        // Move to the previous section or wrap to the last section
+        if (currentSectionIndex > 0) {
+          const prevSection = sections[currentSectionIndex - 1]
+          const prevSectionItems = selectionStore.getItemsForSection(prevSection)
+
+          if (prevSectionItems.length > 0) {
+            // Select the last item in the previous section
+            selectionStore.setSelectedItem(
+              prevSectionItems[prevSectionItems.length - 1],
+              prevSection,
+            )
+            scrollItemIntoView(prevSectionItems[prevSectionItems.length - 1])
+            return true
+          }
+        }
+        else if (sections.length > 1) {
+          // Wrap to the last section if we're at the first
+          const lastSection = sections[sections.length - 1]
+          const lastSectionItems = selectionStore.getItemsForSection(lastSection)
+
+          if (lastSectionItems.length > 0) {
+            // Select the last item in the last section
+            selectionStore.setSelectedItem(
+              lastSectionItems[lastSectionItems.length - 1],
+              lastSection,
+            )
+            scrollItemIntoView(lastSectionItems[lastSectionItems.length - 1])
+            return true
+          }
+        }
+
+        // If we can't move to another section, stay at the first item in the current section
+        const currentCol = currentIndex % gridCols
+        newIndex = currentCol < items.length ? currentCol : 0
+      }
+    }
+    else { // down
+      // Move down one row (add the number of columns)
+      newIndex = currentIndex + gridCols
+
+      // If we can't move down a full row, move to the next section
+      if (newIndex >= items.length) {
+        const currentSectionIndex = sections.indexOf(selectionStore.selectedSection)
+
+        // Move to the next section or wrap to the first section
+        if (currentSectionIndex < sections.length - 1) {
+          const nextSection = sections[currentSectionIndex + 1]
+          const nextSectionItems = selectionStore.getItemsForSection(nextSection)
+
+          if (nextSectionItems.length > 0) {
+            // Select the first item in the next section
+            selectionStore.setSelectedItem(nextSectionItems[0], nextSection)
+            scrollItemIntoView(nextSectionItems[0])
+            return true
+          }
+        }
+        else if (sections.length > 1) {
+          // Wrap to the first section if we're at the last
+          const firstSection = sections[0]
+          const firstSectionItems = selectionStore.getItemsForSection(firstSection)
+
+          if (firstSectionItems.length > 0) {
+            // Select the first item in the first section
+            selectionStore.setSelectedItem(firstSectionItems[0], firstSection)
+            scrollItemIntoView(firstSectionItems[0])
+            return true
+          }
+        }
+
+        // Calculate position in last row that corresponds to current column position
+        const currentCol = currentIndex % gridCols
+        const lastRowStartIndex = Math.floor((items.length - 1) / gridCols) * gridCols
+        newIndex = lastRowStartIndex + currentCol
+
+        // Ensure we don't go beyond the array bounds
+        if (newIndex >= items.length) {
+          newIndex = items.length - 1
+        }
+      }
     }
 
-    const currentItems = selectionStore.getCurrentItems()
-    const currentIndex = currentItems.findIndex(item => item === selectionStore.selectedItem)
-
-    // Try to move within the current section first
-    if (shiftKey && currentIndex > 0) {
-      // Move to previous item in current section
-      selectionStore.setSelectedItem(currentItems[currentIndex - 1], selectionStore.selectedSection)
-      return
-    }
-    else if (!shiftKey && currentIndex < currentItems.length - 1) {
-      // Move to next item in current section
-      selectionStore.setSelectedItem(currentItems[currentIndex + 1], selectionStore.selectedSection)
-      return
+    // Only update if changed
+    if (newIndex !== currentIndex) {
+      selectionStore.setSelectedItem(items[newIndex], selectionStore.selectedSection)
+      scrollItemIntoView(items[newIndex])
+      return true
     }
 
-    // If we can't move within the section, try to move to another section
-    const currentSectionIndex = sections.indexOf(selectionStore.selectedSection)
-    const nextSectionIndex = shiftKey
-      ? currentSectionIndex <= 0
-        ? sections.length - 1
-        : currentSectionIndex - 1
-      : currentSectionIndex >= sections.length - 1
-        ? 0
-        : currentSectionIndex + 1
+    return false
+  }
 
-    const nextSection = sections[nextSectionIndex]
-    const nextItems = selectionStore.getItemsForSection(nextSection)
-    if (nextItems.length) {
-      // When moving forward, select first item; when moving backward, select last item
-      const nextItem = shiftKey ? nextItems[nextItems.length - 1] : nextItems[0]
-      selectionStore.setSelectedItem(nextItem, nextSection)
+  /**
+   * Move selection left or right within the current section or to adjacent sections
+   */
+  function navigateHorizontal(direction) {
+    if (!selectionStore.selectedSection) {
+      return initializeSelection()
     }
 
-    // Scroll the selected item into view
-    if (selectionStore.selectedItem) {
-      scrollToItem(selectionStore.selectedItem)
+    const sections = visibleSections.value
+    if (!sections.length)
+      return false
+
+    const items = selectionStore.getItemsForSection(selectionStore.selectedSection)
+    if (!items.length)
+      return false
+
+    const currentIndex = items.findIndex(item => item === selectionStore.selectedItem)
+    if (currentIndex === -1)
+      return initializeSelection()
+
+    let newIndex
+
+    if (direction === 'left') {
+      // Move left one item
+      newIndex = currentIndex - 1
+
+      // If we're at the first item, move to the previous section
+      if (newIndex < 0) {
+        const currentSectionIndex = sections.indexOf(selectionStore.selectedSection)
+
+        // Move to the previous section or wrap to the last section
+        if (currentSectionIndex > 0) {
+          const prevSection = sections[currentSectionIndex - 1]
+          const prevSectionItems = selectionStore.getItemsForSection(prevSection)
+
+          if (prevSectionItems.length > 0) {
+            // Select the last item in the previous section
+            selectionStore.setSelectedItem(
+              prevSectionItems[prevSectionItems.length - 1],
+              prevSection,
+            )
+            scrollItemIntoView(prevSectionItems[prevSectionItems.length - 1])
+            return true
+          }
+        }
+        else if (sections.length > 1) {
+          // Wrap to the last section if we're at the first
+          const lastSection = sections[sections.length - 1]
+          const lastSectionItems = selectionStore.getItemsForSection(lastSection)
+
+          if (lastSectionItems.length > 0) {
+            // Select the last item in the last section
+            selectionStore.setSelectedItem(
+              lastSectionItems[lastSectionItems.length - 1],
+              lastSection,
+            )
+            scrollItemIntoView(lastSectionItems[lastSectionItems.length - 1])
+            return true
+          }
+        }
+
+        // If we can't move to another section, wrap to the end of the current section
+        newIndex = items.length - 1
+      }
     }
+    else { // right
+      // Move right one item
+      newIndex = currentIndex + 1
+
+      // If we're at the last item, move to the next section
+      if (newIndex >= items.length) {
+        const currentSectionIndex = sections.indexOf(selectionStore.selectedSection)
+
+        // Move to the next section or wrap to the first section
+        if (currentSectionIndex < sections.length - 1) {
+          const nextSection = sections[currentSectionIndex + 1]
+          const nextSectionItems = selectionStore.getItemsForSection(nextSection)
+
+          if (nextSectionItems.length > 0) {
+            // Select the first item in the next section
+            selectionStore.setSelectedItem(nextSectionItems[0], nextSection)
+            scrollItemIntoView(nextSectionItems[0])
+            return true
+          }
+        }
+        else if (sections.length > 1) {
+          // Wrap to the first section if we're at the last
+          const firstSection = sections[0]
+          const firstSectionItems = selectionStore.getItemsForSection(firstSection)
+
+          if (firstSectionItems.length > 0) {
+            // Select the first item in the first section
+            selectionStore.setSelectedItem(firstSectionItems[0], firstSection)
+            scrollItemIntoView(firstSectionItems[0])
+            return true
+          }
+        }
+
+        // If we can't move to another section, wrap to the beginning of the current section
+        newIndex = 0
+      }
+    }
+
+    // Only update if changed
+    if (newIndex !== currentIndex) {
+      selectionStore.setSelectedItem(items[newIndex], selectionStore.selectedSection)
+      scrollItemIntoView(items[newIndex])
+      return true
+    }
+
+    return false
+  }
+
+  /**
+   * Move selection between different sections
+   */
+  function navigateSection(goBack = false) {
+    const sections = visibleSections.value
+    if (!sections.length)
+      return false
+
+    let currentSectionIndex = sections.indexOf(selectionStore.selectedSection)
+    if (currentSectionIndex === -1)
+      currentSectionIndex = 0
+
+    let newSectionIndex
+    if (goBack) {
+      // Move to previous section or wrap to end
+      newSectionIndex = currentSectionIndex > 0 ? currentSectionIndex - 1 : sections.length - 1
+    }
+    else {
+      // Move to next section or wrap to beginning
+      newSectionIndex = currentSectionIndex < sections.length - 1 ? currentSectionIndex + 1 : 0
+    }
+
+    const newSection = sections[newSectionIndex]
+    const items = selectionStore.getItemsForSection(newSection)
+
+    if (items.length > 0) {
+      selectionStore.setSelectedItem(items[0], newSection)
+      scrollItemIntoView(items[0])
+      return true
+    }
+
+    return false
+  }
+
+  /**
+   * Execute the action for the selected item
+   */
+  function activateSelectedItem() {
+    return selectionStore.selectedItem
   }
 
   return {
-    navigateSelection,
-    navigateTab,
-    focusResults,
+    getVisibleSections,
     initializeSelection,
-    getVisibleSections
+    focusResults,
+    scrollItemIntoView,
+    navigateVertical,
+    navigateHorizontal,
+    navigateSection,
+    activateSelectedItem,
   }
 }

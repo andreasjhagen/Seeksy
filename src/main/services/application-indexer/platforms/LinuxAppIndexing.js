@@ -178,8 +178,9 @@ class LinuxAppIndexing {
 
   async findIconRecursively(directory, iconName, depth = 0) {
     // Limit recursion depth to avoid excessive searching
-    if (depth > 5) return null;
-    
+    if (depth > 5)
+      return null
+
     try {
       const files = await readdirAsync(directory, { withFileTypes: true })
 
@@ -191,7 +192,7 @@ class LinuxAppIndexing {
           if (['node_modules', '.git', '.svn', '.hg'].includes(file.name)) {
             continue
           }
-          
+
           const found = await this.findIconRecursively(fullPath, iconName, depth + 1)
           if (found)
             return found
@@ -200,29 +201,31 @@ class LinuxAppIndexing {
           // Check if the filename matches our icon pattern
           const fileBaseName = path.parse(file.name).name
           const fileExt = path.parse(file.name).ext.toLowerCase()
-          
+
           if (fileBaseName === iconName && this.iconFormats.includes(fileExt)) {
             return fullPath
           }
         }
       }
-    } catch (error) {
+    }
+    catch (error) {
       return null
     }
-    
+
     return null
   }
 
   async resolveLinuxIcon(iconName) {
     if (!iconName)
       return null
-    
+
     // If it's already a full path and exists, return it
     if (iconName.startsWith('/')) {
       try {
         await accessAsync(iconName, fs.constants.R_OK)
         return iconName
-      } catch {
+      }
+      catch {
         // Continue to other resolution methods if the path doesn't exist
       }
     }
@@ -243,7 +246,8 @@ class LinuxAppIndexing {
       if (currentTheme && currentTheme !== 'hicolor') {
         this.iconThemes.unshift(currentTheme)
       }
-    } catch {
+    }
+    catch {
       // If gsettings fails, keep the default theme order
     }
 
@@ -256,7 +260,8 @@ class LinuxAppIndexing {
           try {
             await accessAsync(directPath, fs.constants.R_OK)
             return directPath
-          } catch {
+          }
+          catch {
             // Continue to next format if not found
           }
         }
@@ -265,10 +270,11 @@ class LinuxAppIndexing {
       // Then check through theme hierarchy
       for (const theme of this.iconThemes) {
         const themeDir = path.join(iconPath, theme)
-        
+
         try {
           await accessAsync(themeDir, fs.constants.R_OK)
-        } catch {
+        }
+        catch {
           continue // Skip if theme directory doesn't exist
         }
 
@@ -280,11 +286,12 @@ class LinuxAppIndexing {
               try {
                 await accessAsync(iconFile, fs.constants.R_OK)
                 return iconFile
-              } catch {
+              }
+              catch {
                 // Continue to next format if not found
               }
             }
-            
+
             // Also try size/actions and size/status directories
             for (const altCategory of ['actions', 'status']) {
               for (const format of this.iconFormats) {
@@ -292,7 +299,8 @@ class LinuxAppIndexing {
                 try {
                   await accessAsync(iconFile, fs.constants.R_OK)
                   return iconFile
-                } catch {
+                }
+                catch {
                   // Continue if not found
                 }
               }
@@ -308,7 +316,8 @@ class LinuxAppIndexing {
         const iconFile = await this.findIconRecursively(iconPath, iconName)
         if (iconFile)
           return iconFile
-      } catch {
+      }
+      catch {
         continue
       }
     }

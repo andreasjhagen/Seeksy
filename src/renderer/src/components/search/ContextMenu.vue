@@ -1,165 +1,152 @@
 <script setup>
 import { onClickOutside } from '@vueuse/core'
-import { computed, ref, watchEffect } from 'vue'
+import { computed, getCurrentInstance, onMounted, ref, watchEffect } from 'vue'
 import { useContextMenu } from '../../composables/useContextMenu'
-import { useSearchResultsStore } from '../../stores/search-results-store'
-import { useSelectionStore } from '../../stores/selection-store'
 import DialogPopup from '../common/DialogPopup.vue'
 
 const props = defineProps({
-  position: {
-    type: Object,
-    required: true,
-    default: () => ({ x: 0, y: 0 }),
-  },
-  show: {
-    type: Boolean,
-    required: true,
-  },
-  customMenuOptions: {
-    type: Array,
-    default: () => [],
-    validator: (options) => {
-      return options.every(option =>
-        typeof option.id === 'string'
-        && typeof option.label === 'string'
-        && typeof option.action === 'function',
-      )
-    },
-  },
   useOnlyCustomOptions: {
     type: Boolean,
     default: false,
   },
 })
-const emit = defineEmits(['close', 'update:show', 'itemEdited', 'openFile', 'showInDirectory'])
-const contextMenu = useContextMenu()
-const selectionStore = useSelectionStore()
-const searchResultsStore = useSearchResultsStore()
 
-const showNotesDialog = ref(false)
-const noteContent = ref('')
+const emit = defineEmits(['item-edited'])
+const contextMenu = useContextMenu()
 const menuRef = ref(null)
 
+// State management
+const selectedItem = ref(null)
+const showNotesDialog = ref(false)
+const noteContent = ref('')
+
+// Computed properties
+const isMenuVisible = computed(() => contextMenu.showContextMenu.value)
+const menuPosition = computed(() => contextMenu.contextMenuPosition.value)
+const menuItems = computed(() => contextMenu.menuItems.value)
+
+// Setup click outside handler when menu is visible
 watchEffect(() => {
-  if (!props.show)
-    return
-
-  if (menuRef.value) {
-    const { stop } = onClickOutside(menuRef, () => {
-      !showNotesDialog.value && closeMenu()
-    })
-    return stop // Cleanup handler
-  }
-
-  if (selectionStore.selectedItem) {
-    contextMenu.setSelectedItem(selectionStore.selectedItem)
-  }
+  if (!isMenuVisible.value || !menuRef.value) return
+  
+  const { stop } = onClickOutside(menuRef, () => {
+    // Only close menu if notes dialog isn't open
+    if (!showNotesDialog.value) {
+      contextMenu.closeMenu()
+    }
+  })
+  
+  return stop // Clean up handler when effect re-runs
 })
 
-const menuOptions = computed(() => {
-  if (!selectionStore.selectedItem)
-    return []
+/**
+ * Register this component instance with the contextMenuPlugin
+ * This allows the plugin to access and control this component
+ */
+const instance = getCurrentInstance()
+if (instance && instance.appContext.app.config.globalProperties.$setContextMenuInstance) {
+  instance.appContext.app.config.globalProperties.$setContextMenuInstance({
+    get selectedItem() {
+      return selectedItem.value
+    },
+    set selectedItem(value) {
+      selectedItem.value = value
+      // If we receive a new selected item, get its notes
+      if (value?.path) {
+        getItemNotes(value)
+      }
+    },
+    get showNotesDialog() {
+      return showNotesDialog.value
+    },
+    set showNotesDialog(value) {
+      showNotesDialog.value = value
+    },
+  })
+}
 
-  // Default menu options
-  const defaultOptions = !props.useOnlyCustomOptions
-    ? [
-        { id: 'open', label: 'Open', icon: 'open_in_new', action: () => emit('openFile', selectionStore.selectedItem) },
-        { id: 'show-in-explorer', label: 'Show in Explorer', icon: 'folder', action: () => emit('showInDirectory', selectionStore.selectedItem.path) },
-        {
-          id: 'add-to-favorites',
-          label: 'Add to Favorites',
-          icon: 'star',
-          condition: !contextMenu.isFavorite.value,
-          action: async () => {
-            const { success } = await contextMenu.addToFavorites()
-            success && handleEditSuccess()
-          },
-        },
-        {
-          id: 'remove-from-favorites',
-          label: 'Remove from Favorites',
-          icon: 'star_border',
-          condition: contextMenu.isFavorite.value,
-          action: async () => {
-            const { success } = await contextMenu.removeFavorites()
-            success && handleEditSuccess()
-          },
-        },
-        {
-          id: 'edit-notes',
-          label: 'Edit Notes',
-          icon: 'edit_note',
-          action: async () => {
-            const { success, notes } = await contextMenu.getNote()
-            if (success) {
-              noteContent.value = notes || ''
-              showNotesDialog.value = true
-            }
-          },
-        },
-        {
-          id: 'copy-path',
-          label: 'Copy Path',
-          icon: 'content_copy',
-          action: () => navigator.clipboard.writeText(selectionStore.selectedItem.path),
-        },
-      ]
-    : []
+/**
+ * Fetch notes for an item
+ * @param {Object} item - The item to get notes for
+ */
+async function getItemNotes(item) {
+  try {
+    selectedItem.value = item
+    const response = await contextMenu.getNote()
+    noteContent.value = response.success ? (response.notes || '') : ''
+  }
+  catch (error) {
+    console.error('Failed to get notes:', error)
+    noteContent.value = ''
+  }
+}
 
-  return [...defaultOptions, ...props.customMenuOptions]
+/**
+ * Set up callback for actions that need to notify parent components
+ */
+onMounted(() => {
+  contextMenu.setActionCompleteCallback((item) => {
+    emit('item-edited', item)
+  })
 })
 
-function handleEditSuccess() {
-  emit('itemEdited', selectionStore.selectedItem)
-  searchResultsStore.refreshSearch()
-}
-
-function closeMenu() {
-  emit('close')
-}
-
-async function handleSelect(option) {
-  await option.action()
-  if (!showNotesDialog.value)
-    closeMenu()
-}
-
+/**
+ * Handle confirmation of notes dialog
+ */
 async function handleNotesConfirm() {
-  const { success } = await contextMenu.addNote(noteContent.value)
-  if (success) {
-    searchResultsStore.refreshSearch()
-    showNotesDialog.value = false
-    emit('itemEdited', selectionStore.selectedItem, noteContent.value)
-    closeMenu()
+  try {
+    const { success } = await contextMenu.addNote(noteContent.value)
+    if (success) {
+      showNotesDialog.value = false
+      contextMenu.closeMenu()
+    }
+  } catch (error) {
+    console.error('Failed to save note:', error)
   }
+}
+
+/**
+ * Handle cancellation of notes dialog
+ */
+function handleNotesCancel() {
+  showNotesDialog.value = false
+  contextMenu.closeMenu()
 }
 </script>
 
 <template>
-  <Teleport v-if="show" to="body">
+  <Teleport v-if="isMenuVisible" to="body">
+    <!-- Context Menu -->
     <div
       ref="menuRef"
       class="context-menu fixed z-20 min-w-[200px] bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-1"
-      :style="{ left: `${position.x}px`, top: `${position.y}px` }"
+      :style="{ left: `${menuPosition.x}px`, top: `${menuPosition.y}px` }"
       @click.stop
     >
-      <button
-        v-for="option in menuOptions"
-        v-show="option.condition === undefined || option.condition"
-        :key="option.id"
-        class="flex items-center w-full gap-2 px-4 py-2 text-left text-black dark:text-gray-100 hover:text-white hover:bg-accent-500"
-        @click="handleSelect(option)"
-      >
-        <span class="material-symbols-outlined">{{ option.icon }}</span>
-        {{ option.label }}
-      </button>
+      <template v-for="(item, index) in menuItems" :key="item.id || index">
+        <!-- Separator -->
+        <div
+          v-if="item.isSeparator"
+          class="mx-2 my-1 border-t border-gray-200 dark:border-gray-700"
+        />
+
+        <!-- Menu item -->
+        <button
+          v-else-if="!item.hidden"
+          class="flex items-center w-full gap-2 px-4 py-2 text-left text-black dark:text-gray-100 hover:text-white hover:bg-accent-500"
+          @click="item.action"
+        >
+          <span v-if="item.icon" class="material-symbols-outlined">{{ item.icon }}</span>
+          {{ item.label }}
+        </button>
+      </template>
     </div>
 
+    <!-- Notes Dialog -->
     <DialogPopup
       title="Edit Notes"
       :is-open="showNotesDialog"
-      @close="showNotesDialog = false"
+      @close="handleNotesCancel"
       @confirm="handleNotesConfirm"
     >
       <textarea

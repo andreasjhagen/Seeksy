@@ -1,20 +1,42 @@
+/**
+ * File Processor
+ *
+ * Handles the processing of files and directories for indexing.
+ * Extracts metadata and stores information in the database.
+ * Tracks processed paths to avoid duplicate work.
+ */
+
 import { EventEmitter } from 'node:events'
-import { access, stat } from 'node:fs/promises'
+import { stat } from 'node:fs/promises'
 import path from 'node:path'
+import { createLogger } from '../../utils/logger.js'
+import { fileDB } from '../database/database.js'
 import { getFileMetadata } from './getFileMetadata.js'
 
+// Create a dedicated logger for the file processor
+const logger = createLogger('FileProcessor')
+
 export class FileProcessor extends EventEmitter {
-  constructor(db) {
+  /**
+   * Creates a new FileProcessor instance
+   */
+  constructor() {
     super()
-    this.db = db
     this.processedPaths = new Set()
     this.processingPaths = new Map() // Track paths being processed
   }
 
-  // Public API
+  /**
+   * Process a file or directory path
+   *
+   * @param {string} filePath - Path to process
+   * @param {object} [providedStats] - Pre-retrieved fs.Stats object (optional)
+   * @returns {Promise<object>} Result of the processing operation
+   */
   async processPath(filePath, providedStats = null) {
     // Skip if already being processed
     if (this.processingPaths.has(filePath)) {
+      logger.debug(`Skipping already processing path: ${filePath}`)
       return { success: true, path: filePath, status: 'already-processing' }
     }
 
@@ -23,6 +45,7 @@ export class FileProcessor extends EventEmitter {
 
       const stats = providedStats || await this._safeFileStat(filePath)
       if (!stats) {
+        logger.warn(`File not accessible: ${filePath}`)
         return { success: false, path: filePath, error: 'File not accessible' }
       }
 
@@ -41,10 +64,16 @@ export class FileProcessor extends EventEmitter {
     }
   }
 
+  /**
+   * Removes a path and its related data from the database
+   *
+   * @param {string} path - Path to remove
+   * @returns {Promise<object>} Result of the removal operation
+   */
   async removePath(path) {
     try {
-      console.log(`Removing from database: ${path}`)
-      const result = await this.db.removePath(path)
+      logger.info(`Removing from database: ${path}`)
+      const result = await fileDB.removePath(path)
       this.processedPaths.delete(path)
       return { success: true, type: 'removed', path, affected: result }
     }
@@ -54,8 +83,16 @@ export class FileProcessor extends EventEmitter {
   }
 
   // Core Processing Methods
+  /**
+   * Processes a file, extracting metadata and storing in database
+   *
+   * @param {string} filePath - Path to the file
+   * @param {object} stats - fs.Stats object for the file
+   * @returns {Promise<object>} Result of the processing operation
+   */
   async processFile(filePath, stats) {
     if (this.processedPaths.has(filePath)) {
+      logger.debug(`Skipping already processed file: ${filePath}`)
       return { success: true, type: 'file', path: filePath, status: 'already-processed' }
     }
 
@@ -64,19 +101,20 @@ export class FileProcessor extends EventEmitter {
       await this._ensureParentFolderProcessed(filePath)
 
       // Check if file exists in DB
-      const existingFile = await this.db.getFile(filePath)
-      console.log(`Scanning file: ${filePath}`)
+      const existingFile = await fileDB.getFile(filePath)
+      logger.debug(`Scanning file: ${filePath}`)
 
       // Skip unchanged files
       if (existingFile && existingFile.modifiedAt === stats.mtimeMs) {
         this.processedPaths.add(filePath)
-        console.log(`Skipping unchanged file: ${filePath}`)
+        logger.debug(`Skipping unchanged file: ${filePath}`)
         return { success: true, type: 'file', path: filePath, status: 'unchanged' }
       }
 
       // Process file metadata using the stats object
       const fileDetails = await getFileMetadata(filePath, stats)
       if (!fileDetails) {
+        logger.warn(`Failed to process file metadata: ${filePath}`)
         return { success: false, type: 'error', path: filePath, error: 'Failed to process file metadata' }
       }
 
@@ -87,6 +125,7 @@ export class FileProcessor extends EventEmitter {
       await this._saveFileToDatabase(filePath, fileDetails)
       this.processedPaths.add(filePath)
 
+      logger.debug(`Successfully processed file: ${filePath} (${existingFile ? 'updated' : 'indexed'})`)
       return {
         success: true,
         type: 'file',
@@ -99,14 +138,22 @@ export class FileProcessor extends EventEmitter {
     }
   }
 
+  /**
+   * Processes a directory, updating database information
+   *
+   * @param {string} dirPath - Path to the directory
+   * @param {object} stats - fs.Stats object for the directory
+   * @returns {Promise<object>} Result of the processing operation
+   */
   async processDirectory(dirPath, stats) {
     try {
       const watchedFolder = await this._findWatchedParentFolder(dirPath)
-      await this.db.updateFolder(dirPath, {
+      await fileDB.updateFolder(dirPath, {
         modifiedAt: stats.mtimeMs,
         watchedFolderPath: watchedFolder?.path || null,
       })
       this.processedPaths.add(dirPath)
+      logger.debug(`Processed directory: ${dirPath}`)
       return { success: true, type: 'directory', path: dirPath }
     }
     catch (error) {
@@ -115,24 +162,45 @@ export class FileProcessor extends EventEmitter {
   }
 
   // Helper Methods
+  /**
+   * Saves file metadata to the database
+   *
+   * @param {string} filePath - Path to the file
+   * @param {object} fileDetails - Metadata to save
+   * @private
+   */
   async _saveFileToDatabase(filePath, fileDetails) {
-    console.log(`Uploading to database: ${filePath}`)
-    const dbResult = await this.db.updateFile(filePath, fileDetails)
+    logger.debug(`Saving to database: ${filePath}`)
+    const dbResult = await fileDB.updateFile(filePath, fileDetails)
     if (!dbResult) {
       throw new Error('Failed to update file in database')
     }
   }
 
+  /**
+   * Finds the parent watched folder for a given path
+   *
+   * @param {string} itemPath - Path to check
+   * @returns {Promise<object | null>} The parent watched folder or null
+   * @private
+   */
   async _findWatchedParentFolder(itemPath) {
-    const watchedFolders = await this.db.getAllWatchFolderStatus()
+    const watchedFolders = await fileDB.getAllWatchFolderStatus()
     // Sort by path length descending to find the most specific parent folder
     const sortedFolders = watchedFolders.sort((a, b) => b.path.length - a.path.length)
     return sortedFolders.find(folder => itemPath.startsWith(folder.path))
   }
 
+  /**
+   * Ensures the parent folder is processed before processing a file
+   *
+   * @param {string} filePath - Path to the file
+   * @private
+   */
   async _ensureParentFolderProcessed(filePath) {
     const folderPath = path.dirname(filePath)
     if (!this.processedPaths.has(folderPath)) {
+      logger.debug(`Processing parent folder first: ${folderPath}`)
       const folderStats = await this._safeFileStat(folderPath)
       if (folderStats) {
         await this.processDirectory(folderPath, folderStats)
@@ -140,15 +208,32 @@ export class FileProcessor extends EventEmitter {
     }
   }
 
+  /**
+   * Safely retrieves file stats, returns null if file not accessible
+   *
+   * @param {string} filePath - Path to check
+   * @returns {Promise<object | null>} fs.Stats object or null
+   * @private
+   */
   async _safeFileStat(filePath) {
     try {
       return await stat(filePath)
     }
     catch (error) {
+      logger.debug(`Cannot access file/directory: ${filePath}`, error.code)
       return null
     }
   }
 
+  /**
+   * Handles and formats error information
+   *
+   * @param {string} operation - Type of operation that failed
+   * @param {string} path - Path being processed
+   * @param {Error} error - Error object
+   * @returns {object} Formatted error details
+   * @private
+   */
   _handleError(operation, path, error) {
     const errorDetails = {
       success: false,
@@ -158,6 +243,7 @@ export class FileProcessor extends EventEmitter {
       error: error.message,
       timestamp: Date.now(),
     }
+    logger.error(`Error during ${operation} of ${path}: ${error.message}`)
     this.emit('error', errorDetails)
     return errorDetails
   }

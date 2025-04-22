@@ -1,8 +1,23 @@
+/**
+ * Database Service
+ *
+ * Main database configuration and initialization module that manages connections to SQLite.
+ * This file serves as the central point for database operations and imports all operation modules.
+ *
+ * Features:
+ * - SQLite connection management with better-sqlite3
+ * - Database initialization and schema creation
+ * - Performance optimization with prepared statements
+ * - Version management for database schema
+ */
+
 import path from 'node:path'
 import { is } from '@electron-toolkit/utils'
 import Database from 'better-sqlite3'
 import { app } from 'electron'
+import { createLogger } from '../../utils/logger.js'
 import { applicationsOperations } from './operations/applicationsOperations.js'
+import { emojisOperations } from './operations/emojisOperations.js'
 import { favoritesOperations } from './operations/favoritesOperations.js'
 import { fileOperations } from './operations/fileOperations'
 import { folderOperations } from './operations/folderOperations.js'
@@ -10,218 +25,315 @@ import { notesOperations } from './operations/notesOperations.js'
 import { searchOperations } from './operations/searchOperations'
 import { watchedFolderOperations } from './operations/watchedFolderOperations'
 
+// Create a dedicated logger for database operations
+const logger = createLogger('Database')
+
 class FileDatabase {
   constructor() {
-    // Load database based on environment
-    if (is.dev) {
-      // Debug DB:
-      this.db = new Database('file-index.db')
-      console.log('\x1B[35m[DEBUG DATABASE LOADED]\x1B[0m')
-    }
-    else {
-      // Prod DB:
-      const dbPath = path.join(app.getPath('userData'), 'file-index.db')
-      this.db = new Database(dbPath)
-    }
-
-    // Check and update app version if needed
-    this.checkAppVersion()
-
-    this.initializeDatabase()
-
-    // Add WAL mode for better performance
-    this.db.pragma('journal_mode = WAL')
-    this.db.pragma('synchronous = NORMAL')
-    this.db.pragma('temp_store = MEMORY')
-    this.db.pragma('cache_size = -2000') // Use 2MB of cache
+    this._initializeDb()
+    this._setupPragmas()
+    this._checkAppVersion()
+    this._initializeSchema()
   }
 
-  checkAppVersion() {
-    // Create app_metadata table if not exists
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS app_metadata (
-        key TEXT PRIMARY KEY,
-        value TEXT
-      );
-    `)
-    const currentVersion = app.getVersion()
-    const row = this.db.prepare('SELECT value FROM app_metadata WHERE key = \'app_version\'').get()
-    if (row) {
-      if (row.value !== currentVersion) {
-        console.log(`\x1b[33m[Database] Clearing database due to version update (${row.value} -> ${currentVersion})\x1b[0m`)
-        // Version mismatch: clear all tables except watched_folders and app_metadata
-        this.db.exec(`
-          DELETE FROM files;
-          DELETE FROM folders;
-          DELETE FROM tags;
-          DELETE FROM file_tags;
-          DELETE FROM applications;
-        `)
-        this.db
-          .prepare('UPDATE app_metadata SET value = ? WHERE key = \'app_version\'')
-          .run(currentVersion)
+  // Initialize database connection based on environment
+  _initializeDb() {
+    try {
+      if (is.dev) {
+        // Debug DB in development environment
+        this.db = new Database('file-index.db', { verbose: logger.debug.bind(logger) })
+        logger.debug('Development database loaded at file-index.db')
+      }
+      else {
+        // Production DB in user data folder
+        const dbPath = path.join(app.getPath('userData'), 'file-index.db')
+        this.db = new Database(dbPath)
+        logger.info(`Production database loaded at ${dbPath}`)
       }
     }
-    else {
-      // First run: insert current version
-      this.db
-        .prepare('INSERT INTO app_metadata (key, value) VALUES (\'app_version\', ?)')
-        .run(currentVersion)
+    catch (error) {
+      logger.error('Failed to initialize database:', error)
+      throw error // Critical error - rethrow to prevent app from starting with broken DB
     }
   }
 
-  initializeDatabase() {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS files (
-        path TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        folderPath TEXT NOT NULL,
-        watchedFolderPath TEXT,
-        extension TEXT,
-        size INTEGER,
-        modifiedAt INTEGER,
-        createdAt INTEGER,
-        accessedAt INTEGER,
-        indexedAt INTEGER,
-        mimeType TEXT,
-        sha256Hash TEXT,
-        fileType TEXT,
-        isFavorite BOOLEAN DEFAULT 0,
-        favoriteAddedAt INTEGER,
-        FOREIGN KEY (folderPath) REFERENCES folders(path) ON DELETE CASCADE ON UPDATE CASCADE,
-        FOREIGN KEY (watchedFolderPath) REFERENCES watched_folders(path) ON DELETE CASCADE ON UPDATE CASCADE
-      );
+  // Set up performance optimization pragmas
+  _setupPragmas() {
+    try {
+      // Use Write-Ahead Logging for better concurrency
+      this.db.pragma('journal_mode = WAL')
 
-      CREATE TABLE IF NOT EXISTS folders (
-        path TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        parentPath TEXT,
-        watchedFolderPath TEXT,
-        modifiedAt INTEGER,
-        indexedAt INTEGER,
-        directChildCount INTEGER DEFAULT 0,
-        totalChildCount INTEGER DEFAULT 0,
-        directFileCount INTEGER DEFAULT 0,
-        totalFileCount INTEGER DEFAULT 0,
-        isFavorite BOOLEAN DEFAULT 0,
-        favoriteAddedAt INTEGER,
-        FOREIGN KEY (watchedFolderPath) REFERENCES watched_folders(path) ON DELETE CASCADE ON UPDATE CASCADE
-      );
+      // Set synchronous mode to NORMAL for better performance
+      this.db.pragma('synchronous = NORMAL')
 
-      CREATE TABLE IF NOT EXISTS watched_folders (
-        path TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        totalFiles INTEGER DEFAULT 0,
-        processedFiles INTEGER DEFAULT 0,
-        lastModified INTEGER,
-        lastIndexed INTEGER,
-        depth INTEGER DEFAULT -1
-      );
+      // Store temp tables in memory
+      this.db.pragma('temp_store = MEMORY')
 
-      CREATE TABLE IF NOT EXISTS tags (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL
-      );
+      // Use 2MB of memory for caching
+      this.db.pragma('cache_size = -2000')
 
-      CREATE TABLE IF NOT EXISTS file_tags (
-        file_path TEXT,
-        tag_id INTEGER,
-        PRIMARY KEY (file_path, tag_id),
-        FOREIGN KEY (file_path) REFERENCES files(path) ON DELETE CASCADE,
-        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-      );
+      // Enable foreign keys support
+      this.db.pragma('foreign_keys = ON')
 
-      CREATE TABLE IF NOT EXISTS applications (
-        path TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        displayName TEXT,
-        icon TEXT,
-        lastUpdated INTEGER,
-        isSystem BOOLEAN DEFAULT 0,
-        isCustomAdded BOOLEAN DEFAULT 0,
-        applicationType TEXT,
-        isFavorite BOOLEAN DEFAULT 0,
-        favoriteAddedAt INTEGER
-      );
-
-      CREATE TABLE IF NOT EXISTS notes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        target_path TEXT NOT NULL,
-        target_type TEXT NOT NULL CHECK(target_type IN ('file', 'folder')),
-        content TEXT,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-        UNIQUE(target_path, target_type)
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_notes_target ON notes(target_path, target_type);
-
-      -- Create all_items view
-      CREATE VIEW IF NOT EXISTS all_items AS
-      -- Files
-      SELECT 
-        f.path,
-        f.name,
-        'file' as type,
-        'files' as sourceTable,
-        f.modifiedAt,
-        f.indexedAt,
-        f.mimeType,
-        f.size,
-        f.favoriteAddedAt,
-        f.isFavorite,
-        n.content as notes,
-        f.fileType as category,
-        GROUP_CONCAT(t.name) as tags
-      FROM files f
-      LEFT JOIN notes n ON f.path = n.target_path AND n.target_type = 'file'
-      LEFT JOIN file_tags ft ON f.path = ft.file_path
-      LEFT JOIN tags t ON t.id = ft.tag_id
-      GROUP BY f.path
-
-      UNION ALL
-
-      -- Folders
-      SELECT 
-        f.path,
-        f.name,
-        'folder' as type,
-        'folders' as sourceTable,
-        f.modifiedAt,
-        f.indexedAt,
-        'directory' as mimeType,
-        NULL as size,
-        f.favoriteAddedAt,
-        f.isFavorite,
-        n.content as notes,
-        'folder' as category,
-        NULL as tags
-      FROM folders f
-      LEFT JOIN notes n ON f.path = n.target_path AND n.target_type = 'folder';
-
-      -- Essential indexes only
-      CREATE INDEX IF NOT EXISTS idx_files_name ON files(name);
-      CREATE INDEX IF NOT EXISTS idx_files_mime ON files(mimeType);
-      CREATE INDEX IF NOT EXISTS idx_files_folder ON files(folderPath);
-      CREATE INDEX IF NOT EXISTS idx_folders_parent ON folders(parentPath);
-      CREATE INDEX IF NOT EXISTS idx_files_favorite ON files(isFavorite);
-      CREATE INDEX IF NOT EXISTS idx_folders_favorite ON folders(isFavorite);
-      CREATE INDEX IF NOT EXISTS idx_applications_favorite ON applications(isFavorite);
-    `)
+      logger.debug('Database pragmas configured for optimal performance')
+    }
+    catch (error) {
+      logger.error('Failed to set database pragmas:', error)
+    }
   }
 
+  // Check and update app version in database
+  _checkAppVersion() {
+    try {
+      // Create app_metadata table if not exists
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS app_metadata (
+          key TEXT PRIMARY KEY,
+          value TEXT
+        );
+      `)
+
+      const currentVersion = app.getVersion()
+      const stmt = this.db.prepare('SELECT value FROM app_metadata WHERE key = ?')
+      const row = stmt.get('app_version')
+
+      if (row) {
+        if (row.value !== currentVersion) {
+          logger.warn(`Version update detected: ${row.value} -> ${currentVersion}, clearing database`)
+
+          // Version mismatch: clear tables in a transaction for atomicity
+          this.db.transaction(() => {
+            this.db.exec(`
+              DELETE FROM files;
+              DELETE FROM folders;
+              DELETE FROM tags;
+              DELETE FROM file_tags;
+              DELETE FROM applications;
+              DELETE FROM emojis;
+            `)
+
+            // Update version in database
+            this.db
+              .prepare('UPDATE app_metadata SET value = ? WHERE key = ?')
+              .run(currentVersion, 'app_version')
+          })()
+
+          logger.success('Database cleared successfully due to version update')
+        }
+        else {
+          logger.debug(`Database version matches app version: ${currentVersion}`)
+        }
+      }
+      else {
+        // First run: insert current version
+        this.db
+          .prepare('INSERT INTO app_metadata (key, value) VALUES (?, ?)')
+          .run('app_version', currentVersion)
+
+        logger.info(`First run: Initialized database with version ${currentVersion}`)
+      }
+    }
+    catch (error) {
+      logger.error('Version check failed:', error)
+    }
+  }
+
+  // Initialize database schema
+  _initializeSchema() {
+    try {
+      // Create tables in a single transaction for atomicity
+      this.db.transaction(() => {
+        this.db.exec(`
+          CREATE TABLE IF NOT EXISTS files (
+            path TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            folderPath TEXT NOT NULL,
+            watchedFolderPath TEXT,
+            extension TEXT,
+            size INTEGER,
+            modifiedAt INTEGER,
+            createdAt INTEGER,
+            accessedAt INTEGER,
+            indexedAt INTEGER,
+            mimeType TEXT,
+            sha256Hash TEXT,
+            fileType TEXT,
+            isFavorite BOOLEAN DEFAULT 0,
+            favoriteAddedAt INTEGER,
+            FOREIGN KEY (folderPath) REFERENCES folders(path) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY (watchedFolderPath) REFERENCES watched_folders(path) ON DELETE CASCADE ON UPDATE CASCADE
+          );
+
+          CREATE TABLE IF NOT EXISTS folders (
+            path TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            parentPath TEXT,
+            watchedFolderPath TEXT,
+            modifiedAt INTEGER,
+            indexedAt INTEGER,
+            directChildCount INTEGER DEFAULT 0,
+            totalChildCount INTEGER DEFAULT 0,
+            directFileCount INTEGER DEFAULT 0,
+            totalFileCount INTEGER DEFAULT 0,
+            isFavorite BOOLEAN DEFAULT 0,
+            favoriteAddedAt INTEGER,
+            FOREIGN KEY (watchedFolderPath) REFERENCES watched_folders(path) ON DELETE CASCADE ON UPDATE CASCADE
+          );
+
+          CREATE TABLE IF NOT EXISTS emojis (
+            path TEXT PRIMARY KEY,
+            char TEXT NOT NULL,
+            name TEXT NOT NULL,
+            isFavorite BOOLEAN DEFAULT 0,
+            favoriteAddedAt INTEGER
+          );
+
+          CREATE TABLE IF NOT EXISTS watched_folders (
+            path TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            totalFiles INTEGER DEFAULT 0,
+            processedFiles INTEGER DEFAULT 0,
+            lastModified INTEGER,
+            lastIndexed INTEGER,
+            depth INTEGER DEFAULT -1
+          );
+
+          CREATE TABLE IF NOT EXISTS tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL
+          );
+
+          CREATE TABLE IF NOT EXISTS file_tags (
+            file_path TEXT,
+            tag_id INTEGER,
+            PRIMARY KEY (file_path, tag_id),
+            FOREIGN KEY (file_path) REFERENCES files(path) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+          );
+
+          CREATE TABLE IF NOT EXISTS applications (
+            path TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            displayName TEXT,
+            icon TEXT,
+            lastUpdated INTEGER,
+            isSystem BOOLEAN DEFAULT 0,
+            isCustomAdded BOOLEAN DEFAULT 0,
+            applicationType TEXT,
+            isFavorite BOOLEAN DEFAULT 0,
+            favoriteAddedAt INTEGER
+          );
+
+          CREATE TABLE IF NOT EXISTS notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target_path TEXT NOT NULL,
+            target_type TEXT NOT NULL CHECK(target_type IN ('file', 'folder', 'emoji')),
+            content TEXT,
+            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+            updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+            UNIQUE(target_path, target_type)
+          );
+
+          -- Indexes
+          CREATE INDEX IF NOT EXISTS idx_notes_target ON notes(target_path, target_type);
+          CREATE INDEX IF NOT EXISTS idx_files_name ON files(name);
+          CREATE INDEX IF NOT EXISTS idx_files_mime ON files(mimeType);
+          CREATE INDEX IF NOT EXISTS idx_files_folder ON files(folderPath);
+          CREATE INDEX IF NOT EXISTS idx_folders_parent ON folders(parentPath);
+          CREATE INDEX IF NOT EXISTS idx_files_favorite ON files(isFavorite);
+          CREATE INDEX IF NOT EXISTS idx_folders_favorite ON folders(isFavorite);
+          CREATE INDEX IF NOT EXISTS idx_applications_favorite ON applications(isFavorite);
+          CREATE INDEX IF NOT EXISTS idx_emojis_favorite ON emojis(isFavorite);
+        `)
+
+        // Create all_items view - recreate view if it exists to update any schema changes
+        this.db.exec('DROP VIEW IF EXISTS all_items;')
+        this.db.exec(`
+          CREATE VIEW all_items AS
+          -- Files
+          SELECT 
+            f.path,
+            f.name,
+            'file' as type,
+            'files' as sourceTable,
+            f.modifiedAt,
+            f.indexedAt,
+            f.mimeType,
+            f.size,
+            f.favoriteAddedAt,
+            f.isFavorite,
+            n.content as notes,
+            f.fileType as category,
+            GROUP_CONCAT(t.name) as tags
+          FROM files f
+          LEFT JOIN notes n ON f.path = n.target_path AND n.target_type = 'file'
+          LEFT JOIN file_tags ft ON f.path = ft.file_path
+          LEFT JOIN tags t ON t.id = ft.tag_id
+          GROUP BY f.path
+
+          UNION ALL
+
+          -- Folders
+          SELECT 
+            f.path,
+            f.name,
+            'folder' as type,
+            'folders' as sourceTable,
+            f.modifiedAt,
+            f.indexedAt,
+            'directory' as mimeType,
+            NULL as size,
+            f.favoriteAddedAt,
+            f.isFavorite,
+            n.content as notes,
+            'folder' as category,
+            NULL as tags
+          FROM folders f
+          LEFT JOIN notes n ON f.path = n.target_path AND n.target_type = 'folder'
+          
+          UNION ALL
+          
+          -- Emojis
+          SELECT
+            e.path,
+            e.name,
+            'emoji' as type,
+            'emojis' as sourceTable,
+            NULL as modifiedAt,
+            NULL as indexedAt,
+            'emoji' as mimeType,
+            NULL as size,
+            e.favoriteAddedAt,
+            e.isFavorite,
+            n.content as notes,
+            'emoji' as category,
+            NULL as tags
+          FROM emojis e
+          LEFT JOIN notes n ON e.path = n.target_path AND n.target_type = 'emoji';
+        `)
+      })()
+
+      logger.success('Database schema initialized successfully')
+    }
+    catch (error) {
+      logger.error('Schema initialization failed:', error)
+      throw error // Critical error
+    }
+  }
+
+  // Reset the database (keeping version information)
   resetDatabase() {
     try {
-      // Disable foreign key constraints temporarily
-      this.db.pragma('foreign_keys = OFF');
-      
+      // Disable foreign key constraints for more efficient table dropping
+      this.db.pragma('foreign_keys = OFF')
+
       // Begin transaction for atomicity
-      this.db.exec('BEGIN TRANSACTION;');
-      
-      // Drop view first
-      this.db.exec('DROP VIEW IF EXISTS all_items;');
-      
-      // Drop all tables in proper order to avoid constraint issues
+      this.db.exec('BEGIN TRANSACTION;')
+
+      // Drop view first since it depends on tables
+      this.db.exec('DROP VIEW IF EXISTS all_items;')
+
+      // Drop tables in proper order to avoid constraint issues
       const tables = [
         'file_tags',
         'tags',
@@ -229,36 +341,52 @@ class FileDatabase {
         'files',
         'folders',
         'applications',
-        'watched_folders'
+        'emojis',
+        'watched_folders',
         // Not dropping app_metadata to preserve version information
-      ];
-      
+      ]
+
       for (const table of tables) {
-        this.db.exec(`DROP TABLE IF EXISTS ${table};`);
+        this.db.exec(`DROP TABLE IF EXISTS ${table};`)
       }
-      
+
       // Commit the changes
-      this.db.exec('COMMIT;');
-      
+      this.db.exec('COMMIT;')
+
       // Re-enable foreign key constraints
-      this.db.pragma('foreign_keys = ON');
-      
-      console.log('\x1b[33m[Database] Successfully reset all tables\x1b[0m');
-      
+      this.db.pragma('foreign_keys = ON')
+
+      logger.success('Successfully reset all database tables')
+
       // Recreate the database schema
-      this.initializeDatabase();
-      
-      return { success: true, message: 'Database has been reset successfully' };
-    } catch (error) {
+      this._initializeSchema()
+
+      return { success: true, message: 'Database has been reset successfully' }
+    }
+    catch (error) {
       // If error occurs, rollback any partial changes
-      this.db.exec('ROLLBACK;');
-      this.db.pragma('foreign_keys = ON');
-      console.error('\x1b[31m[Database] Failed to reset database:\x1b[0m', error.message);
-      return { success: false, message: `Failed to reset database: ${error.message}` };
+      this.db.exec('ROLLBACK;')
+      this.db.pragma('foreign_keys = ON')
+      logger.error('Failed to reset database:', error)
+      return { success: false, message: `Failed to reset database: ${error.message}` }
+    }
+  }
+
+  // Gracefully close database connection
+  close() {
+    try {
+      if (this.db) {
+        this.db.close()
+        logger.info('Database connection closed')
+      }
+    }
+    catch (error) {
+      logger.error('Error closing database:', error)
     }
   }
 }
 
+// Create a singleton instance
 export const fileDB = new FileDatabase()
 
 // Import operations
@@ -271,4 +399,5 @@ Object.assign(
   favoritesOperations,
   applicationsOperations,
   notesOperations,
+  emojisOperations,
 )

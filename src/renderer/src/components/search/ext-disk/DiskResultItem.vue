@@ -1,7 +1,7 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { IPC_CHANNELS } from '../../../../../main/ipc/ipcChannels'
-import { getFileType as getFileTypeUtil, isFileOfType } from '../../../../../utils/mimeTypeUtils'
+import { computed } from 'vue'
+import { getFileType as getFileTypeUtil } from '../../../../../utils/mimeTypeUtils'
+import { useFileIconHandler } from '../../../composables/useFileIconHandler'
 import { useMimeTypeIcons } from '../../../composables/useMimeTypeIcons'
 import PopoverThumbnail from '../../common/PopoverThumbnail.vue'
 
@@ -17,13 +17,18 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['open-file', 'show-in-directory'])
-const thumbnail = ref(null)
-const fileIcon = ref(null)
 
-function isImageFile(filename) {
-  return isFileOfType(filename, 'image')
-}
+// Use the file icon handler composable for icon and thumbnail management
+const {
+  thumbnail,
+  fileIcon,
+  isImageFile,
+} = useFileIconHandler(props.file)
 
+// Use the MIME type icons composable for file type icons
+const { getMimeIcon } = useMimeTypeIcons(props.file.mimeType)
+
+// Simple action handlers
 function openFile(file) {
   emit('open-file', file)
 }
@@ -32,22 +37,12 @@ function showInDirectory(path) {
   emit('show-in-directory', path)
 }
 
-async function loadThumbnail() {
-  if (!isImageFile(props.file.name))
-    return
-
-  try {
-    const pathToUse = props.file.path
-    const data = await window.api.invoke(IPC_CHANNELS.GET_THUMBNAIL, pathToUse)
-    thumbnail.value = data
-  }
-  catch (error) {
-    console.error('Failed to load thumbnail:', error)
-  }
+// File type utilities
+function getFileType(file) {
+  return getFileTypeUtil(file)
 }
 
-const { getMimeIcon } = useMimeTypeIcons(props.file.mimeType)
-
+// Computed properties for optimized rendering
 const iconSource = computed(() => {
   if (props.file.type === 'application' && props.file.metadata?.icon) {
     return props.file.metadata.icon
@@ -58,62 +53,37 @@ const iconSource = computed(() => {
   if (isImageFile(props.file.name)) {
     return thumbnail.value
   }
-  return fileIcon.value || props.file.icon || null // Return null to trigger fallback icon
+  return fileIcon.value || props.file.icon || null
 })
 
-async function loadFileIcon() {
-  if (
-    !props.file.path
-    || props.file.type === 'application'
-    || getFileType(props.file) === 'directory'
-  ) {
-    return
+const displayName = computed(() => {
+  if (props.file.type === 'application') {
+    return props.file.metadata?.displayName || props.file.name
   }
+  return props.file.name
+})
 
-  try {
-    const icon = await window.api.invoke(IPC_CHANNELS.GET_FILE_ICON, props.file.path)
-    fileIcon.value = icon
-  }
-  catch (error) {
-    console.error('Failed to load file icon:', error)
-  }
-}
+const itemTitle = computed(() => {
+  return `${displayName.value}\n${props.file.path}`
+})
 
-// Use the utility function from mimeTypeUtils.js
-function getFileType(file) {
-  return getFileTypeUtil(file)
-}
-
-function getDisplayName(file) {
-  if (file.type === 'application') {
-    return file.metadata?.displayName || file.name
-  }
-  return file.name
-}
-
-function getItemTitle(file) {
-  return `${getDisplayName(file)}\n${file.path}`
-}
-
-// Add helper function for capitalization
+// Helper for capitalization
 function capitalizeFirstLetter(string) {
   return string.charAt(0).toUpperCase() + string.slice(1)
 }
-
-onMounted(() => {
-  loadThumbnail()
-  loadFileIcon()
-})
 </script>
 
 <template>
   <div
-    :title="getItemTitle(file)"
-    class="group h-16 p-1.5 transition-all duration-300 border-2 cursor-pointer rounded-xl focus:outline-hidden hover:h-20 relative z-10 hover:z-20" :class="[
-      isSelected
-        ? 'bg-accent-200 border-accent-400 dark:bg-accent-700 dark:border-accent-400'
-        : 'bg-gray-50 dark:bg-gray-700 hover:shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 border-transparent',
-    ]"
+    :title="itemTitle"
+    class="group h-16 p-1.5 transition-all duration-300 border-2 cursor-pointer rounded-xl focus:outline-hidden relative z-10
+          hover:h-20 hover:z-20 hover:shadow-md
+          bg-gray-50 dark:bg-gray-700 border-transparent
+          hover:bg-gray-100 dark:hover:bg-gray-700/80"
+    :class="{
+      'bg-accent-200 border-accent-400 dark:bg-accent-700 dark:border-accent-400': isSelected,
+      'bg-gray-50 dark:bg-gray-700 border-transparent': !isSelected,
+    }"
     @click.stop="showInDirectory(file.path)"
     @keydown.enter="openFile(file)"
   >
@@ -163,9 +133,9 @@ onMounted(() => {
       <div class="flex-1 min-w-0 pt-0.5">
         <div class="flex items-center space-x-2">
           <span class="text-base font-semibold truncate cursor-pointer">
-            {{ getDisplayName(file) }}
+            {{ displayName }}
           </span>
-          <!-- Updated to use boolean isFavorite -->
+          <!-- Metadata indicators -->
           <span
             v-if="file.isFavorite"
             class="text-sm material-symbols-outlined text-amber-500"
@@ -187,7 +157,6 @@ onMounted(() => {
       </div>
 
       <!-- Right: Action buttons -->
-      <!-- Notice that folders do also get opened with OpenFile to jump directly into it -->
       <div class="flex space-x-1 transition-opacity duration-200 opacity-0 shrink-0 group-hover:opacity-100">
         <button
           v-if="getFileType(file) !== 'directory'"

@@ -6,7 +6,7 @@ export const watcherConfig = {
   processing: {
     // Default delay between processing files (ms)
     defaultDelay: 50,
-    
+
     // Batch processing settings
     defaultBatchSize: 10,
     enableBatching: true,

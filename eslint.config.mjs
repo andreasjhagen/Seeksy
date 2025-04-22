@@ -7,5 +7,6 @@ export default antfu({
   rules: {
     'no-console': 'off',
     'node/prefer-global/process': 'off',
+    'vue/custom-event-name-casing': 'off',
   },
 })

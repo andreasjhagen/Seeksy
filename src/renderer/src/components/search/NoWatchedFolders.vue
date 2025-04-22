@@ -1,8 +1,8 @@
 <script setup>
-import { IPC_CHANNELS } from '../../../../main/ipc/ipcChannels'
+import { IPC } from '../../../../main/ipc/ipcChannels'
 
 async function openSettings() {
-  await window.api.invoke(IPC_CHANNELS.SHOW_SETTINGS_PAGE)
+  await window.api.invoke(IPC.WINDOW.SHOW_SETTINGS_PAGE)
 }
 </script>
 

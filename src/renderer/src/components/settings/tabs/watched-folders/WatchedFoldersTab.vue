@@ -90,7 +90,7 @@ async function handleConfirm({ paths, depth }) {
     try {
       showDialog.value = false
       let hasErrors = false
-      let warnings = []
+      const warnings = []
 
       for (const path of paths) {
         // Validate path first

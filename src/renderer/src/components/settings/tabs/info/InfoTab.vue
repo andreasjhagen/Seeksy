@@ -1,7 +1,6 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { IPC_CHANNELS } from '../../../../../../main/ipc/ipcChannels'
-import UpdateCheckLabel from './UpdateCheckLabel.vue'
 import ShowAppDataFolderButton from '../../ShowAppDataFolderButton.vue'
 
 const systemInfo = ref({
@@ -60,7 +59,7 @@ onMounted(async () => {
           </div>
           <div class="flex items-center gap-2 text-gray-900 dark:text-gray-100">
             {{ systemInfo.version }}
-            <!--<UpdateCheckLabel :current-version="systemInfo.version" />-->
+            <!-- <UpdateCheckLabel :current-version="systemInfo.version" /> -->
           </div>
 
           <div class="text-gray-500 dark:text-gray-400">
@@ -83,12 +82,11 @@ onMounted(async () => {
         <div class="flex flex-col items-start gap-2">
           <button
             class="text-sm cursor-pointer text-accent-600 hover:text-accent-700 dark:text-accent-300 dark:hover:text-accent-200"
-            @click="openExternalLink('https://github.com/voidvalkon/seeksy')">
+            @click="openExternalLink('https://github.com/voidvalkon/seeksy')"
+          >
             GitHub Repository
           </button>
           <ShowAppDataFolderButton />
-
-
         </div>
       </div>
 
@@ -108,7 +106,8 @@ onMounted(async () => {
             </div>
             <button
               class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg cursor-pointer hover:bg-red-700"
-              @click="resetApplication">
+              @click="resetApplication"
+            >
               Reset App
             </button>
           </div>

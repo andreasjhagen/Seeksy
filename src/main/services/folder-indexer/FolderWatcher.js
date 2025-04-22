@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import chokidar from 'chokidar'
-import { fileDB as db } from '../database/database.js'
+import { fileDB } from '../database/database.js'
 import { countFolderContent } from '../disk-reader/utils/countFiles.js'
 import { createIgnorePatterns, isExcludedPath } from './config/exclusionPatterns.js'
 import { watcherConfig } from './config/watcherConfig.js'
@@ -11,7 +11,7 @@ export class FolderWatcher extends EventEmitter {
     super()
     this.watchPath = watchPath
     this.depth = options.depth ?? Infinity
-    this.processor = new FileProcessor(db)
+    this.processor = new FileProcessor()
 
     // State
     this.isPaused = false

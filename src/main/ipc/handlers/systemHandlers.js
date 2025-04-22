@@ -5,6 +5,11 @@ import { appSettings } from '../../services/electron-store/AppSettingsStore'
 import { BaseHandler } from '../BaseHandler'
 import { IPC } from '../ipcChannels'
 
+/**
+ * SystemHandler: Handles system-level operations
+ *
+ * Responsible for system info, notifications, progress bars, and application reset
+ */
 export class SystemHandler extends BaseHandler {
   constructor(indexer) {
     super()
@@ -31,6 +36,7 @@ export class SystemHandler extends BaseHandler {
 
   async handleCheckForUpdates() {
     try {
+      // TODO: Implement actual update checking logic
       return {
         hasUpdate: false,
         currentVersion: app.getVersion(),
@@ -40,7 +46,7 @@ export class SystemHandler extends BaseHandler {
     }
     catch (error) {
       console.error('Update check failed:', error)
-      return { error: error.message, hasUpdate: false }
+      return { success: false, error: error.message, hasUpdate: false }
     }
   }
 
@@ -58,7 +64,7 @@ export class SystemHandler extends BaseHandler {
     }
   }
 
-  async handleShowNotification(event, { title, body, icon }) {
+  async handleShowNotification(_, { title, body, icon }) {
     try {
       if (!Notification.isSupported()) {
         throw new Error('Notifications are not supported on this system')
@@ -79,7 +85,7 @@ export class SystemHandler extends BaseHandler {
     }
   }
 
-  async handleSetProgressBar(event, { progress, mode = 'normal' }) {
+  async handleSetProgressBar(_, { progress, mode = 'normal' }) {
     try {
       const window = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
       if (!window) {
@@ -114,20 +120,6 @@ export class SystemHandler extends BaseHandler {
   }
 }
 
-export default function setupSystemHandlers(indexer, fileDB) {
-  return new SystemHandler(indexer, fileDB)
+export default function setupSystemHandlers(indexer) {
+  return new SystemHandler(indexer)
 }
-
-/*
-// Examples:
-ipcRenderer.invoke(IPC.SYSTEM.SET_PROGRESS_BAR, { progress: 0.5 }) // 50% progress
-ipcRenderer.invoke(IPC.SYSTEM.SET_PROGRESS_BAR, { mode: 'indeterminate' }) // Loading state
-ipcRenderer.invoke(IPC.SYSTEM.SET_PROGRESS_BAR, { mode: 'none' }) // Hide progress
-ipcRenderer.invoke(IPC.SYSTEM.SET_PROGRESS_BAR, { mode: 'error' }) // Error state
-
-ipcRenderer.invoke(IPC.SYSTEM.SHOW_NOTIFICATION, {
-  title: 'Hello',
-  body: 'This is a notification',
-  icon: 'optional/path/to/icon.png'
-})
-  */

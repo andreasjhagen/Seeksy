@@ -1,12 +1,12 @@
 import { applicationLauncher } from '../../services/application-indexer/ApplicationLauncher.js'
+import { fileDB } from '../../services/database/database.js'
 import { BaseHandler } from '../BaseHandler.js'
 import { IPC } from '../ipcChannels.js'
 
 export class InstalledAppsHandler extends BaseHandler {
-  constructor(indexer, fileDB) {
+  constructor(indexer) {
     super()
     this.indexer = indexer
-    this.fileDB = fileDB
     this.registerHandlers({
       [IPC.BACKEND.APP_SEARCH]: this.handleAppSearch.bind(this),
       [IPC.BACKEND.APP_LAUNCH]: this.handleAppLaunch.bind(this),
@@ -34,6 +34,6 @@ export class InstalledAppsHandler extends BaseHandler {
   }
 }
 
-export default function setupAppIndexerHandlers(indexer, fileDB) {
-  return new InstalledAppsHandler(indexer, fileDB)
+export default function setupAppIndexerHandlers(indexer) {
+  return new InstalledAppsHandler(indexer)
 }

@@ -20,7 +20,7 @@ export class StatusManager {
     }
 
     this.updateCallback(getStatusFn())
-    
+
     this.updateTimer = setTimeout(() => {
       this.updateTimer = null
       if (this.updatePending) {
@@ -61,7 +61,7 @@ export class StatusManager {
     this.updateInterval = interval
     this.cleanup()
   }
-  
+
   /**
    * Determine global status based on folder stats
    */

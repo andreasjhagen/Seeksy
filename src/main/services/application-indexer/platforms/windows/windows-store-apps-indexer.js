@@ -1,5 +1,4 @@
 import { execFile } from 'node:child_process'
-import path from 'node:path'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
@@ -202,14 +201,14 @@ function formatAppName(name, packageName) {
  */
 export async function indexWindowsStoreApps() {
   const applications = []
-  
+
   // Simplified filter for system apps
   const systemPackagePatterns = [
     /^Microsoft\.NET\./i,
     /^Microsoft\.UI\./i,
     /^Microsoft\.VCLibs\./i,
     /^Windows\..*?\.?Runtime$/i,
-    /\.RuntimeBroker$/i
+    /\.RuntimeBroker$/i,
   ]
 
   try {
@@ -222,7 +221,7 @@ export async function indexWindowsStoreApps() {
     ])
 
     const storeApps = JSON.parse(stdout.trim())
-    
+
     for (const app of storeApps) {
       // Skip system packages
       if (systemPackagePatterns.some(pattern => pattern.test(app.packageName))) {
@@ -240,7 +239,7 @@ export async function indexWindowsStoreApps() {
         path: `shell:AppsFolder\\${app.familyName}!${app.appId}`,
         requiresProtocolLaunch: true,
         applicationType: 'uwp',
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
       })
     }
 

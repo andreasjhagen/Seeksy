@@ -1,11 +1,11 @@
+import { fileDB } from '../../services/database/database.js'
 import { BaseHandler } from '../BaseHandler'
 import { IPC } from '../ipcChannels'
 
 export class IndexHandler extends BaseHandler {
-  constructor(indexer, fileDB) {
+  constructor(indexer) {
     super()
     this.indexer = indexer
-    this.fileDB = fileDB
 
     this.registerHandlers({
       [IPC.BACKEND.INDEXER_INITIALIZE]: this.handleInitialize.bind(this),
@@ -64,7 +64,7 @@ export class IndexHandler extends BaseHandler {
   }
 
   async handleAddPath(_, path, options = { depth: Infinity }) {
-    await this.fileDB.addWatchFolder(path, options.depth)
+    await fileDB.addWatchFolder(path, options.depth)
     await this.indexer.addWatchPath(path, options)
     return this.indexer.getWatcherStatus(path)
   }
@@ -80,7 +80,7 @@ export class IndexHandler extends BaseHandler {
   async handleResetDatabase() {
     try {
       await this.indexer.cleanup()
-      this.fileDB.resetDatabase()
+      fileDB.resetDatabase()
       return { success: true }
     }
     catch (error) {
@@ -110,6 +110,6 @@ export class IndexHandler extends BaseHandler {
   }
 }
 
-export default function setupFileIndexerHandlers(indexer, fileDB) {
-  return new IndexHandler(indexer, fileDB)
+export default function setupFileIndexerHandlers(indexer) {
+  return new IndexHandler(indexer)
 }

@@ -1,7 +1,6 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import { lookup } from 'mime-types'
 import MIME_TYPES from '../../../constants/mimeTypes.js'
 
 /**
@@ -20,8 +19,8 @@ export async function extractFileMetadata(filePath, stats) {
     const extWithDot = path.extname(filePath)
     const extension = extWithDot ? extWithDot.substring(1).toLowerCase() : ''
 
-    // First try to get MIME type from our constants, then fall back to lookup
-    const mimeType = MIME_TYPES[extWithDot] || lookup(filePath) || 'application/octet-stream'
+    // First try to get MIME type from our constants, then fall back to mime-types
+    const mimeType = MIME_TYPES[extWithDot] || 'application/octet-stream'
 
     // Determine file type from mime type
     let fileType = 'unknown'

@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { IPC_CHANNELS } from '../../main/ipc/ipcChannels'
+import { provideContextMenuService } from './composables/useContextMenu'
 import { useSelectionStore } from './stores/selection-store'
 import { useSettingsStore } from './stores/settings-store'
 import { generateColorPalette } from './utils/colorUtils'
@@ -11,6 +12,9 @@ const initializationStatus = ref('pending')
 const router = useRouter()
 const settingsStore = useSettingsStore()
 const selectionStore = useSelectionStore()
+
+// Provide the context menu service to the entire application
+const contextMenuService = provideContextMenuService()
 
 // Theme management
 watch(

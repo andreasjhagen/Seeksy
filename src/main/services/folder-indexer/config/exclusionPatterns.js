@@ -71,7 +71,7 @@ export function createIgnorePatterns() {
   ]).flat()
 
   return [
-    /(^|[/\\])\../,  // dot files and folders
+    /(^|[/\\])\../, // dot files and folders
     ...folderPatterns,
     ...EXCLUDED_PATTERNS.FILES,
   ]
