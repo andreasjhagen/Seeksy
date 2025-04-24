@@ -166,11 +166,6 @@ class AutoUpdateService {
         lastCheck: new Date().toISOString(),
       })
     })
-
-    // Check for updates initially (with a slight delay to let the app initialize)
-    setTimeout(() => {
-      this.checkForUpdates()
-    }, 10000)
   }
 
   /**

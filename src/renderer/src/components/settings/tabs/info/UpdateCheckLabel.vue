@@ -10,6 +10,7 @@ const downloadProgress = ref(0)
 const error = ref(null)
 const lastCheckTime = ref(null)
 const debugInfo = ref(null)
+const checkInProgress = ref(false)
 
 // Get current app version on component mount
 async function getCurrentVersion() {
@@ -23,13 +24,20 @@ async function getCurrentVersion() {
   }
 }
 
-// Added new function to force check updates
+// Force check for updates with no caching
 async function forceCheckForUpdates() {
+  // Prevent multiple simultaneous checks
+  if (checkInProgress.value) {
+    console.log('Update check already in progress, skipping')
+    return
+  }
+
   try {
+    checkInProgress.value = true
     updateStatus.value = 'checking'
     latestVersion.value = 'Checking...'
 
-    // Add a new IPC channel for force-checking updates
+    // Always use FORCE_CHECK_FOR_UPDATES to bypass caching
     const result = await window.api.invoke(IPC.UPDATER.FORCE_CHECK_FOR_UPDATES)
     console.log('Force update check result:', result)
 
@@ -41,24 +49,14 @@ async function forceCheckForUpdates() {
     error.value = err.message
     latestVersion.value = currentVersion.value
   }
+  finally {
+    checkInProgress.value = false
+  }
 }
 
 async function checkForUpdates() {
-  try {
-    updateStatus.value = 'checking'
-    latestVersion.value = 'Checking...'
-
-    const result = await window.api.invoke(IPC.UPDATER.CHECK_FOR_UPDATES)
-    console.log('Update check result:', result)
-
-    handleUpdateResult(result)
-  }
-  catch (err) {
-    console.error('Error checking for updates:', err)
-    updateStatus.value = 'error'
-    error.value = err.message
-    latestVersion.value = currentVersion.value
-  }
+  // Use the force check to ensure we get fresh results every time
+  await forceCheckForUpdates()
 }
 
 function handleUpdateResult(result) {
@@ -215,8 +213,9 @@ onMounted(() => {
     // Set up status listener
     setupUpdateStatusListener()
 
-    // Check for updates when component mounts
-    checkForUpdates()
+    // Force check for updates when component mounts (user navigates to info tab)
+    // Use forceCheckForUpdates to always get fresh results
+    forceCheckForUpdates()
   })
 })
 </script>
