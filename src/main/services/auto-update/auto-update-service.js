@@ -45,7 +45,10 @@ class AutoUpdateService {
     autoUpdater.allowDowngrade = false
     autoUpdater.allowPrerelease = false
 
-    console.log('Auto Update Service initialized with app version:', app.getVersion())
+    // Log the feed URL for debugging
+    const platform = process.platform
+    console.log(`Auto Update Service initialized for ${platform} with app version: ${app.getVersion()}`)
+    console.log(`Update feed URL: ${autoUpdater.getFeedURL?.() || 'Using default feed URL'}`)
 
     // Set up event listeners
     autoUpdater.on('checking-for-update', () => {
@@ -135,8 +138,29 @@ class AutoUpdateService {
 
     autoUpdater.on('error', (error) => {
       console.error('Auto update error:', error)
+
+      // Enhanced error handling for specific issues
+      let errorMessage = error.toString()
+      let diagnosticInfo = {}
+
+      // Check for specific error patterns
+      if (error.message && error.message.includes('latest.yml')) {
+        errorMessage = 'Update metadata file (latest.yml) not found in release artifacts. '
+          + 'Check if the GitHub release includes all required files.'
+        diagnosticInfo = {
+          platform: process.platform,
+          expectedFile: process.platform === 'darwin'
+            ? 'latest-mac.yml'
+            : (process.platform === 'win32' ? 'latest.yml' : 'latest-linux.yml'),
+          feedUrl: autoUpdater.getFeedURL?.() || 'Using default feed URL',
+          currentVersion: app.getVersion(),
+        }
+        console.error('Auto update diagnostic info:', diagnosticInfo)
+      }
+
       this._updateStatus({
-        error: error.toString(),
+        error: errorMessage,
+        diagnosticInfo,
         checking: false,
         checkingInProgress: false,
         lastCheck: new Date().toISOString(),

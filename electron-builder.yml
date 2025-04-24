@@ -22,6 +22,7 @@ win:
   target:
     - nsis
     - portable
+  artifactName: ${name}-${version}-${os}-${arch}.${ext}
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -38,18 +39,24 @@ mac:
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
+  artifactName: ${name}-${version}-mac-${arch}.${ext}
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${name}-${version}-mac-${arch}.${ext}
 linux:
   target:
     - AppImage
     - deb
   maintainer: andreashagen
   category: Utility
+  artifactName: ${name}-${version}-linux-${arch}.${ext}
 appImage:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${name}-${version}-linux-${arch}.${ext}
 npmRebuild: false
 publish:
   provider: github
   owner: andreasjhagen
   repo: seeksy
+  releaseType: release
+  publishAutoUpdate: true
+  private: false
+  vPrefixedTagName: true
