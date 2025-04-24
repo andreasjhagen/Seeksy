@@ -25,6 +25,7 @@ import { IPC } from './ipc/ipcChannels.js'
 
 // Services
 import { applicationLauncher } from './services/application-indexer/ApplicationLauncher.js'
+import { autoUpdateService } from './services/auto-update/auto-update-service.js'
 import { fileDB } from './services/database/database'
 import { IndexController } from './services/folder-indexer/IndexController.js'
 import { registerFileProtocol } from './services/registerFileProtocol'
@@ -256,6 +257,9 @@ app.whenReady().then(() => {
   })
 
   electronApp.setAppUserModelId('com.electron')
+
+  // Initialize auto-update service
+  autoUpdateService.initialize()
 
   // Initialize services
   const indexer = new IndexController(fileDB)

@@ -1,5 +1,6 @@
 import os from 'node:os'
 import { app, BrowserWindow, Notification } from 'electron'
+import { autoUpdateService } from '../../services/auto-update/auto-update-service'
 import { fileDB } from '../../services/database/database'
 import { appSettings } from '../../services/electron-store/AppSettingsStore'
 import { BaseHandler } from '../BaseHandler'
@@ -20,6 +21,10 @@ export class SystemHandler extends BaseHandler {
       [IPC.SYSTEM.RESET_APPLICATION]: this.handleResetApplication.bind(this),
       [IPC.SYSTEM.SHOW_NOTIFICATION]: this.handleShowNotification.bind(this),
       [IPC.SYSTEM.SET_PROGRESS_BAR]: this.handleSetProgressBar.bind(this),
+      [IPC.UPDATER.CHECK_FOR_UPDATES]: this.handleUpdaterCheckForUpdates.bind(this),
+      [IPC.UPDATER.FORCE_CHECK_FOR_UPDATES]: this.handleUpdaterForceCheckForUpdates.bind(this),
+      [IPC.UPDATER.DOWNLOAD_UPDATE]: this.handleUpdaterDownloadUpdate.bind(this),
+      [IPC.UPDATER.INSTALL_UPDATE]: this.handleUpdaterInstallUpdate.bind(this),
     })
   }
 
@@ -36,17 +41,62 @@ export class SystemHandler extends BaseHandler {
 
   async handleCheckForUpdates() {
     try {
-      // TODO: Implement actual update checking logic
-      return {
-        hasUpdate: false,
-        currentVersion: app.getVersion(),
-        latestVersion: app.getVersion(),
-        updateUrl: null,
-      }
+      return await this.handleUpdaterCheckForUpdates()
     }
     catch (error) {
       console.error('Update check failed:', error)
       return { success: false, error: error.message, hasUpdate: false }
+    }
+  }
+
+  async handleUpdaterCheckForUpdates() {
+    try {
+      return await autoUpdateService.checkForUpdates()
+    }
+    catch (error) {
+      console.error('Updater check failed:', error)
+      return {
+        success: false,
+        error: error.message,
+        updateAvailable: false,
+        currentVersion: app.getVersion(),
+      }
+    }
+  }
+
+  async handleUpdaterForceCheckForUpdates() {
+    try {
+      return await autoUpdateService.forceCheckFromSource()
+    }
+    catch (error) {
+      console.error('Force update check failed:', error)
+      return {
+        success: false,
+        error: error.message,
+        updateAvailable: false,
+        currentVersion: app.getVersion(),
+      }
+    }
+  }
+
+  async handleUpdaterDownloadUpdate() {
+    try {
+      return await autoUpdateService.downloadUpdate()
+    }
+    catch (error) {
+      console.error('Update download failed:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  async handleUpdaterInstallUpdate() {
+    try {
+      autoUpdateService.quitAndInstall()
+      return { success: true }
+    }
+    catch (error) {
+      console.error('Update installation failed:', error)
+      return { success: false, error: error.message }
     }
   }
 

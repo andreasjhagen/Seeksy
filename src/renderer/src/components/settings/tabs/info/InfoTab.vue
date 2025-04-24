@@ -2,10 +2,12 @@
 import { onMounted, ref } from 'vue'
 import { IPC_CHANNELS } from '../../../../../../main/ipc/ipcChannels'
 import ShowAppDataFolderButton from '../../ShowAppDataFolderButton.vue'
+import UpdateCheckLabel from './UpdateCheckLabel.vue'
 
 const systemInfo = ref({
   platform: '',
   arch: '',
+  version: 'Loading...', // Add a default value for version
 })
 
 function openExternalLink(url) {
@@ -39,9 +41,16 @@ async function resetApplication() {
 }
 
 onMounted(async () => {
-  // Get system info
-  const info = await window.api.invoke(IPC_CHANNELS.GET_SYSTEM_INFO)
-  systemInfo.value = info
+  try {
+    // Get system info
+    const info = await window.api.invoke(IPC_CHANNELS.GET_SYSTEM_INFO)
+    systemInfo.value = info
+    console.log('System info received:', info) // Add logging to debug
+  }
+  catch (error) {
+    console.error('Failed to get system info:', error)
+    systemInfo.value.version = 'Unknown' // Fallback version if error occurs
+  }
 })
 </script>
 
@@ -59,7 +68,8 @@ onMounted(async () => {
           </div>
           <div class="flex items-center gap-2 text-gray-900 dark:text-gray-100">
             {{ systemInfo.version }}
-            <!-- <UpdateCheckLabel :current-version="systemInfo.version" /> -->
+            <!-- Only show UpdateCheckLabel when version is available -->
+            <UpdateCheckLabel v-if="systemInfo.version && systemInfo.version !== 'Loading...'" :current-version="systemInfo.version" />
           </div>
 
           <div class="text-gray-500 dark:text-gray-400">
