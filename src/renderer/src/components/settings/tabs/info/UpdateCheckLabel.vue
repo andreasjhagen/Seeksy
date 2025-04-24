@@ -277,14 +277,6 @@ onMounted(() => {
           >
             ↻
           </button>
-
-          <button
-            class="text-xs text-gray-500 cursor-pointer dark:text-gray-400 hover:text-accent dark:hover:text-accent-300"
-            title="Force check for updates (bypasses cache)"
-            @click="forceCheckForUpdates"
-          >
-            ⟳
-          </button>
         </div>
       </div>
     </div>
@@ -298,7 +290,7 @@ onMounted(() => {
     </div>
 
     <!-- Display checksum error details if present -->
-    <div v-if="error && error.toLowerCase().includes('checksum')" class="mt-1 text-xs text-red-500">
+    <div v-if="error" class="mt-1 text-xs text-red-500">
       {{ error }}
     </div>
   </div>
