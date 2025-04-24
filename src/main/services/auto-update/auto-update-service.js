@@ -44,7 +44,7 @@ class AutoUpdateService {
     autoUpdater.autoDownload = false
     autoUpdater.allowDowngrade = false
     autoUpdater.allowPrerelease = false
-    autoUpdater.forceDevUpdateConfig = true
+    autoUpdater.forceDevUpdateConfig = true // For debugging the auto updater
 
     // Log the feed URL for debugging
     const platform = process.platform
