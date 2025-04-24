@@ -222,8 +222,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col">
-    <div class="flex flex-row items-center justify-center">
+  <div class="flex flex-col items-start">
+    <div class="flex flex-row items-center justify-center gap-2">
       {{ currentVersion }}
       <div class="flex items-center gap-2">
         <!-- Update status indicator -->
@@ -284,9 +284,6 @@ onMounted(() => {
     <!-- Update info details -->
     <div v-if="lastCheckTime" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
       Last checked: {{ lastCheckTime }}
-      <span v-if="debugInfo?.currentVersion && debugInfo?.remoteVersion">
-        ({{ debugInfo.currentVersion }} → {{ debugInfo.remoteVersion }})
-      </span>
     </div>
 
     <!-- Display checksum error details if present -->

@@ -44,11 +44,11 @@ class AutoUpdateService {
     autoUpdater.autoDownload = false
     autoUpdater.allowDowngrade = false
     autoUpdater.allowPrerelease = false
+    autoUpdater.forceDevUpdateConfig = true
 
     // Log the feed URL for debugging
     const platform = process.platform
     console.log(`Auto Update Service initialized for ${platform} with app version: ${app.getVersion()}`)
-    console.log(`Update feed URL: ${autoUpdater.getFeedURL?.() || 'Using default feed URL'}`)
 
     // Set up event listeners
     autoUpdater.on('checking-for-update', () => {

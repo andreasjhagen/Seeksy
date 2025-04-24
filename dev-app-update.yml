@@ -1,0 +1,5 @@
+provider: github
+owner: andreasjhagen
+repo: seeksy
+releaseType: release
+vPrefixedTagName: true

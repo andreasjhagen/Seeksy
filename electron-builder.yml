@@ -29,6 +29,7 @@ nsis:
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
   deleteAppDataOnUninstall: true
+  disableWebInstaller: true
 portable:
   artifactName: ${name}-${version}-portable.${ext}
 mac:
