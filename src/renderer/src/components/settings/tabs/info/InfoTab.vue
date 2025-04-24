@@ -67,9 +67,7 @@ onMounted(async () => {
             Version
           </div>
           <div class="flex items-center gap-2 text-gray-900 dark:text-gray-100">
-            {{ systemInfo.version }}
-            <!-- Only show UpdateCheckLabel when version is available -->
-            <UpdateCheckLabel v-if="systemInfo.version && systemInfo.version !== 'Loading...'" :current-version="systemInfo.version" />
+            <UpdateCheckLabel />
           </div>
 
           <div class="text-gray-500 dark:text-gray-400">
