@@ -11,6 +11,8 @@ const error = ref(null)
 const lastCheckTime = ref(null)
 const debugInfo = ref(null)
 const checkInProgress = ref(false)
+const wasDownloaded = ref(false) // Track if an update was previously downloaded
+const downloadedVersion = ref(null) // Track which version was downloaded
 
 // Get current app version on component mount
 async function getCurrentVersion() {
@@ -32,22 +34,79 @@ async function forceCheckForUpdates() {
     return
   }
 
+  // Remember if we had a downloaded update before checking
+  const previousStatus = updateStatus.value
+  wasDownloaded.value = previousStatus === 'downloaded'
+  // We save the downloaded version to compare with any new version that might be available
+  const previousVersion = latestVersion.value
+
   try {
     checkInProgress.value = true
-    updateStatus.value = 'checking'
-    latestVersion.value = 'Checking...'
+
+    // Only change status to checking if we didn't have a downloaded update
+    if (!wasDownloaded.value) {
+      updateStatus.value = 'checking'
+      latestVersion.value = 'Checking...'
+    }
 
     // Always use FORCE_CHECK_FOR_UPDATES to bypass caching
     const result = await window.api.invoke(IPC.UPDATER.FORCE_CHECK_FOR_UPDATES)
     console.log('Force update check result:', result)
 
+    // Check if we have a downloaded update, and if a newer version is available on the server
+    if (wasDownloaded.value && !result.error) {
+      console.log('Previously downloaded version:', previousVersion)
+      console.log('New available version:', result.remoteVersion)
+
+      // Store the downloaded version if not already set
+      if (!downloadedVersion.value && wasDownloaded.value) {
+        downloadedVersion.value = previousVersion
+      }
+
+      // If we have valid version info to compare
+      if (result.remoteVersion && downloadedVersion.value) {
+        try {
+          // Compare versions - if server has newer version than what we've downloaded
+          // This uses the built-in semver comparison that autoUpdater uses
+          const hasNewerVersion = result.isNewerThanDownloaded
+
+          if (hasNewerVersion) {
+            console.log('Newer version available than what was previously downloaded')
+            // Override the downloaded status to show "update available" for the newer version
+            result.updateDownloaded = false
+            wasDownloaded.value = false
+          }
+          else {
+            console.log('Preserving downloaded update status - no newer version available')
+            result.updateDownloaded = true
+          }
+        }
+        catch (error) {
+          console.error('Version comparison error:', error)
+          // Preserve downloaded status if version comparison fails
+          result.updateDownloaded = true
+        }
+      }
+      else {
+        // If we can't compare versions, preserve the downloaded status
+        result.updateDownloaded = true
+      }
+    }
+
     handleUpdateResult(result)
   }
   catch (err) {
     console.error('Error force-checking for updates:', err)
-    updateStatus.value = 'error'
-    error.value = err.message
-    latestVersion.value = currentVersion.value
+    // Restore previous status if it was 'downloaded'
+    if (wasDownloaded.value) {
+      updateStatus.value = 'downloaded'
+      latestVersion.value = downloadedVersion.value || previousVersion
+    }
+    else {
+      updateStatus.value = 'error'
+      error.value = err.message
+      latestVersion.value = currentVersion.value
+    }
   }
   finally {
     checkInProgress.value = false
@@ -63,11 +122,14 @@ function handleUpdateResult(result) {
   // Store debug info for advanced users
   debugInfo.value = {
     currentVersion: currentVersion.value,
+    downloadedVersion: downloadedVersion.value,
     remoteVersion: result.remoteVersion || result.updateInfo?.version,
     updateAvailable: result.updateAvailable,
     updateInfo: result.updateInfo,
     lastCheck: result.lastCheck,
     error: result.error,
+    updateDownloaded: result.updateDownloaded,
+    isNewerThanDownloaded: result.isNewerThanDownloaded,
   }
 
   // Update last check time
@@ -77,6 +139,12 @@ function handleUpdateResult(result) {
 
   // Handle error case specifically
   if (result.error) {
+    // Keep the downloaded status if that was our previous state
+    if (wasDownloaded.value) {
+      console.log('Error occurred, but preserving downloaded status')
+      return
+    }
+
     updateStatus.value = 'error'
     error.value = result.error
     latestVersion.value = currentVersion.value
@@ -92,24 +160,42 @@ function handleUpdateResult(result) {
 
   // Only throw an error if success is explicitly false and there's no error message
   if (result.success === false && !result.error) {
+    // Keep the downloaded status if that was our previous state
+    if (wasDownloaded.value) {
+      console.log('Check failed, but preserving downloaded status')
+      return
+    }
+
     error.value = 'Failed to check for updates'
     updateStatus.value = 'error'
     latestVersion.value = currentVersion.value
     return
   }
 
-  // Update state based on the result
-  if (result.updateAvailable) {
+  // If a newer version is available than what was downloaded, prioritize showing that
+  if (result.isNewerThanDownloaded) {
+    updateStatus.value = 'available'
+    latestVersion.value = result.remoteVersion || result.updateInfo?.version || 'newer version'
+    return
+  }
+
+  // Update state based on the result - with priority order
+  // Downloaded takes priority over available
+  if (result.updateDownloaded) {
+    updateStatus.value = 'downloaded'
+    latestVersion.value = result.remoteVersion || result.updateInfo?.version || downloadedVersion.value || 'newer version'
+    downloadedVersion.value = latestVersion.value
+  }
+  else if (result.updateAvailable) {
     updateStatus.value = 'available'
     latestVersion.value = result.remoteVersion || result.updateInfo?.version || 'newer version'
   }
-  else if (result.updateDownloaded) {
-    updateStatus.value = 'downloaded'
-    latestVersion.value = result.remoteVersion || result.updateInfo?.version || 'newer version'
-  }
   else {
-    updateStatus.value = 'up-to-date'
-    latestVersion.value = result.remoteVersion || currentVersion.value
+    // Only change to up-to-date if we didn't have a downloaded update
+    if (!wasDownloaded.value) {
+      updateStatus.value = 'up-to-date'
+      latestVersion.value = result.remoteVersion || currentVersion.value
+    }
   }
 }
 
@@ -120,6 +206,11 @@ async function downloadUpdate() {
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to download update')
+    }
+
+    // When successfully downloaded, store the version we downloaded
+    if (latestVersion.value && latestVersion.value !== 'Checking...') {
+      downloadedVersion.value = latestVersion.value
     }
   }
   catch (err) {
@@ -157,10 +248,21 @@ function setupUpdateStatusListener() {
       downloadProgress.value = status.downloadProgress || 0
     }
 
-    // Handle downloaded state first - highest priority
+    // If a newer version exists than what we've downloaded, prioritize that
+    if (status.isNewerThanDownloaded) {
+      updateStatus.value = 'available'
+      latestVersion.value = status.updateInfo?.version || status.remoteVersion || 'newer version'
+      return
+    }
+
+    // Handle states in priority order (downloaded > downloading > available > checking > up-to-date)
+
+    // Downloaded is the highest priority state
     if (status.updateDownloaded) {
       updateStatus.value = 'downloaded'
       latestVersion.value = status.updateInfo?.version || status.remoteVersion || 'newer version'
+      downloadedVersion.value = latestVersion.value
+      wasDownloaded.value = true
       return
     }
 
@@ -170,16 +272,8 @@ function setupUpdateStatusListener() {
       return
     }
 
-    // Handle remaining states in priority order
-    if (status.checking) {
-      updateStatus.value = 'checking'
-      latestVersion.value = 'Checking...'
-    }
-    else if (status.updateAvailable) {
-      updateStatus.value = 'available'
-      latestVersion.value = status.updateInfo?.version || status.remoteVersion || 'newer version'
-    }
-    else if (status.error) {
+    // Handle error state - but don't override downloaded
+    if (status.error && !wasDownloaded.value) {
       updateStatus.value = 'error'
       error.value = status.error
 
@@ -189,10 +283,23 @@ function setupUpdateStatusListener() {
       }
 
       latestVersion.value = currentVersion.value
+      return
     }
-    else {
-      updateStatus.value = 'up-to-date'
-      latestVersion.value = status.remoteVersion || currentVersion.value
+
+    // Only update other states if we haven't downloaded an update or if there's a newer version
+    if (!wasDownloaded.value || status.isNewerThanDownloaded) {
+      if (status.checking) {
+        updateStatus.value = 'checking'
+        latestVersion.value = 'Checking...'
+      }
+      else if (status.updateAvailable) {
+        updateStatus.value = 'available'
+        latestVersion.value = status.updateInfo?.version || status.remoteVersion || 'newer version'
+      }
+      else {
+        updateStatus.value = 'up-to-date'
+        latestVersion.value = status.remoteVersion || currentVersion.value
+      }
     }
 
     // Update last check time if provided
@@ -213,9 +320,8 @@ onMounted(() => {
     // Set up status listener
     setupUpdateStatusListener()
 
-    // Force check for updates when component mounts (user navigates to info tab)
-    // Use forceCheckForUpdates to always get fresh results
-    forceCheckForUpdates()
+    // Check for updates when component mounts
+    checkForUpdates()
   })
 })
 </script>
@@ -230,7 +336,7 @@ onMounted(() => {
           Checking for updates...
         </span>
 
-        <span v-else-if="updateStatus === 'up-to-date'" class="px-2 py-1 text-xs font-medium text-green-600 bg-green-100 rounded-full dark:bg-green-900/20 dark:text-green-400">
+        <span v-else-if="updateStatus === 'up-to-date'" class="px-2 py-1 text-xs font-medium text-green-600 bg-green-100 rounded-full dark:bg-green-900/60 dark:text-green-400">
           Up to date
         </span>
 
@@ -243,7 +349,7 @@ onMounted(() => {
         </span>
 
         <div v-else-if="updateStatus === 'downloading'" class="flex items-center gap-2">
-          <span class="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-full dark:bg-blue-900/20 dark:text-blue-400">
+          <span class="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-full dark:bg-blue-900/60 dark:text-blue-400">
             Downloading... {{ Math.round(downloadProgress) }}%
           </span>
           <div class="w-20 h-1 overflow-hidden bg-gray-200 rounded-full dark:bg-gray-700">

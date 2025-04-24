@@ -195,9 +195,15 @@ class AutoUpdateService {
 
     try {
       console.log('Manually checking for updates, current version:', app.getVersion())
+
+      // Remember if an update was already downloaded before starting a new check
+      const wasDownloaded = this.updateStatus.updateDownloaded
+      const previousDownloadedVersion = this.updateStatus.downloadedVersion || null
+
       this._updateStatus({
         checkingInProgress: true,
         error: null, // Clear any previous errors
+        // Don't clear updateDownloaded status
       })
 
       // Set a timeout to ensure the check doesn't hang indefinitely
@@ -230,6 +236,13 @@ class AutoUpdateService {
             const hasUpdate = semver.gt(remoteVersion, app.getVersion())
             console.log(`Manual version check: ${app.getVersion()} → ${remoteVersion}, update available: ${hasUpdate}`)
 
+            // Compare the remote version with the previously downloaded version (if any)
+            let isNewerThanDownloaded = false
+            if (wasDownloaded && previousDownloadedVersion) {
+              isNewerThanDownloaded = semver.gt(remoteVersion, previousDownloadedVersion)
+              console.log(`Comparing remote version ${remoteVersion} with downloaded version ${previousDownloadedVersion}: newer = ${isNewerThanDownloaded}`)
+            }
+
             this._updateStatus({
               updateAvailable: hasUpdate,
               updateInfo: updateCheckResult.updateInfo,
@@ -237,18 +250,45 @@ class AutoUpdateService {
               checking: false,
               checkingInProgress: false,
               lastCheck: new Date().toISOString(),
-              note: hasUpdate ? 'Update confirmed by manual version check' : 'No update needed',
+              // Only preserve downloaded status if it was true before AND there's no newer version
+              updateDownloaded: wasDownloaded && !isNewerThanDownloaded,
+              // Track if remote version is newer than the downloaded version
+              isNewerThanDownloaded,
+              // Keep track of the downloaded version
+              downloadedVersion: previousDownloadedVersion,
+              note: hasUpdate
+                ? (isNewerThanDownloaded
+                    ? 'Newer update available than previously downloaded'
+                    : 'Update confirmed by manual version check')
+                : 'No update needed',
             })
           }
           catch (versionError) {
             console.error('Version comparison error:', versionError)
             // Continue without failing if version comparison fails
+            this._updateStatus({
+              checking: false,
+              checkingInProgress: false,
+              lastCheck: new Date().toISOString(),
+              // Preserve downloaded status if that was our previous state
+              updateDownloaded: wasDownloaded,
+              downloadedVersion: previousDownloadedVersion,
+            })
           }
         }
         else {
           console.warn('Missing version information for comparison:', {
             current: app.getVersion(),
             remote: remoteVersion,
+          })
+
+          this._updateStatus({
+            checking: false,
+            checkingInProgress: false,
+            lastCheck: new Date().toISOString(),
+            // Preserve downloaded status if that was our previous state
+            updateDownloaded: wasDownloaded,
+            downloadedVersion: previousDownloadedVersion,
           })
         }
       }
@@ -259,6 +299,9 @@ class AutoUpdateService {
           checking: false,
           checkingInProgress: false,
           lastCheck: new Date().toISOString(),
+          // Preserve downloaded status if that was our previous state
+          updateDownloaded: wasDownloaded,
+          downloadedVersion: previousDownloadedVersion,
           note: 'No update info received from server',
         })
       }
@@ -269,6 +312,9 @@ class AutoUpdateService {
           checking: false,
           checkingInProgress: false,
           lastCheck: new Date().toISOString(),
+          // Preserve downloaded status if that was our previous state
+          updateDownloaded: wasDownloaded,
+          downloadedVersion: previousDownloadedVersion,
         })
       }
 
@@ -284,6 +330,7 @@ class AutoUpdateService {
         checking: false,
         checkingInProgress: false,
         lastCheck: new Date().toISOString(),
+        // Don't change downloaded status on error
       })
 
       return {
@@ -292,6 +339,9 @@ class AutoUpdateService {
         updateAvailable: false,
         currentVersion: app.getVersion(),
         lastCheck: new Date().toISOString(),
+        // Return current download status even on error
+        updateDownloaded: this.updateStatus.updateDownloaded,
+        downloadedVersion: this.updateStatus.downloadedVersion,
       }
     }
   }
@@ -348,6 +398,13 @@ class AutoUpdateService {
     try {
       // Download the update
       await autoUpdater.downloadUpdate()
+
+      // Store the version we're downloading for future reference
+      if (this.updateStatus.remoteVersion) {
+        this._updateStatus({
+          downloadedVersion: this.updateStatus.remoteVersion,
+        })
+      }
 
       return {
         success: true,
