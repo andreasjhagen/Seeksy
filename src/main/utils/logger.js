@@ -6,11 +6,26 @@
  * - Different log levels
  * - Color-coding for better readability
  * - Consistent logging format across the app
+ * - Ability to enable/disable logging
  */
 
 class Logger {
+  // Static property to globally control logging
+  static enabled = false
+
   constructor(moduleName = 'App') {
     this.moduleName = moduleName
+    this.enabled = null // Individual logger can override global setting
+  }
+
+  /**
+   * Check if logging is enabled for this instance
+   * @returns {boolean} True if logging is enabled
+   * @private
+   */
+  _isEnabled() {
+    // If instance has a specific setting, use that, otherwise use global setting
+    return this.enabled !== null ? this.enabled : Logger.enabled
   }
 
   /**
@@ -38,6 +53,9 @@ class Logger {
    * @param {any[]} args - Additional arguments to pass to console.log
    */
   info(message, ...args) {
+    if (!this._isEnabled())
+      return
+
     const timestamp = this._getTimestamp()
     const modulePrefix = this._getModulePrefix()
 
@@ -50,6 +68,9 @@ class Logger {
    * @param {any[]} args - Additional arguments to pass to console.log
    */
   success(message, ...args) {
+    if (!this._isEnabled())
+      return
+
     const timestamp = this._getTimestamp()
     const modulePrefix = this._getModulePrefix()
 
@@ -62,6 +83,9 @@ class Logger {
    * @param {any[]} args - Additional arguments to pass to console.log
    */
   warn(message, ...args) {
+    if (!this._isEnabled())
+      return
+
     const timestamp = this._getTimestamp()
     const modulePrefix = this._getModulePrefix()
 
@@ -74,6 +98,9 @@ class Logger {
    * @param {any[]} args - Additional arguments to pass to console.error
    */
   error(message, ...args) {
+    if (!this._isEnabled())
+      return
+
     const timestamp = this._getTimestamp()
     const modulePrefix = this._getModulePrefix()
 
@@ -86,13 +113,49 @@ class Logger {
    * @param {any[]} args - Additional arguments to pass to console.log
    */
   debug(message, ...args) {
-    // Only log debug messages in development
-    if (process.env.NODE_ENV !== 'production') {
-      const timestamp = this._getTimestamp()
-      const modulePrefix = this._getModulePrefix()
+    // Only log debug messages in development and if logging is enabled
+    if (!this._isEnabled() || process.env.NODE_ENV === 'production')
+      return
 
-      console.log(`\x1B[35m${timestamp} ${modulePrefix} [DEBUG]\x1B[0m ${message}`, ...args)
-    }
+    const timestamp = this._getTimestamp()
+    const modulePrefix = this._getModulePrefix()
+
+    console.log(`\x1B[35m${timestamp} ${modulePrefix} [DEBUG]\x1B[0m ${message}`, ...args)
+  }
+
+  /**
+   * Enable logging for this logger instance
+   */
+  enable() {
+    this.enabled = true
+  }
+
+  /**
+   * Disable logging for this logger instance
+   */
+  disable() {
+    this.enabled = false
+  }
+
+  /**
+   * Reset to use global logging setting
+   */
+  resetToGlobal() {
+    this.enabled = null
+  }
+
+  /**
+   * Enable logging globally
+   */
+  static enableGlobal() {
+    Logger.enabled = true
+  }
+
+  /**
+   * Disable logging globally
+   */
+  static disableGlobal() {
+    Logger.enabled = false
   }
 }
 
@@ -107,3 +170,7 @@ export function createLogger(moduleName) {
 
 // Default logger
 export const logger = new Logger()
+
+// Export static methods for global control
+export const enableLogging = Logger.enableGlobal.bind(Logger)
+export const disableLogging = Logger.disableGlobal.bind(Logger)
