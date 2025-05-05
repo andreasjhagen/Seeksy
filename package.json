@@ -1,7 +1,7 @@
 {
   "name": "seeksy",
   "type": "module",
-  "version": "1.0.2",
+  "version": "1.1.1",
   "description": "A fast, invokable desktop search for files, folders and applications",
   "author": {
     "name": "Andreas Hagen",
