@@ -10,14 +10,14 @@ const props = defineProps({
   },
   selectedPaths: {
     type: Array,
-    required: true,
+    required: false,
     default: () => [],
   },
 })
 
 const emit = defineEmits(['close', 'confirm', 'error'])
 
-const depth = ref('-1')
+const depth = ref('3')
 const error = ref('')
 const loading = ref(false)
 const fileCount = ref(0)
@@ -25,17 +25,16 @@ const showFileCountWarning = ref(false)
 const countComplete = ref(false)
 const FILE_COUNT_THRESHOLD = 20000
 
-// Check file count when dialog opens or depth changes
-watch(() => [props.isOpen, depth.value], async ([isOpen, newDepth]) => {
-  if (isOpen && props.selectedPaths.length > 0) {
-    showFileCountWarning.value = false
-    await checkFileCount()
-  }
-}, { immediate: true })
+// Reset file count when depth changes
+watch(() => depth.value, () => {
+  countComplete.value = false
+  showFileCountWarning.value = false
+})
 
 function onClose() {
   error.value = ''
   showFileCountWarning.value = false
+  countComplete.value = false
   emit('close')
 }
 
@@ -189,6 +188,15 @@ defineExpose({ setError })
                 Unlimited depth (all subfolders)
               </option>
             </select>
+          </div>
+          <div class="mb-4">
+            <button
+              class="w-full px-4 py-2 text-white bg-blue-500 rounded-sm cursor-pointer disabled:opacity-50 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
+              :disabled="loading || props.selectedPaths.length === 0"
+              @click="checkFileCount"
+            >
+              {{ loading ? 'Checking...' : 'Check File Count' }}
+            </button>
           </div>
           <div class="flex justify-end space-x-2">
             <button

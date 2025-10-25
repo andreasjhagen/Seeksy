@@ -1,5 +1,5 @@
 appId: com.andreashagen.seeksy
-productName: seeksy
+productName: Seeksy
 directories:
   buildResources: build
 files:
