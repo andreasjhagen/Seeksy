@@ -1,33 +1,40 @@
-import path, { join } from 'node:path'
+import path, { dirname, join } from 'node:path'
+import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 // === Imports ===
 // Electron core
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
+
 import { app, BrowserWindow, Menu, Tray } from 'electron'
 
 // Utils
 import installExtension, { VUEJS_DEVTOOLS } from 'electron-devtools-installer'
-
 // App Icons
-import appIcon from '../../resources/icon.ico?asset'
 import trayIcon from '../../resources/trayIcon.png?asset'
-
 // IPC Handlers
 import setupDatabaseItemHandlers from './ipc/handlers/databaseItemHandlers.js'
 import setupDiskReaderHandlers from './ipc/handlers/diskReaderHandlers'
 import setupFileIndexerHandlers from './ipc/handlers/indexHandlers.js'
 import setupAppIndexerHandlers from './ipc/handlers/installedAppsHandlers.js'
 import setupSettingsHandlers from './ipc/handlers/settingsHandlers.js'
-import setupSystemHandlers from './ipc/handlers/systemHandlers.js'
-import setupWindowHandlers from './ipc/handlers/windowHandlers.js'
 
+import setupSystemHandlers from './ipc/handlers/systemHandlers.js'
+
+import setupUpdateHandlers from './ipc/handlers/updateHandlers.js'
+import setupWindowHandlers from './ipc/handlers/windowHandlers.js'
 // Project imports
 import { IPC } from './ipc/ipcChannels.js'
 
 // Services
 import { applicationLauncher } from './services/application-indexer/ApplicationLauncher.js'
+import { autoUpdaterService } from './services/auto-updater/AutoUpdaterService.js'
 import { fileDB } from './services/database/database'
 import { IndexController } from './services/folder-indexer/IndexController.js'
 import { registerFileProtocol } from './services/registerFileProtocol'
+
+// Define __dirname for ES modules
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 // Disable hardware acceleration if causing issues
 // app.disableHardwareAcceleration()
@@ -40,6 +47,18 @@ app.commandLine.appendSwitch('force-device-scale-factor', 1)
 let mainWindow = null
 let settingsWindow = null
 let tray = null
+
+// Get icon path based on platform
+function getIconPath() {
+  const basePath = app.isPackaged ? path.dirname(app.getAppPath()) : path.join(__dirname, '../../resources')
+  if (process.platform === 'win32')
+    return path.join(basePath, 'icon.ico')
+  if (process.platform === 'darwin')
+    return path.join(basePath, 'icon.icns')
+  if (process.platform === 'linux')
+    return path.join(basePath, 'icon.png')
+  return undefined
+}
 
 // === Search Window Management ===
 function createMainWindow() {
@@ -56,12 +75,17 @@ function createMainWindow() {
     alwaysOnTop: true,
     skipTaskbar: true,
     hasShadow: false,
-    icon: appIcon, // Add window icon
-    ...(process.platform === 'darwin' ? { vibrancy: 'dark' } : {}),
+    title: 'Seeksy',
+    icon: getIconPath(),
+    ...(process.platform === 'win32' && {
+      backgroundColor: '#0f172a',
+      roundedCorners: true,
+    }),
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
       nodeIntegration: true,
+      contextIsolation: true,
       zoomFactor: 1.0, // Control zoom level for high-DPI displays
     },
   })
@@ -83,7 +107,6 @@ function setupMainWindowEventHandlers() {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
   })
 
   // The theme handling is now managed by SettingsHandler
@@ -100,12 +123,19 @@ function createSettingsWindow() {
     show: false,
     autoHideMenuBar: true,
     frame: true,
+    title: 'Seeksy Settings',
     transparent: false,
-    icon: appIcon, // Add window icon
+    skipTaskbar: false, // Explicitly show in taskbar for Windows
+    icon: getIconPath(),
+    ...(process.platform === 'win32' && {
+      backgroundColor: '#0f172a',
+      roundedCorners: true,
+    }),
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
       nodeIntegration: true,
+      contextIsolation: true,
       zoomFactor: 1.0, // Control zoom level for high-DPI displays
     },
   })
@@ -145,13 +175,26 @@ function loadWindowContent(window) {
 }
 
 // === System Tray Management ===
+let updateAvailable = false
+let updateDownloaded = false
+let updateInfo = null
+
 function createTray() {
   // Create tray with native image. The @2x.png is for retina displays and loaded automatically
   const nativeImage = require('electron').nativeImage
   const systemTrayIcon = nativeImage.createFromPath(trayIcon)
 
   tray = new Tray(systemTrayIcon)
-  const contextMenu = Menu.buildFromTemplate([
+  updateTrayMenu()
+  tray.on('click', () => {
+    mainWindow.webContents.send(IPC.WINDOW.SEARCH_KEYCOMBO_DOWN)
+    mainWindow.show()
+    mainWindow.focus()
+  })
+}
+
+function updateTrayMenu() {
+  const menuTemplate = [
     {
       label: 'Open Search',
       click: () => {
@@ -170,21 +213,66 @@ function createTray() {
       },
     },
     { type: 'separator' },
-    {
-      label: 'Quit',
+  ]
+
+  // Add update-related menu items
+  if (updateDownloaded) {
+    menuTemplate.push({
+      label: `🔄 Install Update (v${updateInfo?.version || 'new'})`,
       click: () => {
-        cleanup()
-        app.quit()
+        autoUpdaterService.installUpdate()
       },
+    })
+    menuTemplate.push({ type: 'separator' })
+  }
+  else if (updateAvailable) {
+    menuTemplate.push({
+      label: `⬇️ Update Available (v${updateInfo?.version || 'new'})`,
+      click: () => {
+        mainWindow.hide()
+        settingsWindow.show()
+        settingsWindow.focus()
+        // Navigate to info tab (index 2)
+        settingsWindow.webContents.send(IPC.WINDOW.SHOW_SETTINGS_PAGE, { tabIndex: 2 })
+      },
+    })
+    menuTemplate.push({ type: 'separator' })
+  }
+
+  menuTemplate.push({
+    label: 'Quit',
+    click: () => {
+      cleanup()
+      app.quit()
     },
-  ])
-  tray.setToolTip('Seeksy')
-  tray.setContextMenu(contextMenu)
-  tray.on('click', () => {
-    mainWindow.webContents.send(IPC.WINDOW.SEARCH_KEYCOMBO_DOWN)
-    mainWindow.show()
-    mainWindow.focus()
   })
+
+  const contextMenu = Menu.buildFromTemplate(menuTemplate)
+
+  // Update tooltip to show update status
+  if (updateAvailable && !updateDownloaded) {
+    tray.setToolTip(`Seeksy - Update available (v${updateInfo?.version || 'new'})`)
+  }
+  else if (updateDownloaded) {
+    tray.setToolTip(`Seeksy - Update ready to install (v${updateInfo?.version || 'new'})`)
+  }
+  else {
+    tray.setToolTip('Seeksy')
+  }
+
+  tray.setContextMenu(contextMenu)
+}
+
+/**
+ * Callback for auto-updater to update tray menu
+ */
+function onTrayUpdateStatusChange(available, info, downloaded = false) {
+  updateAvailable = available
+  updateInfo = info
+  updateDownloaded = downloaded
+  if (tray) {
+    updateTrayMenu()
+  }
 }
 
 // === Utility Functions ===
@@ -208,6 +296,9 @@ function initializeAppIndexing() {
 }
 
 function cleanup() {
+  // Clean up auto-updater
+  autoUpdaterService.cleanup()
+
   // Destroy windows first
   if (mainWindow) {
     mainWindow.destroy()
@@ -240,6 +331,7 @@ function initializeHandlers(indexer) {
     setupAppIndexerHandlers(indexer),
     setupFileIndexerHandlers(indexer),
     setupDiskReaderHandlers(),
+    setupUpdateHandlers(),
   ]
 
   // Store handlers for cleanup
@@ -255,7 +347,8 @@ app.whenReady().then(() => {
     process.exit(1)
   })
 
-  electronApp.setAppUserModelId('com.electron')
+  // Set the app user model ID for Windows taskbar grouping
+  electronApp.setAppUserModelId('com.andreashagen.seeksy')
 
   // Initialize services
   const indexer = new IndexController(fileDB)
@@ -268,6 +361,9 @@ app.whenReady().then(() => {
   initializeHandlers(indexer)
   registerProtocols()
   createTray()
+
+  // Initialize auto-updater with references to windows and tray callback
+  autoUpdaterService.initialize(mainWindow, settingsWindow, tray, onTrayUpdateStatusChange)
 
   // Set up app lifecycle event handlers
   app.on('browser-window-created', (_, window) => {
@@ -302,6 +398,6 @@ app.whenReady().then(() => {
   // Set the app icon for macOS
   if (process.platform === 'darwin') {
     const nativeImage = require('electron').nativeImage
-    app.dock?.setIcon(nativeImage.createFromPath(appIcon))
+    app.dock?.setIcon(nativeImage.createFromPath(getIconPath()))
   }
 })

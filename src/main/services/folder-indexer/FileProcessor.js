@@ -24,6 +24,20 @@ export class FileProcessor extends EventEmitter {
     super()
     this.processedPaths = new Set()
     this.processingPaths = new Map() // Track paths being processed
+    
+    // Cache for watched folders - sorted by path length descending
+    this._watchedFoldersCache = null
+    this._watchedFoldersCacheTime = 0
+    this._watchedFoldersCacheTTL = 30000 // 30 seconds TTL
+  }
+
+  /**
+   * Invalidate the watched folders cache
+   * Call this when watched folders are added/removed
+   */
+  invalidateWatchedFoldersCache() {
+    this._watchedFoldersCache = null
+    this._watchedFoldersCacheTime = 0
   }
 
   /**
@@ -179,16 +193,25 @@ export class FileProcessor extends EventEmitter {
 
   /**
    * Finds the parent watched folder for a given path
+   * Uses cached watched folders list for performance
    *
    * @param {string} itemPath - Path to check
    * @returns {Promise<object | null>} The parent watched folder or null
    * @private
    */
   async _findWatchedParentFolder(itemPath) {
-    const watchedFolders = await fileDB.getAllWatchFolderStatus()
-    // Sort by path length descending to find the most specific parent folder
-    const sortedFolders = watchedFolders.sort((a, b) => b.path.length - a.path.length)
-    return sortedFolders.find(folder => itemPath.startsWith(folder.path))
+    const now = Date.now()
+    
+    // Refresh cache if expired or not initialized
+    if (!this._watchedFoldersCache || (now - this._watchedFoldersCacheTime) > this._watchedFoldersCacheTTL) {
+      const watchedFolders = await fileDB.getAllWatchFolderStatus()
+      // Sort by path length descending to find the most specific parent folder
+      // Do this once on cache refresh instead of every lookup
+      this._watchedFoldersCache = watchedFolders.sort((a, b) => b.path.length - a.path.length)
+      this._watchedFoldersCacheTime = now
+    }
+    
+    return this._watchedFoldersCache.find(folder => itemPath.startsWith(folder.path))
   }
 
   /**

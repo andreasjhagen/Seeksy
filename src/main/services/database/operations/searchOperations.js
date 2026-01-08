@@ -40,21 +40,28 @@ export const searchOperations = {
         LIMIT ${QUERY_LIMITS.QUICK_SEARCH}
       `)
 
+      // Enhanced search that also matches description and keywords
       this._searchStatements.searchApplications = this.db.prepare(`
         SELECT 
           *,
           isFavorite,
           favoriteAddedAt 
         FROM applications 
-        WHERE lower(name) LIKE ? OR lower(displayName) LIKE ?
+        WHERE 
+          lower(name) LIKE ? 
+          OR lower(displayName) LIKE ?
+          OR lower(description) LIKE ?
+          OR lower(keywords) LIKE ?
         ORDER BY 
           isFavorite DESC,
           CASE 
-            WHEN lower(name) = ? THEN 1        -- Exact name match
-            WHEN lower(displayName) = ? THEN 2  -- Exact displayName match
-            WHEN lower(name) LIKE ? THEN 3      -- Name starts with
-            WHEN lower(displayName) LIKE ? THEN 4 -- DisplayName starts with
-            ELSE 5                              -- Contains match
+            WHEN lower(name) = ? THEN 1              -- Exact name match
+            WHEN lower(displayName) = ? THEN 2       -- Exact displayName match
+            WHEN lower(name) LIKE ? THEN 3           -- Name starts with
+            WHEN lower(displayName) LIKE ? THEN 4    -- DisplayName starts with
+            WHEN lower(description) LIKE ? THEN 5    -- Description contains
+            WHEN lower(keywords) LIKE ? THEN 6       -- Keywords contain
+            ELSE 7                                   -- Other matches
           END,
           lastUpdated DESC
         LIMIT ${QUERY_LIMITS.APPLICATION_SEARCH}
@@ -255,10 +262,14 @@ export const searchOperations = {
     return this._searchStatements.searchApplications.all(
       normalizedQuery, // WHERE name LIKE
       normalizedQuery, // WHERE displayName LIKE
+      normalizedQuery, // WHERE description LIKE
+      normalizedQuery, // WHERE keywords LIKE
       exactQuery, // CASE exact name match
       exactQuery, // CASE exact displayName match
       startsWithQuery, // CASE name starts with
       startsWithQuery, // CASE displayName starts with
+      normalizedQuery, // CASE description contains
+      normalizedQuery, // CASE keywords contain
     )
   },
 }

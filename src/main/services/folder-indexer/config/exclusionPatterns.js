@@ -49,14 +49,23 @@ export const EXCLUDED_PATTERNS = {
   ],
 }
 
+// Pre-compile exclusion patterns into a single regex for faster matching
+const _escapeRegex = str => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const _compiledFolderPattern = new RegExp(
+  EXCLUDED_PATTERNS.FOLDERS.map(folder => {
+    const escaped = _escapeRegex(folder)
+    // Match folder anywhere in path with separators
+    return `(?:[/\\\\]${escaped}[/\\\\])|(?:[/\\\\]${escaped}$)`
+  }).join('|'),
+  'i'  // Case-insensitive for Windows compatibility
+)
+
 /**
  * Helper to check if a path should be excluded
+ * Uses pre-compiled regex for better performance
  */
 export function isExcludedPath(path) {
-  return EXCLUDED_PATTERNS.FOLDERS.some(
-    folder => path.includes(`/${folder}/`) || path.includes(`\\${folder}\\`)
-      || path.endsWith(`/${folder}`) || path.endsWith(`\\${folder}`),
-  )
+  return _compiledFolderPattern.test(path)
 }
 
 /**

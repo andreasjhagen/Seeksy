@@ -87,6 +87,22 @@ export const IPC = {
     // System operations
     RESET_APPLICATION: 'system:reset-application',
   },
+
+  UPDATER: {
+    // Update commands (renderer -> main)
+    CHECK_FOR_UPDATES: 'updater:check-for-updates',
+    DOWNLOAD_UPDATE: 'updater:download-update',
+    INSTALL_UPDATE: 'updater:install-update',
+    GET_UPDATE_STATUS: 'updater:get-update-status',
+
+    // Update events (main -> renderer)
+    CHECKING_FOR_UPDATE: 'updater:checking-for-update',
+    UPDATE_AVAILABLE: 'updater:update-available',
+    UPDATE_NOT_AVAILABLE: 'updater:update-not-available',
+    DOWNLOAD_PROGRESS: 'updater:download-progress',
+    UPDATE_DOWNLOADED: 'updater:update-downloaded',
+    ERROR: 'updater:error',
+  },
 }
 
 // For backwards compatibility, export all channels as flat map.
@@ -96,6 +112,7 @@ export const IPC_CHANNELS = {
   ...IPC.FRONTEND,
   ...IPC.BACKEND,
   ...IPC.SYSTEM,
+  ...IPC.UPDATER,
 }
 
 export const validChannels = Object.values(IPC_CHANNELS)

@@ -1,7 +1,7 @@
 appId: com.andreashagen.seeksy
 productName: Seeksy
 directories:
-  buildResources: build
+  buildResources: resources
 files:
   - '!**/.vscode/*'
   - '!src/*'
@@ -17,6 +17,8 @@ extraResources:
     to: node_modules/sharp
   - from: node_modules/@img
     to: node_modules/@img
+  - from: resources/
+    to: .
 win:
   executableName: seeksy
   target:
@@ -50,5 +52,7 @@ appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: andreasjhagen
+  repo: Seeksy
+  releaseType: release

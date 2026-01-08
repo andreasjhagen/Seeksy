@@ -99,6 +99,15 @@ class ApplicationLauncher {
         else if (appInfo.applicationType === 'flatpak') {
           await execPromise(`flatpak run ${appInfo.path}`)
         }
+        else if (appInfo.applicationType === 'snap') {
+          // Extract snap name from path (snap://name)
+          const snapName = appInfo.path.replace('snap://', '')
+          await execPromise(`snap run ${snapName}`)
+        }
+        else if (appInfo.applicationType === 'appimage') {
+          // AppImages are directly executable
+          await execPromise(`"${appInfo.path}"`)
+        }
         else {
           await shell.openPath(appInfo.path)
         }

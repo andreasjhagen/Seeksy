@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { IPC_CHANNELS } from '../../../../../../main/ipc/ipcChannels'
 import ShowAppDataFolderButton from '../../ShowAppDataFolderButton.vue'
+import UpdateSection from './UpdateSection.vue'
 
 const systemInfo = ref({
   platform: '',
@@ -59,7 +60,6 @@ onMounted(async () => {
           </div>
           <div class="flex items-center gap-2 text-gray-900 dark:text-gray-100">
             {{ systemInfo.version }}
-            <!-- <UpdateCheckLabel :current-version="systemInfo.version" /> -->
           </div>
 
           <div class="text-gray-500 dark:text-gray-400">
@@ -78,11 +78,16 @@ onMounted(async () => {
         </div>
       </div>
 
+      <!-- Update Section -->
+      <div class="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+        <UpdateSection :current-version="systemInfo.version" />
+      </div>
+
       <div class="pt-4 mt-6 border-t border-gray-200 dark:border-gray-700">
         <div class="flex flex-col items-start gap-2">
           <button
             class="text-sm cursor-pointer text-accent-600 hover:text-accent-700 dark:text-accent-300 dark:hover:text-accent-200"
-            @click="openExternalLink('https://github.com/voidvalkon/seeksy')"
+            @click="openExternalLink('https://github.com/andreasjhagen/seeksy')"
           >
             GitHub Repository
           </button>

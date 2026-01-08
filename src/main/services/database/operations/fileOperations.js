@@ -1,3 +1,9 @@
+import { LRUCache } from '../utils/LRUCache.js'
+
+// File metadata cache - stores recently accessed file info
+// TTL of 30 seconds to ensure changes are detected reasonably quickly
+const fileCache = new LRUCache(2000, 30000)
+
 export const fileOperations = {
   // Cache prepared statements for better performance
   _fileStatements: {
@@ -40,6 +46,9 @@ export const fileOperations = {
       const { success } = this.upsertFileData(filePath, data.fileData)
       if (!success)
         return null
+
+      // Invalidate cache after update
+      fileCache.delete(filePath)
 
       return this.getFileWithMetadata(filePath)
     })()
@@ -97,6 +106,10 @@ export const fileOperations = {
 
       const stmt = this.db.prepare(query)
       const result = stmt.run(values)
+
+      // Invalidate cache for this path
+      fileCache.delete(filePath)
+
       return { success: true, changes: result.changes }
     }
     catch (error) {
@@ -131,6 +144,40 @@ export const fileOperations = {
     })()
   },
 
+  /**
+   * Get file data with caching - use this for frequent lookups
+   * @param {string} filePath - The path to the file
+   * @returns {object|null} File data or null if not found
+   */
+  getCachedFile(filePath) {
+    // Check cache first
+    const cached = fileCache.get(filePath)
+    if (cached !== undefined) {
+      return cached
+    }
+
+    // Fetch from database
+    const result = this.getFileWithMetadata(filePath)
+    fileCache.set(filePath, result)
+    return result
+  },
+
+  /**
+   * Check if a file exists in the database (uses cache)
+   * @param {string} filePath - The path to check
+   * @returns {boolean} True if file exists
+   */
+  fileExists(filePath) {
+    return this.getCachedFile(filePath) !== null
+  },
+
+  /**
+   * Clear the file cache (useful when bulk operations complete)
+   */
+  clearCache() {
+    fileCache.clear()
+  },
+
   getFileTags(path) {
     this._initFileStatements()
     return this._fileStatements.getFileTags.all(path)
@@ -139,6 +186,9 @@ export const fileOperations = {
   removePath(path) {
     this._initFileStatements()
     return this.db.transaction(() => {
+      // Invalidate cache for this path and any child paths
+      fileCache.deleteByPrefix(path)
+
       // Remove files and their metadata, but keep notes
       const result = this._fileStatements.removePath.run(path, path)
 

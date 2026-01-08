@@ -28,17 +28,22 @@ class LinuxAppIndexing {
       '/var/lib/snapd/desktop/applications',
     ]
 
-    // Index desktop files
-    for (const desktopPath of desktopPaths) {
+    // Index desktop files in parallel
+    const desktopPromises = desktopPaths.map(async (desktopPath) => {
       try {
         const files = await this.findDesktopFiles(desktopPath)
-        for (const file of files) {
-          await this.processDesktopFile(file)
-        }
+        const apps = await Promise.all(files.map(file => this.processDesktopFile(file)))
+        return apps.filter(Boolean)
       }
       catch (error) {
         console.warn('Desktop path error:', error.message)
+        return []
       }
+    })
+
+    const desktopResults = await Promise.all(desktopPromises)
+    for (const apps of desktopResults) {
+      this.applications.push(...apps)
     }
 
     // Index Flatpak applications
@@ -47,6 +52,22 @@ class LinuxAppIndexing {
     }
     catch (error) {
       console.warn('Flatpak indexing error:', error.message)
+    }
+
+    // Index Snap applications via snap list command
+    try {
+      await this.indexSnapApps()
+    }
+    catch (error) {
+      console.warn('Snap indexing error:', error.message)
+    }
+
+    // Index AppImage files
+    try {
+      await this.indexAppImages()
+    }
+    catch (error) {
+      console.warn('AppImage indexing error:', error.message)
     }
 
     return this.applications
@@ -69,23 +90,39 @@ class LinuxAppIndexing {
       const entry = parsed['Desktop Entry']
 
       if (entry.NoDisplay === 'true' || !entry.Name || !entry.Exec)
-        return
+        return null
 
       const iconPath = await this.resolveLinuxIcon(entry.Icon)
       const icon = iconPath ? await this.iconExtractor.extractIcon(iconPath) : ''
+
+      // Extract keywords for better search
+      const keywords = entry.Keywords 
+        ? entry.Keywords.split(';').filter(Boolean).map(k => k.trim())
+        : []
+
+      // Extract categories
+      const categories = entry.Categories
+        ? entry.Categories.split(';').filter(Boolean).map(c => c.trim())
+        : []
 
       const app = {
         path: filePath,
         name: entry.Name,
         displayName: entry.Name,
+        description: entry.Comment || entry.GenericName || '',
+        keywords,
+        categories,
         icon,
         lastUpdated: fs.statSync(filePath).mtimeMs,
         applicationType: 'desktop',
       }
+      
       this.applications.push(app)
+      return app
     }
     catch (error) {
       console.warn('Desktop file error:', error.message)
+      return null
     }
   }
 
@@ -134,6 +171,182 @@ class LinuxAppIndexing {
     }
     catch (error) {
       console.warn('Flatpak list error:', error.message)
+    }
+  }
+
+  /**
+   * Index Snap applications using snap list command
+   * This is more reliable than scanning the desktop files directory
+   */
+  async indexSnapApps() {
+    try {
+      const { stdout } = await execPromise('snap list 2>/dev/null')
+      const lines = stdout.split('\n').slice(1).filter(Boolean) // Skip header line
+
+      for (const line of lines) {
+        const parts = line.split(/\s+/)
+        if (parts.length < 2) continue
+
+        const snapName = parts[0]
+        
+        // Skip system snaps
+        if (['snapd', 'core', 'core18', 'core20', 'core22', 'gnome-3-38-2004', 'gtk-common-themes'].includes(snapName)) {
+          continue
+        }
+
+        // Check if we already have this app from desktop files
+        const existingApp = this.applications.find(a => 
+          a.name.toLowerCase() === snapName.toLowerCase() || 
+          a.path.includes(snapName)
+        )
+        if (existingApp) continue
+
+        // Try to get snap info for icon
+        try {
+          const { stdout: infoOutput } = await execPromise(`snap info ${snapName} 2>/dev/null`)
+          const nameMatch = infoOutput.match(/name:\s+(.+)/i)
+          const summaryMatch = infoOutput.match(/summary:\s+(.+)/i)
+          
+          const displayName = nameMatch ? nameMatch[1].trim() : snapName
+          const description = summaryMatch ? summaryMatch[1].trim() : ''
+
+          // Try to find icon
+          let icon = ''
+          const iconPaths = [
+            `/snap/${snapName}/current/meta/gui/icon.png`,
+            `/snap/${snapName}/current/meta/gui/icon.svg`,
+            path.join(process.env.HOME, 'snap', snapName, 'current', 'meta', 'gui', 'icon.png'),
+          ]
+
+          for (const iconPath of iconPaths) {
+            try {
+              await accessAsync(iconPath, fs.constants.R_OK)
+              icon = await this.iconExtractor.extractIcon(iconPath)
+              if (icon) break
+            } catch {
+              continue
+            }
+          }
+
+          const app = {
+            path: `snap://${snapName}`,
+            name: displayName,
+            displayName,
+            description,
+            icon,
+            lastUpdated: Date.now(),
+            applicationType: 'snap',
+          }
+
+          this.applications.push(app)
+        }
+        catch (error) {
+          console.warn(`Error getting Snap info for ${snapName}:`, error.message)
+        }
+      }
+    }
+    catch (error) {
+      console.warn('Snap list error:', error.message)
+    }
+  }
+
+  /**
+   * Index AppImage files from common locations
+   */
+  async indexAppImages() {
+    const appImagePaths = [
+      path.join(process.env.HOME, 'Applications'),
+      path.join(process.env.HOME, '.local', 'bin'),
+      path.join(process.env.HOME, 'AppImages'),
+      '/opt',
+    ]
+
+    for (const searchPath of appImagePaths) {
+      try {
+        await accessAsync(searchPath, fs.constants.R_OK)
+        await this.findAppImages(searchPath)
+      }
+      catch {
+        // Directory doesn't exist or not accessible
+        continue
+      }
+    }
+  }
+
+  /**
+   * Find and process AppImage files in a directory
+   */
+  async findAppImages(dir, depth = 0) {
+    if (depth > 2) return // Limit recursion depth
+
+    try {
+      const entries = await readdirAsync(dir, { withFileTypes: true })
+
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name)
+
+        if (entry.isDirectory() && !entry.name.startsWith('.')) {
+          await this.findAppImages(fullPath, depth + 1)
+        }
+        else if (entry.name.toLowerCase().endsWith('.appimage')) {
+          await this.processAppImage(fullPath)
+        }
+      }
+    }
+    catch (error) {
+      console.warn(`Error scanning ${dir} for AppImages:`, error.message)
+    }
+  }
+
+  /**
+   * Process a single AppImage file
+   */
+  async processAppImage(filePath) {
+    try {
+      // Check if executable
+      await accessAsync(filePath, fs.constants.X_OK)
+
+      // Get file name without extension as app name
+      const fileName = path.basename(filePath)
+      const name = fileName.replace(/[-_.]appimage$/i, '')
+        .replace(/-/g, ' ')
+        .replace(/_/g, ' ')
+        .replace(/([a-z])([A-Z])/g, '$1 $2') // Split camelCase
+        .trim()
+
+      // Try to extract icon from AppImage (requires appimage-extract or similar)
+      let icon = ''
+      try {
+        // Try to get icon using gio
+        const { stdout } = await execPromise(`gio info -a standard::icon "${filePath}" 2>/dev/null`)
+        const iconMatch = stdout.match(/standard::icon:\s+(\S+)/i)
+        if (iconMatch) {
+          const iconPath = await this.resolveLinuxIcon(iconMatch[1])
+          if (iconPath) {
+            icon = await this.iconExtractor.extractIcon(iconPath)
+          }
+        }
+      }
+      catch {
+        // Icon extraction failed, use fallback
+      }
+
+      const stats = await statAsync(filePath)
+
+      const app = {
+        path: filePath,
+        name,
+        displayName: name,
+        description: 'AppImage application',
+        icon,
+        lastUpdated: stats.mtimeMs,
+        applicationType: 'appimage',
+      }
+
+      this.applications.push(app)
+    }
+    catch (error) {
+      console.warn(`Error processing AppImage ${filePath}:`, error.message)
     }
   }
 

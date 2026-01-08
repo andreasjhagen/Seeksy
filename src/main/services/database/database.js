@@ -34,6 +34,7 @@ class FileDatabase {
     this._setupPragmas()
     this._checkAppVersion()
     this._initializeSchema()
+    this._runMigrations()
   }
 
   // Initialize database connection based on environment
@@ -215,6 +216,9 @@ class FileDatabase {
             path TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             displayName TEXT,
+            description TEXT,
+            keywords TEXT,
+            categories TEXT,
             icon TEXT,
             lastUpdated INTEGER,
             isSystem BOOLEAN DEFAULT 0,
@@ -318,6 +322,37 @@ class FileDatabase {
     catch (error) {
       logger.error('Schema initialization failed:', error)
       throw error // Critical error
+    }
+  }
+
+  // Run database migrations for schema updates
+  _runMigrations() {
+    try {
+      // Migration: Add description, keywords, categories columns to applications table
+      // This is safe to run multiple times as it checks if columns exist
+      const tableInfo = this.db.pragma('table_info(applications)')
+      const existingColumns = tableInfo.map(col => col.name)
+
+      const columnsToAdd = [
+        { name: 'description', type: 'TEXT' },
+        { name: 'keywords', type: 'TEXT' },
+        { name: 'categories', type: 'TEXT' },
+      ]
+
+      for (const column of columnsToAdd) {
+        if (!existingColumns.includes(column.name)) {
+          this.db.exec(`ALTER TABLE applications ADD COLUMN ${column.name} ${column.type}`)
+          logger.info(`Added column '${column.name}' to applications table`)
+        }
+      }
+
+      // Create index on description for faster search
+      this.db.exec(`CREATE INDEX IF NOT EXISTS idx_applications_description ON applications(description)`)
+
+      logger.debug('Database migrations completed')
+    }
+    catch (error) {
+      logger.warn('Migration warning (non-critical):', error)
     }
   }
 
