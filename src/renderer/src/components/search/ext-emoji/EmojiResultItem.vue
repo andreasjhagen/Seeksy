@@ -72,7 +72,7 @@ function handleContextMenu(event) {
 
 <template>
   <button
-    class="relative z-10 flex items-center justify-center p-2 text-2xl transition-all duration-300 bg-white border border-gray-200 rounded-lg cursor-pointer group hover:z-20 dark:bg-gray-700 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
+    class="relative z-10 flex items-center justify-center p-2 text-2xl transition-all duration-300 bg-white border border-gray-200 rounded-lg cursor-pointer group hover:z-20 hover:scale-110 dark:bg-gray-700 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
     :class="[
       isSelected
         ? 'bg-accent-50 border-accent-300 ring-2 ring-accent-400 dark:bg-accent-700 dark:border-accent-800'
@@ -105,6 +105,6 @@ function handleContextMenu(event) {
         sticky_note_2
       </span>
     </div>
-    <span class="transition-all duration-300 group-hover:text-4xl" :title="emoji.name">{{ emoji.char }}</span>
+    <span class="text-2xl transition-transform duration-300 origin-center group-hover:scale-150" :title="emoji.name">{{ emoji.char }}</span>
   </button>
 </template>

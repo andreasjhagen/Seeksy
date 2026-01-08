@@ -5,12 +5,10 @@ import { fileURLToPath } from 'node:url'
 // Electron core
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 
-import { app, BrowserWindow, Menu, Tray } from 'electron'
+import { app, BrowserWindow, Menu, nativeImage, Tray } from 'electron'
 
 // Utils
 import installExtension, { VUEJS_DEVTOOLS } from 'electron-devtools-installer'
-// App Icons
-import trayIcon from '../../resources/trayIcon.png?asset'
 // IPC Handlers
 import setupDatabaseItemHandlers from './ipc/handlers/databaseItemHandlers.js'
 import setupDiskReaderHandlers from './ipc/handlers/diskReaderHandlers'
@@ -180,9 +178,11 @@ let updateDownloaded = false
 let updateInfo = null
 
 function createTray() {
-  // Create tray with native image. The @2x.png is for retina displays and loaded automatically
-  const nativeImage = require('electron').nativeImage
-  const systemTrayIcon = nativeImage.createFromPath(trayIcon)
+  const iconPath = getIconPath()
+  let systemTrayIcon = nativeImage.createFromPath(iconPath)
+
+  // Resize icon to 16x16 for tray
+  systemTrayIcon = systemTrayIcon.resize({ width: 16, height: 16 })
 
   tray = new Tray(systemTrayIcon)
   updateTrayMenu()

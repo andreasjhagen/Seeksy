@@ -173,19 +173,28 @@ defineExpose({ setError })
               :disabled="loading"
             >
               <option value="0">
-                Current directory only
+                0 - Current directory only
               </option>
               <option value="1">
-                One level deep
+                1 level deep
               </option>
               <option value="2">
-                Two levels deep
+                2 levels deep
               </option>
               <option value="3">
-                Three levels deep
+                3 levels deep
+              </option>
+              <option value="4">
+                4 levels deep
+              </option>
+              <option value="5">
+                5 levels deep
+              </option>
+              <option value="6">
+                6 levels deep
               </option>
               <option value="-1">
-                Unlimited depth (all subfolders)
+                ∞ - Unlimited depth (all subfolders)
               </option>
             </select>
           </div>

@@ -52,7 +52,7 @@ function handleContextMenu(event) {
 
 <template>
   <div
-    class="relative z-10 flex items-center p-1 transition-all duration-300 transform border rounded-lg cursor-pointer group focus:outline-hidden hover:p-2 hover:z-20 hover:bg-gray-100 hover:border-gray-200 dark:hover:bg-gray-700/50 dark:hover:border-gray-600"
+    class="relative z-10 flex items-center p-2 transition-all duration-300 transform border rounded-lg cursor-pointer group focus:outline-hidden origin-left hover:z-20 hover:scale-105 hover:bg-gray-100 hover:border-gray-200 dark:hover:bg-gray-700/50 dark:hover:border-gray-600"
     :class="[
       isSelected
         ? 'bg-accent-50 border-accent-300 ring-2 ring-accent-400 dark:bg-accent-700 dark:border-accent-800'
@@ -89,23 +89,23 @@ function handleContextMenu(event) {
       </span>
     </div>
 
-    <div class="w-6 h-6 mr-3 transition-all duration-300 shrink-0 group-hover:w-8 group-hover:h-8">
+    <div class="w-8 h-8 mr-3 shrink-0">
       <img
         v-if="app.icon && !hasIconError"
         :src="app.icon"
-        class="object-contain w-full h-full transition-transform duration-300"
+        class="object-contain w-full h-full transition-transform duration-300 origin-center group-hover:scale-125"
         :alt="displayName"
         @error="handleIconError"
       >
       <div
         v-else
-        class="flex items-center justify-center w-full h-full transition-all duration-300 bg-gray-300 rounded-sm dark:bg-gray-700 group-hover:text-lg"
+        class="flex items-center justify-center w-full h-full transition-transform duration-300 bg-gray-300 rounded-sm origin-center group-hover:scale-125 dark:bg-gray-700"
       >
-        <span class="text-xs text-gray-600 transition-all duration-300 dark:text-gray-400 group-hover:text-sm">{{ getInitial(app.name) }}</span>
+        <span class="text-sm text-gray-600 dark:text-gray-400">{{ getInitial(app.name) }}</span>
       </div>
     </div>
     <div class="flex flex-col min-w-0">
-      <span class="text-sm font-medium text-gray-900 truncate transition-all duration-300 dark:text-white group-hover:text-base">
+      <span class="text-sm font-medium text-gray-900 truncate dark:text-white">
         {{ displayName }}
       </span>
       <span class="text-xs text-gray-600 truncate dark:text-gray-400" :class="isSelected ? 'text-black dark:text-white' : ''">{{
