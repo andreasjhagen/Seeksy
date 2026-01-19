@@ -30,9 +30,8 @@ import { fileDB } from './services/database/database'
 import { IndexController } from './services/folder-indexer/IndexController.js'
 import { registerFileProtocol } from './services/registerFileProtocol'
 
-// Define __dirname for ES modules
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
+// Define module path for ES modules
+const __dirnamePath = dirname(fileURLToPath(import.meta.url))
 
 // Disable hardware acceleration if causing issues
 // app.disableHardwareAcceleration()
@@ -48,7 +47,7 @@ let tray = null
 
 // Get icon path based on platform
 function getIconPath() {
-  const basePath = app.isPackaged ? path.dirname(app.getAppPath()) : path.join(__dirname, '../../resources')
+  const basePath = app.isPackaged ? path.dirname(app.getAppPath()) : path.join(__dirnamePath, '../../resources')
   if (process.platform === 'win32')
     return path.join(basePath, 'icon.ico')
   if (process.platform === 'darwin')
@@ -75,12 +74,13 @@ function createMainWindow() {
     hasShadow: false,
     title: 'Seeksy',
     icon: getIconPath(),
+    // Keep rounded corners but avoid setting a background color so the
+    // transparent main window remains transparent on Windows desktop
     ...(process.platform === 'win32' && {
-      backgroundColor: '#0f172a',
       roundedCorners: true,
     }),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.mjs'),
+      preload: join(__dirnamePath, '../preload/index.mjs'),
       sandbox: false,
       nodeIntegration: true,
       contextIsolation: true,
@@ -130,7 +130,7 @@ function createSettingsWindow() {
       roundedCorners: true,
     }),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.mjs'),
+      preload: join(__dirnamePath, '../preload/index.mjs'),
       sandbox: false,
       nodeIntegration: true,
       contextIsolation: true,
@@ -168,7 +168,7 @@ function loadWindowContent(window) {
     installVueDevTools()
   }
   else {
-    window.loadFile(join(__dirname, '../renderer/index.html'))
+    window.loadFile(join(__dirnamePath, '../renderer/index.html'))
   }
 }
 
