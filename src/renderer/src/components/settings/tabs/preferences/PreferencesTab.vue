@@ -17,6 +17,19 @@ const MODIFIER_KEYS = ['Control', 'Meta', 'Alt', 'Shift', 'Command']
 const toggleDarkMode = () => settingsStore.updateSetting('darkMode', !settings.darkMode)
 const toggleAutostart = () => settingsStore.updateSetting('autostart', !settings.autostart)
 
+// UI Scale handler with debounce for smooth slider interaction
+let uiScaleTimer = null
+function updateUIScale(value) {
+  const scale = Number.parseInt(value, 10)
+  // Update local state immediately for responsive UI
+  settings.uiScale = scale
+  // Debounce the actual setting update
+  clearTimeout(uiScaleTimer)
+  uiScaleTimer = setTimeout(() => {
+    settingsStore.updateSetting('uiScale', scale)
+  }, 150)
+}
+
 // Shortcut handling
 function createShortcutFromEvent(e) {
   const keys = []
@@ -108,6 +121,37 @@ const predefinedColors = [
             :style="{ backgroundColor: color.value }"
             @click="updateSetting('accentColor', color.value)"
           />
+        </div>
+      </div>
+
+      <!-- UI Scale Slider -->
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-gray-900 dark:text-gray-100">
+            UI Scale
+          </h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            Adjust the size of UI elements ({{ settings.uiScale || 100 }}%)
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-sm text-gray-500 dark:text-gray-400">50%</span>
+          <input
+            type="range"
+            min="50"
+            max="150"
+            step="10"
+            :value="settings.uiScale || 100"
+            class="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-accent-500"
+            @input="updateUIScale($event.target.value)"
+          >
+          <span class="text-sm text-gray-500 dark:text-gray-400">150%</span>
+          <button
+            class="px-2 py-1 text-xs text-gray-600 transition-colors bg-gray-100 rounded hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+            @click="updateUIScale(100)"
+          >
+            Reset
+          </button>
         </div>
       </div>
     </div>

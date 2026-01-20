@@ -48,6 +48,7 @@ linux:
     - deb
   maintainer: andreashagen
   category: Utility
+  icon: resources/icon.png
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false

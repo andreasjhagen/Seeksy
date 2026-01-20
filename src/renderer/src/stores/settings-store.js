@@ -62,6 +62,7 @@ function getNestedValue(obj, path, defaultValue = undefined) {
 const DEFAULT_SETTINGS = {
   darkMode: false,
   accentColor: '#1167b1',
+  uiScale: 100,
   includedSearchTypes: [
     { name: 'files', enabled: true },
     { name: 'apps', enabled: true },

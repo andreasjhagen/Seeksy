@@ -1,6 +1,6 @@
 <script setup>
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, provide, ref, watch, nextTick } from 'vue'
+import { computed, nextTick, onMounted, provide, ref, watch } from 'vue'
 import { useContextMenu } from '../../composables/useContextMenu'
 import { useKeyboardNavigation } from '../../composables/useKeyboardNavigation'
 import { useSearchActions } from '../../composables/useSearchActions'
@@ -25,19 +25,19 @@ const diskResultsRef = ref(null)
 const resultsContainer = ref(null)
 
 // Destructure search actions
-const { 
-  navigateVertical, 
-  navigateHorizontal, 
-  navigateSection, 
-  initializeSelection, 
-  getVisibleSections 
+const {
+  navigateVertical,
+  navigateHorizontal,
+  navigateSection,
+  initializeSelection,
+  getVisibleSections,
 } = useKeyboardNavigation()
 
-const { 
-  handleLaunch, 
-  handleOpenFile, 
-  handleShowInDirectory, 
-  handleCopyEmoji 
+const {
+  handleLaunch,
+  handleOpenFile,
+  handleShowInDirectory,
+  handleCopyEmoji,
 } = useSearchActions()
 
 const { isLoading, hasSearched, hasAnyResults } = storeToRefs(searchStore)
@@ -48,10 +48,11 @@ const { isLoading, hasSearched, hasAnyResults } = storeToRefs(searchStore)
 const availableResultTypes = computed(() => {
   // Get result types with content
   const resultTypes = searchStore.resultGroups.filter(rt => rt.content.length > 0)
-  
+
   // Early return if no results or no custom order
-  if (!resultTypes.length) return []
-  
+  if (!resultTypes.length)
+    return []
+
   const customOrder = settingsStore.settings.sectionOrder
   if (!customOrder || !customOrder.length) {
     return resultTypes.sort((a, b) => a.priority - b.priority)
@@ -71,8 +72,10 @@ const availableResultTypes = computed(() => {
     }
 
     // If only one has custom order, prioritize it
-    if (aOrder !== Number.MAX_SAFE_INTEGER) return -1
-    if (bOrder !== Number.MAX_SAFE_INTEGER) return 1
+    if (aOrder !== Number.MAX_SAFE_INTEGER)
+      return -1
+    if (bOrder !== Number.MAX_SAFE_INTEGER)
+      return 1
 
     // Fall back to default priority
     return a.priority - b.priority
@@ -80,14 +83,15 @@ const availableResultTypes = computed(() => {
 })
 
 // Create Sets for faster lookups
-const collapsedSectionsSet = computed(() => 
-  new Set(settingsStore.settings.collapsedSections || [])
+const collapsedSectionsSet = computed(() =>
+  new Set(settingsStore.settings.collapsedSections || []),
 )
 
 const enabledSearchTypesMap = computed(() => {
   const map = new Map()
-  if (!settingsStore.settings.includedSearchTypes) return map
-  
+  if (!settingsStore.settings.includedSearchTypes)
+    return map
+
   for (const type of settingsStore.settings.includedSearchTypes) {
     map.set(type.name, type.enabled !== false) // default to true if not specified
   }
@@ -155,24 +159,27 @@ function handleSectionReorder({ from, to }) {
   const toIndex = currentOrder.indexOf(to)
 
   // Add sections if they don't exist in the order
-  if (fromIndex === -1) currentOrder.push(from)
-  if (toIndex === -1) currentOrder.push(to)
+  if (fromIndex === -1)
+    currentOrder.push(from)
+  if (toIndex === -1)
+    currentOrder.push(to)
 
   // Get updated indices
   const fromIndexUpdated = currentOrder.indexOf(from)
   const toIndexUpdated = currentOrder.indexOf(to)
 
   // No change needed if indices are the same
-  if (fromIndexUpdated === toIndexUpdated) return
+  if (fromIndexUpdated === toIndexUpdated)
+    return
 
   // Reorder the array efficiently
   currentOrder.splice(fromIndexUpdated, 1) // Remove the 'from' item
-  
+
   // Calculate new position for insertion
   const newPosition = fromIndexUpdated < toIndexUpdated
-    ? toIndexUpdated - 1  // Moving down (adjust for removal)
-    : toIndexUpdated      // Moving up
-  
+    ? toIndexUpdated - 1 // Moving down (adjust for removal)
+    : toIndexUpdated // Moving up
+
   currentOrder.splice(newPosition, 0, from) // Insert at the new position
 
   // Save the new order to settings
@@ -254,7 +261,7 @@ watch(
   <div
     v-if="hasSearched"
     ref="resultsContainer"
-    class="p-6 space-y-3 bg-gray-200 shadow-md rounded-2xl dark:bg-gray-800 focus:outline-hidden"
+    class="p-6 space-y-3 overflow-y-auto bg-gray-200 shadow-md rounded-2xl dark:bg-gray-800 focus:outline-hidden scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent"
     tabindex="0"
     @keydown.up.prevent="navigateVertical('up')"
     @keydown.down.prevent="navigateVertical('down')"

@@ -43,6 +43,7 @@ class AppSettingsStore extends EventEmitter {
         preferences: {
           darkMode: false,
           accentColor: '#1167b1',
+          uiScale: 100, // UI scale percentage (50-150)
           includedSearchTypes: [
             { name: 'files', enabled: true },
             { name: 'apps', enabled: true },
@@ -101,6 +102,7 @@ class AppSettingsStore extends EventEmitter {
       preferences: {
         darkMode: false,
         accentColor: '#1167b1',
+        uiScale: 100,
         includedSearchTypes: [
           { name: 'files', enabled: true },
           { name: 'apps', enabled: true },

@@ -40,6 +40,17 @@ watch(
   { immediate: true },
 )
 
+// Apply UI scale via CSS custom property
+// This only affects the search interface, not settings
+watch(
+  () => settingsStore.settings.uiScale,
+  (scale) => {
+    const scaleValue = (scale || 100) / 100
+    document.documentElement.style.setProperty('--ui-scale', scaleValue.toString())
+  },
+  { immediate: true },
+)
+
 // --- Window Navigation Handlers ---
 // Sets up global redirectors for window navigation
 // we are sending them from the main process to the different windows, so we can have two different ones.

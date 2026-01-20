@@ -36,10 +36,6 @@ const __dirnamePath = dirname(fileURLToPath(import.meta.url))
 // Disable hardware acceleration if causing issues
 // app.disableHardwareAcceleration()
 
-// Configure high-DPI scaling
-app.commandLine.appendSwitch('high-dpi-support', 1)
-app.commandLine.appendSwitch('force-device-scale-factor', 1)
-
 // === Global Variables ===
 let mainWindow = null
 let settingsWindow = null
@@ -47,7 +43,17 @@ let tray = null
 
 // Get icon path based on platform
 function getIconPath() {
-  const basePath = app.isPackaged ? path.dirname(app.getAppPath()) : path.join(__dirnamePath, '../../resources')
+  // For packaged apps, resources are extracted to the same directory as the app
+  // For Linux AppImage, we need to look in process.resourcesPath
+  let basePath
+  if (app.isPackaged) {
+    // process.resourcesPath points to the resources directory in packaged apps
+    basePath = process.resourcesPath
+  }
+  else {
+    basePath = path.join(__dirnamePath, '../../resources')
+  }
+
   if (process.platform === 'win32')
     return path.join(basePath, 'icon.ico')
   if (process.platform === 'darwin')
@@ -84,15 +90,8 @@ function createMainWindow() {
       sandbox: false,
       nodeIntegration: true,
       contextIsolation: true,
-      zoomFactor: 1.0, // Control zoom level for high-DPI displays
     },
   })
-
-  // Handle scale factor for high-DPI displays
-  const scaleFactor = require('electron').screen.getPrimaryDisplay().scaleFactor
-  if (scaleFactor > 1) {
-    mainWindow.webContents.setZoomFactor(1.0 / scaleFactor)
-  }
 
   setupMainWindowEventHandlers()
   loadWindowContent(mainWindow)
@@ -134,15 +133,8 @@ function createSettingsWindow() {
       sandbox: false,
       nodeIntegration: true,
       contextIsolation: true,
-      zoomFactor: 1.0, // Control zoom level for high-DPI displays
     },
   })
-
-  // Handle scale factor for high-DPI displays
-  const scaleFactor = require('electron').screen.getPrimaryDisplay().scaleFactor
-  if (scaleFactor > 1) {
-    settingsWindow.webContents.setZoomFactor(1.0 / scaleFactor)
-  }
 
   setupSettingsWindowEventHandlers()
   loadWindowContent(settingsWindow)

@@ -123,18 +123,22 @@ window.api.on(IPC_CHANNELS.SHOW_MAIN_WINDOW, async () => {
     class="fixed inset-0 w-screen h-screen bg-black/0 animate-fade-in"
     @keydown="handleKeyDown"
   >
-    <div class="flex items-center justify-center w-full h-full">
-      <div ref="searchContainer" class="flex flex-col w-full max-w-(--breakpoint-sm) px-4">
-        <div class="flex flex-col gap-4">
+    <div class="flex flex-col items-center justify-center w-full h-full py-8">
+      <div
+        ref="searchContainer"
+        class="search-container flex flex-col w-full max-w-(--breakpoint-sm) px-4 max-h-[calc(100vh-4rem)] overflow-hidden"
+      >
+        <div class="flex flex-col gap-4 overflow-hidden">
           <SearchInterface
             ref="searchInterface"
+            class="shrink-0"
             :is-filtered-mode="searchStore.isFilteredMode"
             :is-loading="searchStore.isLoading"
             @toggle-search-mode="toggleSearchMode"
           />
-          <NoWatchedFolders v-if="!hasWatchedFolders" />
-          <FavoriteResults v-if="!searchStore.query && !hasResults && settingsStore.settings.showFavorites" />
-          <SearchResults v-if="hasResults" />
+          <NoWatchedFolders v-if="!hasWatchedFolders" class="shrink-0" />
+          <FavoriteResults v-if="!searchStore.query && !hasResults && settingsStore.settings.showFavorites" class="overflow-y-auto" />
+          <SearchResults v-if="hasResults" class="overflow-y-auto" />
         </div>
       </div>
     </div>
@@ -160,5 +164,11 @@ window.api.on(IPC_CHANNELS.SHOW_MAIN_WINDOW, async () => {
 
 .animate-fade-in {
   animation: fadeIn 0.6s ease-in-out forwards;
+}
+
+/* Apply UI scale transform to the search container */
+.search-container {
+  transform: scale(var(--ui-scale, 1));
+  transform-origin: center center;
 }
 </style>
