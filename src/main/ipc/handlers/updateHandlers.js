@@ -1,6 +1,6 @@
+import { autoUpdaterService } from '../../services/auto-updater/AutoUpdaterService.js'
 import { BaseHandler } from '../BaseHandler'
 import { IPC } from '../ipcChannels'
-import { autoUpdaterService } from '../../services/auto-updater/AutoUpdaterService.js'
 
 /**
  * UpdateHandler: Handles update-related IPC operations

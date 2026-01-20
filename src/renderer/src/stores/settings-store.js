@@ -1,24 +1,24 @@
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { IPC_CHANNELS } from '../../../main/ipc/ipcChannels'
 
 /**
  * Sets a value in a nested object structure
- * @param {Object} obj - The object to modify
+ * @param {object} obj - The object to modify
  * @param {string} path - Dot-notated path to the property
  * @param {any} value - The value to set
- * @returns {Object} - The modified object
+ * @returns {object} - The modified object
  */
 function setNestedValue(obj, path, value) {
   if (!path || typeof path !== 'string') {
     console.error('Invalid path provided to setNestedValue:', path)
     return obj
   }
-  
+
   const keys = path.split('.')
   const lastKey = keys.pop()
   let current = obj
-  
+
   // Navigate to the nested object, creating the path if it doesn't exist
   for (const key of keys) {
     if (!current[key] || typeof current[key] !== 'object') {
@@ -26,7 +26,7 @@ function setNestedValue(obj, path, value) {
     }
     current = current[key]
   }
-  
+
   // Set the value
   current[lastKey] = value
   return obj
@@ -34,7 +34,7 @@ function setNestedValue(obj, path, value) {
 
 /**
  * Gets a value from a nested object structure
- * @param {Object} obj - The object to query
+ * @param {object} obj - The object to query
  * @param {string} path - Dot-notated path to the property
  * @param {any} defaultValue - Default value if path doesn't exist
  * @returns {any} - The value at the path or the default value
@@ -44,17 +44,17 @@ function getNestedValue(obj, path, defaultValue = undefined) {
     console.error('Invalid path provided to getNestedValue:', path)
     return defaultValue
   }
-  
+
   const keys = path.split('.')
   let current = obj
-  
+
   for (const key of keys) {
     if (current === undefined || current === null || !Object.prototype.hasOwnProperty.call(current, key)) {
       return defaultValue
     }
     current = current[key]
   }
-  
+
   return current
 }
 
@@ -82,18 +82,19 @@ export const useSettingsStore = defineStore('settings', () => {
   const settings = ref({ ...DEFAULT_SETTINGS })
 
   // Create a batch update queue to reduce IPC calls
-  let updateQueue = new Map()
+  const updateQueue = new Map()
   let updateTimer = null
-  
+
   /**
    * Process batched settings updates
    */
   const processBatchUpdates = () => {
-    if (updateQueue.size === 0) return
-    
+    if (updateQueue.size === 0)
+      return
+
     const updates = Object.fromEntries(updateQueue)
     updateQueue.clear()
-    
+
     // Send all updates in a single IPC call
     window.api.invoke(IPC_CHANNELS.SETTINGS_BATCH_UPDATE, updates)
   }
@@ -104,16 +105,17 @@ export const useSettingsStore = defineStore('settings', () => {
   const initialize = async () => {
     try {
       const storedSettings = await window.api.invoke(IPC_CHANNELS.SETTINGS_GET_ALL)
-      
+
       // Merge with defaults to ensure all properties exist
       settings.value = { ...DEFAULT_SETTINGS, ...storedSettings }
-      
+
       // Listen for settings changes from other windows
       window.api.on(IPC_CHANNELS.SETTINGS_CHANGED, ({ key, value }) => {
         // Handle nested paths with the utility function
         setNestedValue(settings.value, key, value)
       })
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Failed to initialize settings:', error)
       // Fall back to defaults if initialization fails
       settings.value = { ...DEFAULT_SETTINGS }
@@ -132,21 +134,23 @@ export const useSettingsStore = defineStore('settings', () => {
       if (key.includes('.')) {
         // For nested properties, use utility function
         setNestedValue(settings.value, key, value)
-      } else {
+      }
+      else {
         // For top-level properties
         settings.value[key] = value
       }
-      
+
       // Add to batch update queue
       updateQueue.set(key, value)
-      
+
       // Debounce updates to reduce IPC calls
       clearTimeout(updateTimer)
       updateTimer = setTimeout(processBatchUpdates, 300)
-      
+
       // For immediate feedback when needed
       return window.api.invoke(IPC_CHANNELS.SETTINGS_SET, key, value)
-    } catch (error) {
+    }
+    catch (error) {
       console.error(`Failed to update setting ${key}:`, error)
       throw error // Propagate error to caller
     }
@@ -154,7 +158,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   /**
    * Update multiple settings at once
-   * @param {Object} updates - Object with key-value pairs to update
+   * @param {object} updates - Object with key-value pairs to update
    * @returns {Promise} - Result of the operation
    */
   const updateMultipleSettings = async (updates) => {
@@ -163,18 +167,20 @@ export const useSettingsStore = defineStore('settings', () => {
       for (const [key, value] of Object.entries(updates)) {
         if (key.includes('.')) {
           setNestedValue(settings.value, key, value)
-        } else {
+        }
+        else {
           settings.value[key] = value
         }
         updateQueue.set(key, value)
       }
-      
+
       // Process updates with a shorter delay for multiple updates
       clearTimeout(updateTimer)
       updateTimer = setTimeout(processBatchUpdates, 100)
-      
+
       return { success: true }
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Failed to update multiple settings:', error)
       throw error
     }
@@ -201,7 +207,8 @@ export const useSettingsStore = defineStore('settings', () => {
     try {
       settings.value = { ...DEFAULT_SETTINGS }
       return window.api.invoke(IPC_CHANNELS.SETTINGS_RESET)
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Failed to reset settings:', error)
       throw error
     }

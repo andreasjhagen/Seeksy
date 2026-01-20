@@ -1,10 +1,11 @@
 import { EventEmitter } from 'node:events'
 import chokidar from 'chokidar'
-import { fileDB } from '../database/database.js'
-import { countFolderContent } from '../disk-reader/utils/countFiles.js'
-import { createIgnorePatterns, isExcludedPath } from './config/exclusionPatterns.js'
+import { createIgnorePatterns } from './config/exclusionPatterns.js'
 import { watcherConfig } from './config/watcherConfig.js'
 import { FileProcessor } from './FileProcessor.js'
+
+// Queue size limit to prevent unbounded growth
+const MAX_QUEUE_SIZE = 10000
 
 export class FolderWatcher extends EventEmitter {
   constructor(watchPath, options = {}) {
@@ -18,6 +19,7 @@ export class FolderWatcher extends EventEmitter {
     this.initialScanComplete = false
     this.isProcessing = false
     this.processingQueue = []
+    this.queueOverflowPaused = false // Track if we paused due to queue overflow
 
     // Batch processing options
     this.batchSize = options.batchSize ?? watcherConfig.processing.defaultBatchSize
@@ -26,9 +28,9 @@ export class FolderWatcher extends EventEmitter {
     this.batchTimer = null
     this.pendingEvents = new Map() // Stores latest event for each path
 
-    // Stats
+    // Stats - use discovered count instead of pre-counting
     this.stats = {
-      totalFiles: 0,
+      totalFiles: 0, // Will be updated incrementally during scan
       processedFiles: 0,
       state: 'initializing',
     }
@@ -45,8 +47,8 @@ export class FolderWatcher extends EventEmitter {
       this.stats.state = 'scanning'
       this.emitStatus()
 
-      // Get initial file count and clean up database
-      this.stats.totalFiles = await countFolderContent(this.watchPath, this.depth)
+      // Skip pre-counting - we'll discover files incrementally for better UX
+      // The totalFiles count will be updated as chokidar discovers files
 
       // Setup watcher and status updates
       this.setupWatcher()
@@ -101,11 +103,22 @@ export class FolderWatcher extends EventEmitter {
   }
 
   queueFileEvent(event, path, stats = null) {
-    if (isExcludedPath(path) || this.isPaused)
+    // Chokidar already filters based on createIgnorePatterns(), no need for duplicate check
+    if (this.isPaused)
       return
 
-    // Update stats based on event
-    if (event === 'add' && this.initialScanComplete) {
+    // Backpressure: if queue is too large, apply throttling
+    if (this.processingQueue.length >= MAX_QUEUE_SIZE && !this.queueOverflowPaused) {
+      this.queueOverflowPaused = true
+      console.warn(`Queue overflow (${MAX_QUEUE_SIZE} items) - applying backpressure`)
+      // Flush pending events immediately to catch up
+      if (this.pendingEvents.size > 0) {
+        this.flushPendingEvents()
+      }
+    }
+
+    // Update stats based on event - increment discovery count for add events
+    if (event === 'add') {
       this.stats.totalFiles++
     }
     else if (event === 'remove') {
@@ -215,7 +228,15 @@ export class FolderWatcher extends EventEmitter {
       // Update state when queue is empty
       if (this.processingQueue.length === 0 && !this.isPaused && this.initialScanComplete) {
         this.stats.state = 'watching'
+        // Clear processedPaths after initial scan to free memory
+        this.processor.clearProcessedPaths()
         this.emit('processing-complete', this.getStatus())
+      }
+
+      // Reset overflow flag when queue is under control
+      if (this.queueOverflowPaused && this.processingQueue.length < MAX_QUEUE_SIZE / 2) {
+        this.queueOverflowPaused = false
+        console.log('Queue backpressure released')
       }
     }
     finally {
@@ -296,12 +317,13 @@ export class FolderWatcher extends EventEmitter {
       return false
 
     try {
-      // Reset state
-      this.stats.totalFiles = await countFolderContent(this.watchPath, this.depth)
+      // Reset state without pre-counting - discover files incrementally
       this.initialScanComplete = false
+      this.stats.totalFiles = 0
       this.stats.processedFiles = 0
       this.processingQueue = []
       this.stats.state = 'scanning'
+      this.queueOverflowPaused = false
 
       // Set up watcher and updates
       this.setupWatcher()

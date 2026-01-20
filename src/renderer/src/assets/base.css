@@ -52,7 +52,7 @@ based on the config in the store, we have to force tailwind to always render the
     --color-background-mute: var(--ev-c-black-mute);
 
     --color-text: var(--ev-c-text-1);
-    
+
     /* UI Scale - default to 1 (100%) */
     --ui-scale: 1;
   }
@@ -99,7 +99,7 @@ based on the config in the store, we have to force tailwind to always render the
     scrollbar-width: thin;
     scrollbar-color: #9ca3af transparent;
   }
-  
+
   .dark .scrollbar-thin {
     scrollbar-color: #4b5563 transparent;
   }

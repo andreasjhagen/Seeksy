@@ -29,18 +29,18 @@ const props = defineProps({
   virtualOverscan: {
     type: Number,
     default: 10,
-  }
+  },
 })
 
 const emit = defineEmits([
-  'contextmenu', 
-  'open-file', 
-  'show-in-directory', 
-  'launch', 
-  'copy', 
-  'item-focus', 
-  'toggle-collapse', 
-  'section-reorder'
+  'contextmenu',
+  'open-file',
+  'show-in-directory',
+  'launch',
+  'copy',
+  'item-focus',
+  'toggle-collapse',
+  'section-reorder',
 ])
 
 const resultsStore = useSearchResultsStore()
@@ -76,7 +76,7 @@ function handleSectionReorder(data) {
 
 // Expose the results for use in parent component
 defineExpose({
-  results
+  results,
 })
 </script>
 
@@ -89,11 +89,11 @@ defineExpose({
     @section-reorder="handleSectionReorder"
   >
     <!-- Default slot for result items -->
-    <slot 
-      :results="results" 
-      :is-item-selected="isItemSelected" 
-      :handle-item-focus="handleItemFocusEvent" 
-      :get-tab-index="getTabIndex" 
+    <slot
+      :results="results"
+      :is-item-selected="isItemSelected"
+      :handle-item-focus="handleItemFocusEvent"
+      :get-tab-index="getTabIndex"
     />
   </ResultSection>
 </template>

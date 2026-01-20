@@ -70,10 +70,6 @@ export class IndexController extends EventEmitter {
     this._initializing = true // Set flag to prevent concurrent initialization
 
     try {
-      // Clean up orphaned entries before initializing watchers
-      console.log('Starting orphaned entries cleanup...')
-      await this.cleanupOrphanedDatabaseEntries()
-
       const folders = await fileDB.getWatchedFolders()
 
       // Create all watchers but keep them paused initially
@@ -88,6 +84,10 @@ export class IndexController extends EventEmitter {
       // Start the first watcher if any exist
       this._processWatcherQueue()
 
+      // Run orphan cleanup in background after UI is responsive
+      // This doesn't block startup
+      this._scheduleOrphanCleanup()
+
       return true
     }
     catch (error) {
@@ -97,6 +97,29 @@ export class IndexController extends EventEmitter {
     finally {
       this._initializing = false // Reset the flag regardless of success or failure
     }
+  }
+
+  /**
+   * Schedule orphan cleanup to run in the background
+   * Waits for initial indexing to complete before running
+   */
+  _scheduleOrphanCleanup() {
+    // Wait 5 seconds after init, then run cleanup when no active indexing
+    setTimeout(async () => {
+      // Wait until no active indexing watchers
+      const checkAndRun = async () => {
+        const status = this.getStatus()
+        if (status.activeIndexingWatchers === 0) {
+          console.log('Starting background orphan cleanup...')
+          await this.cleanupOrphanedDatabaseEntries()
+        }
+        else {
+          // Check again in 10 seconds
+          setTimeout(checkAndRun, 10000)
+        }
+      }
+      await checkAndRun()
+    }, 5000)
   }
 
   async _initWatcher(watchPath, options = { depth: Infinity, startPaused: false }) {
@@ -177,9 +200,15 @@ export class IndexController extends EventEmitter {
       })
       .on('error', async (error) => {
         console.error(`Watcher error for ${watchPath}:`, error)
+        // Clear the active indexing watcher if this was it, so queue can proceed
+        if (this.currentActiveIndexingWatchPath === watchPath) {
+          this.currentActiveIndexingWatchPath = null
+        }
         if (!watcher.isPaused) {
           await this.restartWatcher(watchPath)
         }
+        // Process next watcher in queue if this one failed
+        setTimeout(() => this._processWatcherQueue(), 100)
       })
       .on('ready', () => {
         this.emit('watcher-ready', watchPath)
@@ -439,25 +468,38 @@ export class IndexController extends EventEmitter {
       let removedCount = 0
       console.log(`Checking ${files.length} files for orphaned entries...`)
 
-      // Process in batches
-      const batchSize = 100
+      // Process in larger batches for better parallelism
+      const batchSize = 200
       for (let i = 0; i < files.length; i += batchSize) {
         const batch = files.slice(i, i + batchSize)
-        await Promise.all(
+        const results = await Promise.allSettled(
           batch.map(async (file) => {
+            const filePath = typeof file === 'object' ? file.path : file
             try {
-              // 'file' is the path directly, not an object with a path property
-              const filePath = typeof file === 'object' ? file.path : file
               await access(filePath)
+              return { exists: true, path: filePath }
             }
             catch {
-              const filePath = typeof file === 'object' ? file.path : file
-              console.log(`Removing orphaned entry: ${filePath}`)
-              await fileDB.removePath(filePath)
-              removedCount++
+              return { exists: false, path: filePath }
             }
           }),
         )
+
+        // Remove orphaned entries
+        const orphaned = results
+          .filter(r => r.status === 'fulfilled' && !r.value.exists)
+          .map(r => r.value.path)
+
+        for (const filePath of orphaned) {
+          console.log(`Removing orphaned entry: ${filePath}`)
+          await fileDB.removePath(filePath)
+          removedCount++
+        }
+
+        // Yield to event loop between batches
+        if (i + batchSize < files.length) {
+          await new Promise(resolve => setImmediate(resolve))
+        }
       }
 
       console.log(`Cleanup complete: Removed ${removedCount} orphaned entries out of ${files.length} checked`)

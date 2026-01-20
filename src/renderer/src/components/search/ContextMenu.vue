@@ -27,15 +27,16 @@ const menuItems = computed(() => contextMenu.menuItems.value)
 
 // Setup click outside handler when menu is visible
 watchEffect(() => {
-  if (!isMenuVisible.value || !menuRef.value) return
-  
+  if (!isMenuVisible.value || !menuRef.value)
+    return
+
   const { stop } = onClickOutside(menuRef, () => {
     // Only close menu if notes dialog isn't open
     if (!showNotesDialog.value) {
       contextMenu.closeMenu()
     }
   })
-  
+
   return stop // Clean up handler when effect re-runs
 })
 
@@ -67,7 +68,7 @@ if (instance && instance.appContext.app.config.globalProperties.$setContextMenuI
 
 /**
  * Fetch notes for an item
- * @param {Object} item - The item to get notes for
+ * @param {object} item - The item to get notes for
  */
 async function getItemNotes(item) {
   try {
@@ -100,7 +101,8 @@ async function handleNotesConfirm() {
       showNotesDialog.value = false
       contextMenu.closeMenu()
     }
-  } catch (error) {
+  }
+  catch (error) {
     console.error('Failed to save note:', error)
   }
 }

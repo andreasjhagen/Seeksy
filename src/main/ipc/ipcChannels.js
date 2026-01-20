@@ -65,7 +65,7 @@ export const IPC = {
     SETTINGS_SET: 'settings:set',
     SETTINGS_GET_ALL: 'settings:get-all',
     SETTINGS_CHANGED: 'settings:changed',
-    
+
     // UI Scale
     SET_UI_SCALE: 'ui:set-scale',
 

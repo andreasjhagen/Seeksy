@@ -52,12 +52,12 @@ export const EXCLUDED_PATTERNS = {
 // Pre-compile exclusion patterns into a single regex for faster matching
 const _escapeRegex = str => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const _compiledFolderPattern = new RegExp(
-  EXCLUDED_PATTERNS.FOLDERS.map(folder => {
+  EXCLUDED_PATTERNS.FOLDERS.map((folder) => {
     const escaped = _escapeRegex(folder)
     // Match folder anywhere in path with separators
     return `(?:[/\\\\]${escaped}[/\\\\])|(?:[/\\\\]${escaped}$)`
   }).join('|'),
-  'i'  // Case-insensitive for Windows compatibility
+  'i', // Case-insensitive for Windows compatibility
 )
 
 /**

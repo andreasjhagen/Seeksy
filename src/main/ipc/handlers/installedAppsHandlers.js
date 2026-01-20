@@ -1,5 +1,4 @@
 import { applicationLauncher } from '../../services/application-indexer/ApplicationLauncher.js'
-import { fileDB } from '../../services/database/database.js'
 import { BaseHandler } from '../BaseHandler.js'
 import { IPC } from '../ipcChannels.js'
 

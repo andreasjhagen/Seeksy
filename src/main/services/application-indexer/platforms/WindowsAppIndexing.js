@@ -30,21 +30,21 @@ class WindowsAppIndexing {
 
       // Deduplicate apps by path (unique identifier), with fallback to name+type for paths that differ
       const uniqueApps = new Map()
-      
+
       for (const app of this.applications) {
         // Normalize path for comparison
         const normalizedPath = app.path.toLowerCase()
-        
+
         // Create a compound key: prefer path, but for same names use type distinction
         const pathKey = normalizedPath
         const nameTypeKey = `${app.name.toLowerCase()}:${app.applicationType || 'unknown'}`
-        
+
         // Check if this path already exists
         if (uniqueApps.has(pathKey)) {
           const existing = uniqueApps.get(pathKey)
           // Keep the one with icon, or newer lastUpdated
-          if ((!existing.icon && app.icon) || 
-              (app.lastUpdated > (existing.lastUpdated || 0))) {
+          if ((!existing.icon && app.icon)
+            || (app.lastUpdated > (existing.lastUpdated || 0))) {
             uniqueApps.set(pathKey, app)
           }
         }
@@ -56,12 +56,13 @@ class WindowsAppIndexing {
           const priority = { steam: 1, uwp: 2, exe: 3, lnk: 4, store: 5 }
           const existingPriority = priority[existing.applicationType] || 99
           const newPriority = priority[app.applicationType] || 99
-          
+
           if (newPriority < existingPriority) {
             // Remove old name-type key and add new one by path
             uniqueApps.delete(nameTypeKey)
             uniqueApps.set(pathKey, app)
-          } else {
+          }
+          else {
             // Keep existing, but also add by path if paths are different
             if (normalizedPath !== existing.path.toLowerCase()) {
               uniqueApps.set(pathKey, app)

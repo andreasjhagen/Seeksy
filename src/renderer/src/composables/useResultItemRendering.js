@@ -1,41 +1,41 @@
-import { computed } from 'vue'
 import { useSelectionStore } from '../stores/selection-store'
 
 /**
  * A composable for handling common result item rendering functionality
  * @param {string} resultType - The type of result (e.g., 'application', 'disk', 'emoji')
- * @returns {Object} - Functions and computed properties for result item rendering
+ * @returns {object} - Functions and computed properties for result item rendering
  */
 export function useResultItemRendering(resultType) {
   const selectionStore = useSelectionStore()
 
   /**
    * Check if an item is currently selected
-   * @param {Object} item - The result item to check
+   * @param {object} item - The result item to check
    * @returns {boolean} - Whether the item is currently selected
    */
   const isItemSelected = (item) => {
-    if (!selectionStore.selectedItem || !item) return false
-    
+    if (!selectionStore.selectedItem || !item)
+      return false
+
     // Handle different result types
     if (resultType === 'application' || resultType === 'apps') {
-      return selectionStore.selectedSection === resultType && 
-             selectionStore.selectedItem.path === item.path
+      return selectionStore.selectedSection === resultType
+        && selectionStore.selectedItem.path === item.path
     }
-    
+
     if (resultType === 'emoji') {
-      return selectionStore.selectedSection === resultType && 
-             selectionStore.selectedItem.char === item.char
+      return selectionStore.selectedSection === resultType
+        && selectionStore.selectedItem.char === item.char
     }
-    
+
     if (resultType === 'disk' || resultType === 'files') {
-      return selectionStore.selectedSection === resultType && 
-             selectionStore.selectedItem.path === item.path
+      return selectionStore.selectedSection === resultType
+        && selectionStore.selectedItem.path === item.path
     }
-    
+
     // Default case - compare the entire object
-    return selectionStore.selectedSection === resultType && 
-           selectionStore.selectedItem === item
+    return selectionStore.selectedSection === resultType
+      && selectionStore.selectedItem === item
   }
 
   /**
@@ -50,13 +50,13 @@ export function useResultItemRendering(resultType) {
 
   /**
    * Handle item focus event
-   * @param {Object} item - The item that was focused
+   * @param {object} item - The item that was focused
    * @param {Function} emit - The emit function from the component
    */
   const handleItemFocus = (item, emit) => {
     // Update selection
     selectionStore.setSelectedItem(item, resultType)
-    
+
     // Emit event if an emit function was provided
     if (emit) {
       emit('item-focus', item, resultType)

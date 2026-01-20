@@ -96,7 +96,7 @@ class LinuxAppIndexing {
       const icon = iconPath ? await this.iconExtractor.extractIcon(iconPath) : ''
 
       // Extract keywords for better search
-      const keywords = entry.Keywords 
+      const keywords = entry.Keywords
         ? entry.Keywords.split(';').filter(Boolean).map(k => k.trim())
         : []
 
@@ -116,7 +116,7 @@ class LinuxAppIndexing {
         lastUpdated: fs.statSync(filePath).mtimeMs,
         applicationType: 'desktop',
       }
-      
+
       this.applications.push(app)
       return app
     }
@@ -185,28 +185,30 @@ class LinuxAppIndexing {
 
       for (const line of lines) {
         const parts = line.split(/\s+/)
-        if (parts.length < 2) continue
+        if (parts.length < 2)
+          continue
 
         const snapName = parts[0]
-        
+
         // Skip system snaps
         if (['snapd', 'core', 'core18', 'core20', 'core22', 'gnome-3-38-2004', 'gtk-common-themes'].includes(snapName)) {
           continue
         }
 
         // Check if we already have this app from desktop files
-        const existingApp = this.applications.find(a => 
-          a.name.toLowerCase() === snapName.toLowerCase() || 
-          a.path.includes(snapName)
+        const existingApp = this.applications.find(a =>
+          a.name.toLowerCase() === snapName.toLowerCase()
+          || a.path.includes(snapName),
         )
-        if (existingApp) continue
+        if (existingApp)
+          continue
 
         // Try to get snap info for icon
         try {
           const { stdout: infoOutput } = await execPromise(`snap info ${snapName} 2>/dev/null`)
           const nameMatch = infoOutput.match(/name:\s+(.+)/i)
           const summaryMatch = infoOutput.match(/summary:\s+(.+)/i)
-          
+
           const displayName = nameMatch ? nameMatch[1].trim() : snapName
           const description = summaryMatch ? summaryMatch[1].trim() : ''
 
@@ -222,8 +224,10 @@ class LinuxAppIndexing {
             try {
               await accessAsync(iconPath, fs.constants.R_OK)
               icon = await this.iconExtractor.extractIcon(iconPath)
-              if (icon) break
-            } catch {
+              if (icon)
+                break
+            }
+            catch {
               continue
             }
           }
@@ -277,7 +281,8 @@ class LinuxAppIndexing {
    * Find and process AppImage files in a directory
    */
   async findAppImages(dir, depth = 0) {
-    if (depth > 2) return // Limit recursion depth
+    if (depth > 2)
+      return // Limit recursion depth
 
     try {
       const entries = await readdirAsync(dir, { withFileTypes: true })

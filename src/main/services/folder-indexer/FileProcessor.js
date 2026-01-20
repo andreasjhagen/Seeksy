@@ -24,11 +24,21 @@ export class FileProcessor extends EventEmitter {
     super()
     this.processedPaths = new Set()
     this.processingPaths = new Map() // Track paths being processed
-    
+
     // Cache for watched folders - sorted by path length descending
     this._watchedFoldersCache = null
     this._watchedFoldersCacheTime = 0
     this._watchedFoldersCacheTTL = 30000 // 30 seconds TTL
+  }
+
+  /**
+   * Clears the processedPaths set to free memory after initial scan
+   * Should be called when transitioning from 'indexing' to 'watching' state
+   */
+  clearProcessedPaths() {
+    const count = this.processedPaths.size
+    this.processedPaths.clear()
+    logger.info(`Cleared ${count} entries from processedPaths cache`)
   }
 
   /**
@@ -201,7 +211,7 @@ export class FileProcessor extends EventEmitter {
    */
   async _findWatchedParentFolder(itemPath) {
     const now = Date.now()
-    
+
     // Refresh cache if expired or not initialized
     if (!this._watchedFoldersCache || (now - this._watchedFoldersCacheTime) > this._watchedFoldersCacheTTL) {
       const watchedFolders = await fileDB.getAllWatchFolderStatus()
@@ -210,7 +220,7 @@ export class FileProcessor extends EventEmitter {
       this._watchedFoldersCache = watchedFolders.sort((a, b) => b.path.length - a.path.length)
       this._watchedFoldersCacheTime = now
     }
-    
+
     return this._watchedFoldersCache.find(folder => itemPath.startsWith(folder.path))
   }
 

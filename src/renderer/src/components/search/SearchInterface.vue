@@ -4,7 +4,6 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { IPC_CHANNELS } from '../../../../main/ipc/ipcChannels'
 import { useKeyboardNavigation } from '../../composables/useKeyboardNavigation'
 import { useSearchResultsStore } from '../../stores/search-results-store'
-import { useSettingsStore } from '../../stores/settings-store'
 import OpenSettingsButton from './OpenSettingsButton.vue'
 
 const emit = defineEmits(['toggle-search-mode'])

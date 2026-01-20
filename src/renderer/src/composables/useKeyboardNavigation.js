@@ -1,4 +1,4 @@
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick } from 'vue'
 import { useSearchResultsStore } from '../stores/search-results-store'
 import { useSelectionStore } from '../stores/selection-store'
 import { useSettingsStore } from '../stores/settings-store'

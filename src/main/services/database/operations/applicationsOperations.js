@@ -23,10 +23,10 @@ export const applicationsOperations = {
 
   insertSystemApplication(application) {
     this._initAppStatements()
-    
+
     // Serialize arrays to JSON strings for storage
-    const keywords = Array.isArray(application.keywords) 
-      ? JSON.stringify(application.keywords) 
+    const keywords = Array.isArray(application.keywords)
+      ? JSON.stringify(application.keywords)
       : application.keywords || null
     const categories = Array.isArray(application.categories)
       ? JSON.stringify(application.categories)

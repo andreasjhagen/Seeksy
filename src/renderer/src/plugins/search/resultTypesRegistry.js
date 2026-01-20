@@ -15,8 +15,8 @@ export const RESULT_TYPES = {
 
 /**
  * Create a standard context menu action object
- * @param {Object} options - Action options
- * @returns {Object} - Formatted context menu action
+ * @param {object} options - Action options
+ * @returns {object} - Formatted context menu action
  */
 export function createContextMenuAction({ name, group, order, actionCall, keepMenuOpen = false }) {
   return {
@@ -31,7 +31,7 @@ export function createContextMenuAction({ name, group, order, actionCall, keepMe
 /**
  * Create a standard favorite toggle action
  * @param {string} type - The item type (file, folder, application, emoji)
- * @returns {Object} - Context menu action for toggling favorites
+ * @returns {object} - Context menu action for toggling favorites
  */
 export function createFavoriteToggleAction(type) {
   return createContextMenuAction({
@@ -49,7 +49,7 @@ export function createFavoriteToggleAction(type) {
 
 /**
  * Create a standard edit note action
- * @returns {Object} - Context menu action for editing notes
+ * @returns {object} - Context menu action for editing notes
  */
 export function createEditNoteAction() {
   return createContextMenuAction({
@@ -96,12 +96,12 @@ const defaultResultTypes = [
         group: 'favorite',
         order: 10, // Favorites come after core actions
         actionCall: (item) => {
-          const path = item.path;
+          const path = item.path
           // Determine if this is a folder or file
-          const type = item.type === 'directory' || getFileType(item) === 'directory' ? 'folder' : 'file';
+          const type = item.type === 'directory' || getFileType(item) === 'directory' ? 'folder' : 'file'
           return item.isFavorite
             ? window.api.invoke(IPC_CHANNELS.FAVORITES_REMOVE, path)
-            : window.api.invoke(IPC_CHANNELS.FAVORITES_ADD, path, type);
+            : window.api.invoke(IPC_CHANNELS.FAVORITES_ADD, path, type)
         },
       }),
       createEditNoteAction(),
@@ -179,16 +179,16 @@ const defaultResultTypes = [
 class ResultTypesRegistry {
   constructor() {
     this._resultTypes = new Map()
-    
+
     // Initialize with default result types
-    defaultResultTypes.forEach(resultType => {
+    defaultResultTypes.forEach((resultType) => {
       this.registerResultType(resultType)
     })
   }
-  
+
   /**
    * Register a new result type
-   * @param {Object} resultType - The result type configuration
+   * @param {object} resultType - The result type configuration
    * @returns {boolean} - Success status
    */
   registerResultType(resultType) {
@@ -196,14 +196,14 @@ class ResultTypesRegistry {
       console.error('Invalid result type - must have a name property')
       return false
     }
-    
+
     // Create a fresh copy to avoid reference issues
-    const resultTypeCopy = {...resultType, content: []}
-    
+    const resultTypeCopy = { ...resultType, content: [] }
+
     this._resultTypes.set(resultType.name, resultTypeCopy)
     return true
   }
-  
+
   /**
    * Unregister a result type
    * @param {string} typeName - The name of the result type to remove
@@ -214,20 +214,20 @@ class ResultTypesRegistry {
       console.warn(`Result type '${typeName}' does not exist`)
       return false
     }
-    
+
     this._resultTypes.delete(typeName)
     return true
   }
-  
+
   /**
    * Get a result type by name
    * @param {string} typeName - The name of the result type
-   * @returns {Object|null} - The result type or null if not found
+   * @returns {object | null} - The result type or null if not found
    */
   getResultType(typeName) {
     return this._resultTypes.get(typeName) || null
   }
-  
+
   /**
    * Get all registered result types
    * @returns {Array} - Array of result type objects
@@ -235,7 +235,7 @@ class ResultTypesRegistry {
   getAllResultTypes() {
     return Array.from(this._resultTypes.values())
   }
-  
+
   /**
    * Check if a result type is registered
    * @param {string} typeName - The name of the result type
@@ -254,8 +254,8 @@ export default {
   install: (app) => {
     // Make registry available through app.config
     app.config.globalProperties.$resultTypesRegistry = resultTypesRegistry
-    
+
     // Also provide it for composition API
     app.provide('resultTypesRegistry', resultTypesRegistry)
-  }
+  },
 }

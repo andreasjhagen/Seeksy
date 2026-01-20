@@ -21,12 +21,13 @@ export class DatabaseItemHandler extends BaseHandler {
    * Handle quick search requests
    * @param {Event} _ - The IPC event (unused)
    * @param {string} query - The search query
-   * @returns {Promise<Object>} The search results
+   * @returns {Promise<object>} The search results
    */
   async handleQuickSearch(_, query) {
     try {
       return await fileDB.quickSearch(query)
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Quick search failed:', error)
       return { error: 'Search failed', message: error.message }
     }
@@ -35,13 +36,14 @@ export class DatabaseItemHandler extends BaseHandler {
   /**
    * Handle filtered search requests
    * @param {Event} _ - The IPC event (unused)
-   * @param {Object} searchParams - The search parameters including filters
-   * @returns {Promise<Object>} The filtered search results
+   * @param {object} searchParams - The search parameters including filters
+   * @returns {Promise<object>} The filtered search results
    */
   async handleFilteredSearch(_, searchParams) {
     try {
       return await fileDB.filteredSearch(searchParams)
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Filtered search failed:', error)
       return { error: 'Search failed', message: error.message }
     }
@@ -52,12 +54,13 @@ export class DatabaseItemHandler extends BaseHandler {
    * @param {Event} _ - The IPC event (unused)
    * @param {string} itemPath - Path to the item
    * @param {string} type - Type of item (file, folder, application, emoji)
-   * @returns {Promise<Object>} Result of the operation
+   * @returns {Promise<object>} Result of the operation
    */
   async handleFavoriteAdd(_, itemPath, type) {
     try {
       return await fileDB.addToFavorites(itemPath, type)
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Failed to add favorite:', error)
       return { success: false, error: error.message }
     }
@@ -67,12 +70,13 @@ export class DatabaseItemHandler extends BaseHandler {
    * Remove an item from favorites
    * @param {Event} _ - The IPC event (unused)
    * @param {string} itemPath - Path to the item
-   * @returns {Promise<Object>} Result of the operation
+   * @returns {Promise<object>} Result of the operation
    */
   async handleFavoriteRemove(_, itemPath) {
     try {
       return await fileDB.removeFromFavorites(itemPath)
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Failed to remove favorite:', error)
       return { success: false, error: error.message }
     }
@@ -87,7 +91,8 @@ export class DatabaseItemHandler extends BaseHandler {
   async handleFavoriteCheck(_, itemPath) {
     try {
       return await fileDB.isFavorite(itemPath)
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Failed to check favorite status:', error)
       return false
     }
@@ -100,7 +105,8 @@ export class DatabaseItemHandler extends BaseHandler {
   async handleGetAllFavorites() {
     try {
       return await fileDB.getAllFavorites()
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Failed to get all favorites:', error)
       return []
     }
@@ -111,13 +117,14 @@ export class DatabaseItemHandler extends BaseHandler {
    * @param {Event} _ - The IPC event (unused)
    * @param {string} itemPath - Path to the item
    * @param {string} notes - Note content
-   * @returns {Promise<Object>} Result of the operation
+   * @returns {Promise<object>} Result of the operation
    */
   async handleSetNotes(_, itemPath, notes) {
     try {
       const success = await fileDB.setNotes(itemPath, notes)
       return { success, notes }
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Failed to set notes:', error)
       return { success: false, error: error.message }
     }
@@ -127,13 +134,14 @@ export class DatabaseItemHandler extends BaseHandler {
    * Get notes for an item
    * @param {Event} _ - The IPC event (unused)
    * @param {string} itemPath - Path to the item
-   * @returns {Promise<Object>} The notes content
+   * @returns {Promise<object>} The notes content
    */
   async handleGetNotes(_, itemPath) {
     try {
       const notes = await fileDB.getNotes(itemPath)
       return { success: true, notes }
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Failed to get notes:', error)
       return { success: false, error: error.message }
     }
