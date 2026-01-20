@@ -58,7 +58,11 @@ watch(
 // Sets up global redirectors for window navigation
 // we are sending them from the main process to the different windows, so we can have two different ones.
 function setupWindowRedirection() {
-  window.api.on(IPC_CHANNELS.SHOW_SETTINGS_PAGE, () => router.push({ name: 'settings' }))
+  window.api.on(IPC_CHANNELS.SHOW_SETTINGS_PAGE, (data) => {
+    // Support tabIndex parameter to navigate to specific settings tab (e.g., from tray "Update Available")
+    const query = data?.tabIndex !== undefined ? { tab: data.tabIndex } : {}
+    router.push({ name: 'settings', query })
+  })
   window.api.on(IPC_CHANNELS.SHOW_SEARCH_PAGE, () => router.push({ name: 'search' }))
 }
 

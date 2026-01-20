@@ -1,8 +1,30 @@
 <script setup>
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/vue'
+import { ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import InfoTab from '../components/settings/tabs/info/InfoTab.vue'
 import PreferencesTab from '../components/settings/tabs/preferences/PreferencesTab.vue'
 import WatchedFoldersTab from '../components/settings/tabs/watched-folders/WatchedFoldersTab.vue'
+
+const route = useRoute()
+const selectedTab = ref(0)
+
+// Parse tab index from query parameter
+function parseTabIndex(query) {
+  const tab = Number.parseInt(query, 10)
+  return Number.isNaN(tab) ? 0 : Math.max(0, Math.min(tab, 2)) // Clamp to valid tab range 0-2
+}
+
+// Initialize from query param on mount
+selectedTab.value = parseTabIndex(route.query.tab)
+
+// Watch for query param changes (e.g., clicking tray "Update Available" while already on settings page)
+watch(
+  () => route.query.tab,
+  (newTab) => {
+    selectedTab.value = parseTabIndex(newTab)
+  },
+)
 </script>
 
 <template>
@@ -14,7 +36,7 @@ import WatchedFoldersTab from '../components/settings/tabs/watched-folders/Watch
         Settings
       </h1>
 
-      <TabGroup>
+      <TabGroup :selected-index="selectedTab" @change="selectedTab = $event">
         <TabList class="flex p-1 space-x-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
           <Tab v-slot="{ selected }" as="template">
             <button
