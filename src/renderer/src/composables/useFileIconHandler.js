@@ -1,7 +1,14 @@
-// filepath: d:\Web Development\Seeksy\src\renderer\src\composables\useFileIconHandler.js
+/**
+ * Composable for file icon and thumbnail management
+ *
+ * Uses centralized IconService for:
+ * - Request deduplication (prevents duplicate IPC calls)
+ * - Request batching (groups requests for efficiency)
+ * - LRU caching (avoids repeated IPC for recently loaded icons)
+ */
 import { onMounted, ref } from 'vue'
-import { IPC_CHANNELS } from '../../../main/ipc/ipcChannels'
 import { isFileOfType } from '../../../utils/mimeTypeUtils'
+import { iconService } from '../services/IconService'
 
 /**
  * Composable for file icon and thumbnail management
@@ -33,7 +40,8 @@ export function useFileIconHandler(file, options = {}) {
   }
 
   /**
-   * Load thumbnail for an image file
+   * Load thumbnail for an image file using centralized IconService
+   * Benefits: deduplication, batching, and caching
    * @param {string} path - Path to the file
    */
   async function loadThumbnail(path) {
@@ -41,7 +49,7 @@ export function useFileIconHandler(file, options = {}) {
       return
 
     try {
-      const data = await window.api.invoke(IPC_CHANNELS.GET_THUMBNAIL, path)
+      const data = await iconService.getThumbnail(path)
       thumbnail.value = data
     }
     catch (error) {
@@ -50,7 +58,8 @@ export function useFileIconHandler(file, options = {}) {
   }
 
   /**
-   * Load file icon for a file
+   * Load file icon for a file using centralized IconService
+   * Benefits: deduplication, batching, and caching
    * @param {string} path - Path to the file
    * @param {string} fileType - Type of file (directory, application, etc.)
    */
@@ -60,7 +69,7 @@ export function useFileIconHandler(file, options = {}) {
     }
 
     try {
-      const icon = await window.api.invoke(IPC_CHANNELS.GET_FILE_ICON, path)
+      const icon = await iconService.getFileIcon(path, fileType)
       fileIcon.value = icon
     }
     catch (error) {

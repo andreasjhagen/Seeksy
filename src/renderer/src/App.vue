@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { IPC_CHANNELS } from '../../main/ipc/ipcChannels'
 import { provideContextMenuService } from './composables/useContextMenu'
+import { useSearchResultsStore } from './stores/search-results-store'
 import { useSelectionStore } from './stores/selection-store'
 import { useSettingsStore } from './stores/settings-store'
 import { generateColorPalette } from './utils/colorUtils'
@@ -12,9 +13,11 @@ const initializationStatus = ref('pending')
 const router = useRouter()
 const settingsStore = useSettingsStore()
 const selectionStore = useSelectionStore()
+const searchStore = useSearchResultsStore()
 
 // Provide the context menu service to the entire application
-const contextMenuService = provideContextMenuService()
+// This function call sets up the Vue provide/inject
+provideContextMenuService()
 
 // Theme management
 watch(
@@ -66,6 +69,8 @@ function setupSearchWindowHandlers() {
   })
 
   window.api.on(IPC_CHANNELS.SEARCH_WINDOW_FOCUS_LOST, async () => {
+    // Cancel any pending search operations to prevent stale results
+    searchStore.cancelPendingSearch()
     // Always clear and reinitialize selection when focusing results
     selectionStore.clearSelection()
     await window.api.invoke(IPC_CHANNELS.HIDE_MAIN_WINDOW)

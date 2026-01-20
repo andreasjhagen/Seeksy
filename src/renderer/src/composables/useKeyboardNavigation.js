@@ -1,4 +1,4 @@
-import { nextTick, computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useSearchResultsStore } from '../stores/search-results-store'
 import { useSelectionStore } from '../stores/selection-store'
 import { useSettingsStore } from '../stores/settings-store'
@@ -7,10 +7,10 @@ export function useKeyboardNavigation() {
   const selectionStore = useSelectionStore()
   const searchStore = useSearchResultsStore()
   const settingsStore = useSettingsStore()
-  
+
   // Cache for DOM element selectors
   const selectorCache = new Map()
-  
+
   // Memoized computed property for visible sections to improve performance
   const visibleSections = computed(() => {
     // Get sections that have content
@@ -94,7 +94,7 @@ export function useKeyboardNavigation() {
 
   /**
    * Create a DOM selector for a result item
-   * @param {Object} item - The result item
+   * @param {object} item - The result item
    * @returns {string} - The DOM selector
    */
   function createItemSelector(item) {
@@ -103,13 +103,13 @@ export function useKeyboardNavigation() {
     if (selectorCache.has(cacheKey)) {
       return selectorCache.get(cacheKey)
     }
-    
+
     let selector
-    
+
     if (item.path) {
       // For disk items and applications (both have path)
       selector = `[data-item-id="${CSS.escape(item.path)}"], [data-path="${CSS.escape(item.path)}"]`
-      
+
       // Don't use JSON.stringify in selectors as it's unreliable
       if (item.isApp || item.type === 'application') {
         selector += `, [data-app-path="${CSS.escape(item.path)}"]`
@@ -132,26 +132,30 @@ export function useKeyboardNavigation() {
         }
       }
     }
-    
+
     // Cache the selector
     if (selector) {
       selectorCache.set(cacheKey, selector)
     }
-    
+
     return selector
   }
 
   /**
-   * Scroll the selected item into view
+   * Scroll the selected item into view (without stealing focus)
+   * @param {object} item - The item to scroll into view
+   * @param {boolean} shouldFocus - Whether to focus the item (default: false)
    */
-  function scrollItemIntoView(item) {
-    if (!item) return
+  function scrollItemIntoView(item, shouldFocus = false) {
+    if (!item)
+      return
 
     // Use requestAnimationFrame for better performance
     requestAnimationFrame(() => {
       const selector = createItemSelector(item)
-      if (!selector) return
-      
+      if (!selector)
+        return
+
       // Query all possibilities at once
       let itemElement = document.querySelector(selector)
 
@@ -160,7 +164,7 @@ export function useKeyboardNavigation() {
         const resultType = selectionStore.selectedSection
         const items = selectionStore.getItemsForSection(resultType)
         const index = items.indexOf(item)
-        
+
         if (index !== -1) {
           const allItems = document.querySelectorAll(`[data-result-type="${resultType}"] *[tabindex]`)
           if (allItems && index < allItems.length) {
@@ -170,8 +174,10 @@ export function useKeyboardNavigation() {
       }
 
       if (itemElement) {
-        // Focus and scroll using modern smooth scrolling
-        itemElement.focus({ preventScroll: true })
+        // Only focus if explicitly requested (e.g., keyboard navigation)
+        if (shouldFocus) {
+          itemElement.focus({ preventScroll: true })
+        }
         itemElement.scrollIntoView({
           behavior: 'smooth',
           block: 'nearest',
@@ -225,7 +231,7 @@ export function useKeyboardNavigation() {
               prevSectionItems[prevSectionItems.length - 1],
               prevSection,
             )
-            scrollItemIntoView(prevSectionItems[prevSectionItems.length - 1])
+            scrollItemIntoView(prevSectionItems[prevSectionItems.length - 1], true)
             return true
           }
         }
@@ -240,7 +246,7 @@ export function useKeyboardNavigation() {
               lastSectionItems[lastSectionItems.length - 1],
               lastSection,
             )
-            scrollItemIntoView(lastSectionItems[lastSectionItems.length - 1])
+            scrollItemIntoView(lastSectionItems[lastSectionItems.length - 1], true)
             return true
           }
         }
@@ -266,7 +272,7 @@ export function useKeyboardNavigation() {
           if (nextSectionItems.length > 0) {
             // Select the first item in the next section
             selectionStore.setSelectedItem(nextSectionItems[0], nextSection)
-            scrollItemIntoView(nextSectionItems[0])
+            scrollItemIntoView(nextSectionItems[0], true)
             return true
           }
         }
@@ -278,7 +284,7 @@ export function useKeyboardNavigation() {
           if (firstSectionItems.length > 0) {
             // Select the first item in the first section
             selectionStore.setSelectedItem(firstSectionItems[0], firstSection)
-            scrollItemIntoView(firstSectionItems[0])
+            scrollItemIntoView(firstSectionItems[0], true)
             return true
           }
         }
@@ -298,7 +304,7 @@ export function useKeyboardNavigation() {
     // Only update if changed
     if (newIndex !== currentIndex) {
       selectionStore.setSelectedItem(items[newIndex], selectionStore.selectedSection)
-      scrollItemIntoView(items[newIndex])
+      scrollItemIntoView(items[newIndex], true)
       return true
     }
 
@@ -346,7 +352,7 @@ export function useKeyboardNavigation() {
               prevSectionItems[prevSectionItems.length - 1],
               prevSection,
             )
-            scrollItemIntoView(prevSectionItems[prevSectionItems.length - 1])
+            scrollItemIntoView(prevSectionItems[prevSectionItems.length - 1], true)
             return true
           }
         }
@@ -361,7 +367,7 @@ export function useKeyboardNavigation() {
               lastSectionItems[lastSectionItems.length - 1],
               lastSection,
             )
-            scrollItemIntoView(lastSectionItems[lastSectionItems.length - 1])
+            scrollItemIntoView(lastSectionItems[lastSectionItems.length - 1], true)
             return true
           }
         }
@@ -386,7 +392,7 @@ export function useKeyboardNavigation() {
           if (nextSectionItems.length > 0) {
             // Select the first item in the next section
             selectionStore.setSelectedItem(nextSectionItems[0], nextSection)
-            scrollItemIntoView(nextSectionItems[0])
+            scrollItemIntoView(nextSectionItems[0], true)
             return true
           }
         }
@@ -398,7 +404,7 @@ export function useKeyboardNavigation() {
           if (firstSectionItems.length > 0) {
             // Select the first item in the first section
             selectionStore.setSelectedItem(firstSectionItems[0], firstSection)
-            scrollItemIntoView(firstSectionItems[0])
+            scrollItemIntoView(firstSectionItems[0], true)
             return true
           }
         }
@@ -411,7 +417,7 @@ export function useKeyboardNavigation() {
     // Only update if changed
     if (newIndex !== currentIndex) {
       selectionStore.setSelectedItem(items[newIndex], selectionStore.selectedSection)
-      scrollItemIntoView(items[newIndex])
+      scrollItemIntoView(items[newIndex], true)
       return true
     }
 
@@ -445,7 +451,7 @@ export function useKeyboardNavigation() {
 
     if (items.length > 0) {
       selectionStore.setSelectedItem(items[0], newSection)
-      scrollItemIntoView(items[0])
+      scrollItemIntoView(items[0], true)
       return true
     }
 

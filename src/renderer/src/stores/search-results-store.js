@@ -1,5 +1,6 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { RESULT_TYPES, resultTypesRegistry } from '../plugins/search/resultTypesRegistry'
+import { iconService } from '../services/IconService'
 
 export { RESULT_TYPES } // Re-export for backward compatibility
 
@@ -7,6 +8,10 @@ export const SEARCH_MODES = {
   QUICK: 'quick',
   FILTERED: 'filtered',
 }
+
+// Search request tracking for cancellation
+let currentSearchId = 0
+let debounceTimeoutId = null
 
 // Default state
 function getDefaultState() {
@@ -104,13 +109,16 @@ export const useSearchResultsStore = defineStore('searchResults', {
       return result
     },
 
-    // Search orchestrator
+    // Search orchestrator with cancellation support
     async search() {
       // Only clear results if there's no query AND no active filters
       if (!this.query.trim() && !this.hasActiveFilters) {
         this.clearResults()
         return
       }
+
+      // Generate a unique ID for this search request
+      const searchId = ++currentSearchId
 
       this.isLoading = true
       this.hasSearched = true
@@ -150,6 +158,12 @@ export const useSearchResultsStore = defineStore('searchResults', {
 
         const searchResults = await Promise.all(searchPromises)
 
+        // Check if this search is still the current one (cancellation check)
+        // If a newer search was started, discard these results
+        if (searchId !== currentSearchId) {
+          return // Stale results, discard
+        }
+
         // Update content for each result type
         searchResults.forEach(({ resultType, results }) => {
           const targetType = this.resultGroups.find(r => r.name === resultType)
@@ -157,29 +171,59 @@ export const useSearchResultsStore = defineStore('searchResults', {
             targetType.content = results
           }
         })
-        
+
         // Increment counter to help components react to result changes
         this.resultsUpdateCounter++
+
+        // Preload thumbnails and icons for disk results to improve perceived performance
+        const diskResults = searchResults.find(r => r.resultType === RESULT_TYPES.DISK)
+        if (diskResults?.results?.length > 0) {
+          // Only preload first batch to avoid overwhelming the system
+          const firstBatch = diskResults.results.slice(0, 20)
+          iconService.preloadThumbnails(firstBatch)
+          iconService.preloadFileIcons(firstBatch)
+        }
       }
       catch (error) {
         console.error('Search error:', error)
-        this.clearResults()
+        // Only clear if this is still the current search
+        if (searchId === currentSearchId) {
+          this.clearResults()
+        }
       }
       finally {
-        this.isLoading = false
+        // Only update loading state if this is still the current search
+        if (searchId === currentSearchId) {
+          this.isLoading = false
+        }
       }
     },
 
-    // Debounced search with function memoization
-    debouncedSearch: (function () {
-      let timeoutId
-      return function () {
-        clearTimeout(timeoutId)
-        timeoutId = setTimeout(async () => {
-          await this.search()
-        }, 300)
+    // Debounced search with proper cancellation
+    debouncedSearch() {
+      // Clear any pending debounce
+      if (debounceTimeoutId) {
+        clearTimeout(debounceTimeoutId)
       }
-    })(),
+
+      debounceTimeoutId = setTimeout(async () => {
+        debounceTimeoutId = null
+        await this.search()
+      }, 300)
+    },
+
+    // Cancel any pending search operations
+    // Call this when the search window is hidden to prevent stale updates
+    cancelPendingSearch() {
+      // Clear debounce timer
+      if (debounceTimeoutId) {
+        clearTimeout(debounceTimeoutId)
+        debounceTimeoutId = null
+      }
+      // Increment search ID to invalidate any in-flight searches
+      currentSearchId++
+      this.isLoading = false
+    },
 
     // Helper to set results for a specific type
     setResultsForType(typeName, results) {
@@ -269,11 +313,12 @@ export const useSearchResultsStore = defineStore('searchResults', {
         console.error('Invalid result type - must have a name property')
         return
       }
-      
+
       // Register with registry first
       const registered = resultTypesRegistry.registerResultType(resultType)
-      if (!registered) return
-      
+      if (!registered)
+        return
+
       // Then update local state
       const existingTypeIndex = this.resultGroups.findIndex(r => r.name === resultType.name)
       if (existingTypeIndex !== -1) {
@@ -284,7 +329,7 @@ export const useSearchResultsStore = defineStore('searchResults', {
         // Add new type
         this.resultGroups.push(resultType)
       }
-      
+
       this.resultsUpdateCounter++
     },
 
@@ -292,7 +337,7 @@ export const useSearchResultsStore = defineStore('searchResults', {
     removeResultType(typeName) {
       // Remove from registry first
       resultTypesRegistry.unregisterResultType(typeName)
-      
+
       // Then update local state
       const typeIndex = this.resultGroups.findIndex(r => r.name === typeName)
       if (typeIndex !== -1) {
@@ -300,12 +345,12 @@ export const useSearchResultsStore = defineStore('searchResults', {
         this.resultsUpdateCounter++
       }
     },
-    
+
     // Sync with registry to ensure store and registry are aligned
     syncWithRegistry() {
       this.resultGroups = resultTypesRegistry.getAllResultTypes()
       this.resultsUpdateCounter++
-    }
+    },
   },
 })
 
