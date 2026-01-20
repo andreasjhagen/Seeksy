@@ -169,7 +169,7 @@ function capitalizeFirstLetter(string) {
         <button
           class="p-1.5 cursor-pointer text-gray-900 flex items-center justify-center transition-colors rounded-lg bg-gray-200 hover:bg-gray-600 hover:text-white dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-accent shadow-xs"
           :title="getFileType(file) === 'directory' ? 'Open folder' : 'Open file'"
-          @click.stop="openFile(file)"
+          @click.stop="getFileType(file) === 'directory' ? showInDirectory(file.path) : openFile(file)"
         >
           <span class="material-symbols-outlined">
             {{ getFileType(file) === 'directory' ? 'folder_open' : 'open_in_new' }}
