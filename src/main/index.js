@@ -169,12 +169,27 @@ let updateAvailable = false
 let updateDownloaded = false
 let updateInfo = null
 
-function createTray() {
-  const iconPath = getIconPath()
-  let systemTrayIcon = nativeImage.createFromPath(iconPath)
+/**
+ * Get the appropriate tray icon path based on platform and screen scale
+ * Uses dedicated tray icons with multiple resolutions
+ */
+function getTrayIconPath() {
+  let basePath
+  if (app.isPackaged) {
+    basePath = process.resourcesPath
+  }
+  else {
+    basePath = path.join(__dirnamePath, '../../resources')
+  }
 
-  // Resize icon to 16x16 for tray
-  systemTrayIcon = systemTrayIcon.resize({ width: 16, height: 16 })
+  // Use the base tray icon - Electron will automatically use @2x, @3x versions
+  // for high DPI displays on macOS/Linux
+  return path.join(basePath, 'trayIcon.png')
+}
+
+function createTray() {
+  const iconPath = getTrayIconPath()
+  const systemTrayIcon = nativeImage.createFromPath(iconPath)
 
   tray = new Tray(systemTrayIcon)
   updateTrayMenu()

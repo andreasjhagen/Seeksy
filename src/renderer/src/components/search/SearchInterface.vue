@@ -21,6 +21,15 @@ const searchQuery = computed({
 const { focusResults, initializeSelection } = useKeyboardNavigation()
 const { hasAnyResults } = storeToRefs(searchStore)
 
+// File type filter configuration with icons
+const fileTypeFilters = [
+  { id: 'folder', label: 'Folders', icon: 'folder' },
+  { id: 'image', label: 'Images', icon: 'image' },
+  { id: 'document', label: 'Documents', icon: 'description' },
+  { id: 'audio', label: 'Audio', icon: 'music_note' },
+  { id: 'video', label: 'Video', icon: 'movie' },
+]
+
 onMounted(() => {
   focusSearchInput()
   window.api.on(IPC_CHANNELS.FOCUS_SEARCH, focusSearchInput)
@@ -89,7 +98,10 @@ defineExpose({
             <button
               title="Toggle Filtered Search"
               type="button"
-              class="flex items-center justify-center p-2 text-gray-600 transition-colors rounded-lg cursor-pointer dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              class="flex items-center justify-center p-2 transition-colors rounded-lg cursor-pointer"
+              :class="isFilteredMode
+                ? 'bg-accent-500 text-white hover:bg-accent-600'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'"
               @click="handleToggleMode"
             >
               <span class="material-symbols-outlined">tune</span>
@@ -109,25 +121,18 @@ defineExpose({
           <label class="text-sm font-medium text-gray-700 dark:text-gray-300">File Types:</label>
           <div class="flex flex-wrap gap-2">
             <button
-              v-for="type in ['folder', 'image', 'document', 'audio', 'video']"
-              :key="type"
-              class="px-3 py-1 text-sm font-medium transition-all duration-200 rounded-lg cursor-pointer"
+              v-for="filterType in fileTypeFilters"
+              :key="filterType.id"
+              class="flex items-center gap-1.5 px-3 py-1 text-sm font-medium transition-all duration-200 rounded-lg cursor-pointer"
               :class="
-                filters.type.includes(type)
+                filters.type.includes(filterType.id)
                   ? 'bg-accent-500 hover:bg-accent text-white shadow-xs'
                   : 'bg-white dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-500 border border-gray-200 dark:border-gray-500'
               "
-              @click="toggleFilter('type', type)"
+              @click="toggleFilter('type', filterType.id)"
             >
-              {{
-                {
-                  folder: 'Folders',
-                  image: 'Images',
-                  document: 'Documents',
-                  audio: 'Audio',
-                  video: 'Video',
-                }[type]
-              }}
+              <span class="material-symbols-outlined" style="font-size:14px">{{ filterType.icon }}</span>
+              {{ filterType.label }}
             </button>
           </div>
         </div>
