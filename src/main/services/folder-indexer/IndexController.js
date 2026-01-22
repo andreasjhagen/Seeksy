@@ -124,7 +124,7 @@ export class IndexController extends EventEmitter {
 
   async _initWatcher(watchPath, options = { depth: Infinity, startPaused: false }) {
     if (this.watchers.has(watchPath))
-      return
+      return true // Already exists, consider it initialized
 
     try {
       const watcher = new FolderWatcher(watchPath, {
@@ -270,23 +270,32 @@ export class IndexController extends EventEmitter {
     if (!this.initialized)
       await this.initialize()
 
-    // Queue this watcher if there's already an active indexing watcher
+    // Queue this watcher if there's already an active indexing watcher or watchers in queue
     const shouldQueue = this.currentActiveIndexingWatchPath !== null || this.watcherQueue.length > 0
+
+    console.log(`[IndexController] addWatchPath: ${watchPath}, shouldQueue=${shouldQueue}, currentActive=${this.currentActiveIndexingWatchPath}, queueLength=${this.watcherQueue.length}`)
 
     const result = await this._initWatcher(watchPath, {
       ...options,
       startPaused: shouldQueue,
     })
 
-    // If there's no current active indexing watcher and this wasn't queued,
-    // set it as the active indexing watcher
-    if (!shouldQueue && result) {
-      this.currentActiveIndexingWatchPath = watchPath
+    console.log(`[IndexController] _initWatcher result for ${watchPath}: ${result}`)
+
+    if (!result) {
+      return result
     }
 
-    // If there's no active indexing watcher but we have watchers in queue, process the queue
-    if (this.currentActiveIndexingWatchPath === null && this.watcherQueue.length > 0) {
-      this._processWatcherQueue()
+    // If this watcher started immediately (not queued), set it as active indexing watcher
+    if (!shouldQueue) {
+      this.currentActiveIndexingWatchPath = watchPath
+      console.log(`[IndexController] Set ${watchPath} as currentActiveIndexingWatchPath`)
+    }
+    else {
+      // If there's no active indexing watcher but we have watchers in queue, process the queue
+      if (this.currentActiveIndexingWatchPath === null && this.watcherQueue.length > 0) {
+        this._processWatcherQueue()
+      }
     }
 
     return result

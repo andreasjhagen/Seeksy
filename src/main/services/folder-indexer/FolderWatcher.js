@@ -218,6 +218,9 @@ export class FolderWatcher extends EventEmitter {
               console.error(`Error processing ${path}:`, error)
             }
           }))
+
+          // Flush pending database writes after each batch for efficiency
+          this.processor.flushPendingWrites()
         }
 
         this.emitStatus()

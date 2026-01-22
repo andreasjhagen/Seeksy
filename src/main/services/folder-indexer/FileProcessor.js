@@ -16,6 +16,9 @@ import { getFileMetadata } from './getFileMetadata.js'
 // Create a dedicated logger for the file processor
 const logger = createLogger('FileProcessor')
 
+// Default batch size for database writes
+const DB_BATCH_SIZE = 50
+
 export class FileProcessor extends EventEmitter {
   /**
    * Creates a new FileProcessor instance
@@ -24,6 +27,10 @@ export class FileProcessor extends EventEmitter {
     super()
     this.processedPaths = new Set()
     this.processingPaths = new Map() // Track paths being processed
+
+    // Batch write buffer for improved database performance
+    this._pendingWrites = []
+    this._batchSize = DB_BATCH_SIZE
 
     // Cache for watched folders - sorted by path length descending
     this._watchedFoldersCache = null
@@ -38,7 +45,46 @@ export class FileProcessor extends EventEmitter {
   clearProcessedPaths() {
     const count = this.processedPaths.size
     this.processedPaths.clear()
+    // Also flush any pending writes
+    this.flushPendingWrites()
     logger.info(`Cleared ${count} entries from processedPaths cache`)
+  }
+
+  /**
+   * Flush pending writes to the database
+   * Call this after processing a batch of files or when transitioning states
+   */
+  flushPendingWrites() {
+    if (this._pendingWrites.length === 0) {
+      return { success: true, count: 0 }
+    }
+
+    const writes = this._pendingWrites
+    this._pendingWrites = []
+
+    logger.debug(`Flushing ${writes.length} pending writes to database`)
+    const result = fileDB.batchUpsertFiles(writes)
+
+    if (result.errors.length > 0) {
+      logger.warn(`Batch write completed with ${result.errors.length} errors`)
+    }
+
+    return result
+  }
+
+  /**
+   * Queue a file for batch writing to the database
+   * Automatically flushes when batch size is reached
+   * @param {string} filePath - Path to the file
+   * @param {object} fileData - File metadata to write
+   */
+  _queueFileWrite(filePath, fileData) {
+    this._pendingWrites.push({ path: filePath, fileData })
+
+    // Auto-flush when batch is full
+    if (this._pendingWrites.length >= this._batchSize) {
+      this.flushPendingWrites()
+    }
   }
 
   /**
@@ -189,18 +235,15 @@ export class FileProcessor extends EventEmitter {
 
   // Helper Methods
   /**
-   * Saves file metadata to the database
+   * Saves file metadata to the database (queued for batch write)
    *
    * @param {string} filePath - Path to the file
    * @param {object} fileDetails - Metadata to save
    * @private
    */
   async _saveFileToDatabase(filePath, fileDetails) {
-    logger.debug(`Saving to database: ${filePath}`)
-    const dbResult = await fileDB.updateFile(filePath, fileDetails)
-    if (!dbResult) {
-      throw new Error('Failed to update file in database')
-    }
+    logger.debug(`Queueing for batch write: ${filePath}`)
+    this._queueFileWrite(filePath, fileDetails.fileData)
   }
 
   /**
