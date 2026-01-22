@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { IPC } from '../../../../../../main/ipc/ipcChannels'
 import { useWatcherStatus } from '../../../../composables/useWatcherStatus'
+import ConfirmationModal from '../../../common/ConfirmationModal.vue'
 import AddFolderDialog from './AddFolderDialog.vue'
 import FolderProgressCard from './FolderProgressCard.vue'
 import PerformanceSettings from './PerformanceSettings.vue'
@@ -14,6 +15,10 @@ const statusInterval = ref(null)
 const addFolderDialog = ref(null)
 // Single toggle for all folder details
 const showFolderDetails = ref(false)
+
+// Remove folder confirmation modal state
+const showRemoveFolderModal = ref(false)
+const folderToRemove = ref(null)
 
 // Toggle folder details visibility
 function toggleFolderDetails() {
@@ -154,9 +159,21 @@ async function handleConfirm({ paths, depth }) {
 }
 
 async function removeDirectory(path) {
-  if (confirm(`Remove "${path}" from watched directories?`)) {
-    await removeWatchPath(path)
+  folderToRemove.value = path
+  showRemoveFolderModal.value = true
+}
+
+function cancelRemoveDirectory() {
+  showRemoveFolderModal.value = false
+  folderToRemove.value = null
+}
+
+async function confirmRemoveDirectory() {
+  if (folderToRemove.value) {
+    await removeWatchPath(folderToRemove.value)
   }
+  showRemoveFolderModal.value = false
+  folderToRemove.value = null
 }
 
 onMounted(() => {
@@ -293,6 +310,18 @@ onBeforeUnmount(() => {
       :selected-paths="selectedPaths"
       @close="showDialog = false"
       @confirm="handleConfirm"
+    />
+
+    <!-- Remove Folder Confirmation Modal -->
+    <ConfirmationModal
+      :is-open="showRemoveFolderModal"
+      title="Remove Watched Folder"
+      :message="`Are you sure you want to remove '${folderToRemove}' from watched directories? All indexed files from this folder will be removed from the database.`"
+      confirm-text="Remove Folder"
+      variant="danger"
+      icon="folder_off"
+      @confirm="confirmRemoveDirectory"
+      @cancel="cancelRemoveDirectory"
     />
   </div>
 

@@ -22,6 +22,8 @@ export const IPC = {
     SHOW_APP_DATA_EXPLORER: 'disk-reader:show-app-data-explorer',
     COUNT_FOLDER_FILES: 'disk-reader:count-folder-files',
     GET_FILE_CONTENT: 'disk-reader:get-file-content',
+    CLEAR_THUMBNAIL_CACHE: 'disk-reader:clear-thumbnail-cache',
+    GET_THUMBNAIL_CACHE_STATS: 'disk-reader:get-thumbnail-cache-stats',
 
     // Favorites operations
     FAVORITES_ADD: 'favorites:add',
