@@ -1,0 +1,107 @@
+/**
+ * Main process translations for system tray and other native UI elements.
+ * This is a simple translation module that doesn't require vue-i18n.
+ */
+
+const translations = {
+  en: {
+    tray: {
+      openSearch: 'Open Search',
+      settings: 'Settings',
+      quit: 'Quit',
+      updateAvailable: 'Update Available (v{version})',
+      installUpdate: 'Install Update (v{version})',
+    },
+    tooltip: {
+      default: 'Seeksy',
+      updateAvailable: 'Seeksy - Update available (v{version})',
+      updateReady: 'Seeksy - Update ready to install (v{version})',
+    },
+  },
+  de: {
+    tray: {
+      openSearch: 'Suche öffnen',
+      settings: 'Einstellungen',
+      quit: 'Beenden',
+      updateAvailable: 'Update verfügbar (v{version})',
+      installUpdate: 'Update installieren (v{version})',
+    },
+    tooltip: {
+      default: 'Seeksy',
+      updateAvailable: 'Seeksy - Update verfügbar (v{version})',
+      updateReady: 'Seeksy - Update bereit zur Installation (v{version})',
+    },
+  },
+}
+
+let currentLanguage = 'en'
+
+/**
+ * Set the current language for translations
+ * @param {string} lang - Language code (e.g., 'en', 'de')
+ */
+export function setLanguage(lang) {
+  if (translations[lang]) {
+    currentLanguage = lang
+  }
+  else {
+    console.warn(`Language '${lang}' not supported, falling back to 'en'`)
+    currentLanguage = 'en'
+  }
+}
+
+/**
+ * Get the current language
+ * @returns {string} Current language code
+ */
+export function getLanguage() {
+  return currentLanguage
+}
+
+/**
+ * Get a translation by key path
+ * @param {string} keyPath - Dot-separated key path (e.g., 'tray.openSearch')
+ * @param {object} params - Optional parameters for interpolation
+ * @returns {string} Translated string
+ */
+export function t(keyPath, params = {}) {
+  const keys = keyPath.split('.')
+  let value = translations[currentLanguage]
+
+  for (const key of keys) {
+    if (value && typeof value === 'object') {
+      value = value[key]
+    }
+    else {
+      // Fallback to English if key not found in current language
+      value = translations.en
+      for (const k of keys) {
+        if (value && typeof value === 'object') {
+          value = value[k]
+        }
+        else {
+          return keyPath // Return key path if translation not found
+        }
+      }
+      break
+    }
+  }
+
+  // If value is still an object, return the key path
+  if (typeof value !== 'string') {
+    return keyPath
+  }
+
+  // Interpolate parameters
+  return value.replace(/\{(\w+)\}/g, (match, paramName) => {
+    return params[paramName] !== undefined ? params[paramName] : match
+  })
+}
+
+/**
+ * Get all supported languages
+ * @returns {string[]} Array of supported language codes
+ */
+export function getSupportedLanguages() {
+  return Object.keys(translations)
+}

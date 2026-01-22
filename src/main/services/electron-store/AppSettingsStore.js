@@ -44,6 +44,7 @@ class AppSettingsStore extends EventEmitter {
           darkMode: false,
           accentColor: '#1167b1',
           uiScale: 100, // UI scale percentage (50-150)
+          language: null, // null means auto-detect from OS
           includedSearchTypes: [
             { name: 'files', enabled: true },
             { name: 'apps', enabled: true },
@@ -103,6 +104,7 @@ class AppSettingsStore extends EventEmitter {
         darkMode: false,
         accentColor: '#1167b1',
         uiScale: 100,
+        language: null,
         includedSearchTypes: [
           { name: 'files', enabled: true },
           { name: 'apps', enabled: true },
