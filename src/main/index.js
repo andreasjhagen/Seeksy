@@ -26,12 +26,16 @@ import { IPC } from './ipc/ipcChannels.js'
 // Services
 import { applicationLauncher } from './services/application-indexer/ApplicationLauncher.js'
 import { autoUpdaterService } from './services/auto-updater/AutoUpdaterService.js'
+import { crashReporterService } from './services/crash-reporter/CrashReporter.js'
 import { fileDB } from './services/database/database'
 import { IndexController } from './services/folder-indexer/IndexController.js'
 import { registerFileProtocol } from './services/registerFileProtocol'
 
 // Define module path for ES modules
 const __dirnamePath = dirname(fileURLToPath(import.meta.url))
+
+// Initialize crash reporter early
+crashReporterService.initialize()
 
 // Disable hardware acceleration if causing issues
 // app.disableHardwareAcceleration()
@@ -94,6 +98,7 @@ function createMainWindow() {
   })
 
   setupMainWindowEventHandlers()
+  crashReporterService.setupRendererHandlers(mainWindow, 'main')
   loadWindowContent(mainWindow)
 }
 
@@ -137,6 +142,7 @@ function createSettingsWindow() {
   })
 
   setupSettingsWindowEventHandlers()
+  crashReporterService.setupRendererHandlers(settingsWindow, 'settings')
   loadWindowContent(settingsWindow)
 
   // When settings window is loaded, send message to show settings page
@@ -347,15 +353,14 @@ function initializeHandlers(indexer) {
 
 // === App Initialization ===
 app.whenReady().then(() => {
-  // Set up error handling
-  process.on('uncaughtException', (error) => {
-    console.error('Uncaught exception:', error)
-    cleanup()
-    process.exit(1)
-  })
+  // Set up error handlers using the crash reporter service
+  crashReporterService.setupMainProcessHandlers(cleanup)
 
   // Set the app user model ID for Windows taskbar grouping
   electronApp.setAppUserModelId('com.andreashagen.seeksy')
+
+  // Clean up old crash logs (older than 30 days)
+  crashReporterService.clearOldLogs(30)
 
   // Initialize services
   const indexer = new IndexController(fileDB)

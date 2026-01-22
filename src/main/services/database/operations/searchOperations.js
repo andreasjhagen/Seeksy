@@ -78,66 +78,76 @@ export const searchOperations = {
    * @returns {Array} Array of matching items sorted by relevance
    */
   quickSearch(query) {
-    const trimmedQuery = query.trim().toLowerCase()
+    try {
+      if (!query || typeof query !== 'string') {
+        return []
+      }
 
-    // Split query into words for fuzzy matching
-    const words = trimmedQuery.split(/\s+/).filter(w => w.length > 0)
+      const trimmedQuery = query.trim().toLowerCase()
 
-    if (words.length === 0) {
-      return []
-    }
+      // Split query into words for fuzzy matching
+      const words = trimmedQuery.split(/\s+/).filter(w => w.length > 0)
 
-    // For single word queries, use the optimized prepared statement
-    if (words.length === 1) {
-      this._initSearchStatements()
-      const normalizedQuery = `%${trimmedQuery}%`
+      if (words.length === 0) {
+        return []
+      }
+
+      // For single word queries, use the optimized prepared statement
+      if (words.length === 1) {
+        this._initSearchStatements()
+        const normalizedQuery = `%${trimmedQuery}%`
+        const exactQuery = trimmedQuery
+        const startsWithQuery = `${exactQuery}%`
+
+        return this._searchStatements.quickSearch.all(
+          exactQuery,
+          startsWithQuery,
+          normalizedQuery,
+          normalizedQuery,
+        )
+      }
+
+      // For multi-word queries, build dynamic SQL for fuzzy matching
+      // Each word must appear somewhere in the name (in any order)
+      const wordConditions = words.map(() => 'lower(name) LIKE ?').join(' AND ')
+      const wordParams = words.map(w => `%${w}%`)
+
+      // Calculate ranking based on match quality
+      const sql = `
+        WITH RankedResults AS (
+          SELECT *,
+            CASE 
+              WHEN lower(name) = ? THEN 1
+              WHEN lower(name) LIKE ? THEN 2
+              WHEN lower(name) LIKE ? THEN 3
+              ELSE 4
+            END as rank
+          FROM all_items 
+          WHERE ${wordConditions}
+        )
+        SELECT * FROM RankedResults
+        ORDER BY 
+          isFavorite DESC,
+          rank,
+          modifiedAt DESC
+        LIMIT ${QUERY_LIMITS.QUICK_SEARCH}
+      `
+
       const exactQuery = trimmedQuery
       const startsWithQuery = `${exactQuery}%`
+      const containsQuery = `%${trimmedQuery}%`
 
-      return this._searchStatements.quickSearch.all(
+      return this.db.prepare(sql).all(
         exactQuery,
         startsWithQuery,
-        normalizedQuery,
-        normalizedQuery,
+        containsQuery,
+        ...wordParams,
       )
+    } catch (error) {
+      console.error('quickSearch error:', error)
+      // Return empty array instead of crashing
+      return []
     }
-
-    // For multi-word queries, build dynamic SQL for fuzzy matching
-    // Each word must appear somewhere in the name (in any order)
-    const wordConditions = words.map(() => 'lower(name) LIKE ?').join(' AND ')
-    const wordParams = words.map(w => `%${w}%`)
-
-    // Calculate ranking based on match quality
-    const sql = `
-      WITH RankedResults AS (
-        SELECT *,
-          CASE 
-            WHEN lower(name) = ? THEN 1
-            WHEN lower(name) LIKE ? THEN 2
-            WHEN lower(name) LIKE ? THEN 3
-            ELSE 4
-          END as rank
-        FROM all_items 
-        WHERE ${wordConditions}
-      )
-      SELECT * FROM RankedResults
-      ORDER BY 
-        isFavorite DESC,
-        rank,
-        modifiedAt DESC
-      LIMIT ${QUERY_LIMITS.QUICK_SEARCH}
-    `
-
-    const exactQuery = trimmedQuery
-    const startsWithQuery = `${exactQuery}%`
-    const containsQuery = `%${trimmedQuery}%`
-
-    return this.db.prepare(sql).all(
-      exactQuery,
-      startsWithQuery,
-      containsQuery,
-      ...wordParams,
-    )
   },
 
   /**

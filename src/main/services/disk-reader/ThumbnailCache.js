@@ -3,12 +3,28 @@ import { existsSync, promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { app } from 'electron'
-import ffmpegPath from 'ffmpeg-static'
 import ffmpeg from 'fluent-ffmpeg'
 import sharp from 'sharp'
+import { getFfmpegPath, isFfmpegAvailable } from '../../utils/ffmpegPath.js'
 
-// Set the ffmpeg path from ffmpeg-static
-ffmpeg.setFfmpegPath(ffmpegPath)
+// Set the ffmpeg path with error handling
+let ffmpegAvailable = false
+
+try {
+  const resolvedFfmpegPath = getFfmpegPath()
+
+  if (resolvedFfmpegPath && isFfmpegAvailable()) {
+    ffmpeg.setFfmpegPath(resolvedFfmpegPath)
+    ffmpegAvailable = true
+  }
+  else {
+    console.warn('ffmpeg not available - video thumbnails will be disabled')
+  }
+}
+catch (err) {
+  console.error('Error setting up ffmpeg:', err)
+  ffmpegAvailable = false
+}
 
 // Supported video extensions for thumbnail generation
 const VIDEO_EXTENSIONS = new Set([
@@ -195,6 +211,12 @@ export class ThumbnailCache {
    * @private
    */
   async _generateVideoThumbnail(videoPath) {
+    // Check if ffmpeg is available
+    if (!ffmpegAvailable) {
+      console.warn('Skipping video thumbnail - ffmpeg not available')
+      return null
+    }
+
     // Create a temporary file for the extracted frame
     const tempDir = os.tmpdir()
     const tempFile = path.join(tempDir, `seeksy-thumb-${crypto.randomBytes(8).toString('hex')}.jpg`)
