@@ -44,7 +44,7 @@ const {
   fileIcon,
   hasIconError,
   handleIconError,
-  isImageFile,
+  supportsThumbnail,
 } = useFileIconHandler(props.item, { autoLoad: !isEmoji.value })
 
 const { getMimeIcon } = useMimeTypeIcons(isFileOrFolder.value ? props.item.mimeType : '')
@@ -62,7 +62,7 @@ const iconSource = computed(() => {
     if (getFileType(props.item) === 'directory') {
       return null // Fallback folder icon
     }
-    if (isImageFile(props.item.name)) {
+    if (supportsThumbnail(props.item.name)) {
       return thumbnail.value
     }
     return fileIcon.value || props.item.icon || null

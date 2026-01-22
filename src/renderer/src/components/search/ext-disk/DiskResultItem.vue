@@ -22,7 +22,7 @@ const emit = defineEmits(['open-file', 'show-in-directory'])
 const {
   thumbnail,
   fileIcon,
-  isImageFile,
+  supportsThumbnail,
 } = useFileIconHandler(props.file)
 
 // Use the MIME type icons composable for file type icons
@@ -50,7 +50,7 @@ const iconSource = computed(() => {
   if (getFileType(props.file) === 'directory') {
     return null // Will use the fallback folder icon
   }
-  if (isImageFile(props.file.name)) {
+  if (supportsThumbnail(props.file.name)) {
     return thumbnail.value
   }
   return fileIcon.value || props.file.icon || null
