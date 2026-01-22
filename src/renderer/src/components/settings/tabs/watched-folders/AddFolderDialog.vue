@@ -21,6 +21,7 @@ const depth = ref('3')
 const error = ref('')
 const loading = ref(false)
 const fileCount = ref(0)
+const folderCount = ref(0)
 const showFileCountWarning = ref(false)
 const countComplete = ref(false)
 const FILE_COUNT_THRESHOLD = 20000
@@ -54,10 +55,12 @@ async function checkFileCount() {
   loading.value = true
   countComplete.value = false
   fileCount.value = 0
+  folderCount.value = 0
 
   try {
     const depthValue = depth.value === '-1' ? Infinity : Number.parseInt(depth.value)
     let totalFiles = 0
+    let totalFolders = 0
 
     // Count files for each selected path
     for (const path of props.selectedPaths) {
@@ -71,9 +74,11 @@ async function checkFileCount() {
       }
 
       totalFiles += result.fileCount
+      totalFolders += result.folderCount || 0
     }
 
     fileCount.value = totalFiles
+    folderCount.value = totalFolders
     showFileCountWarning.value = fileCount.value > FILE_COUNT_THRESHOLD
     countComplete.value = true
   }
@@ -146,8 +151,9 @@ defineExpose({ setError })
             class="p-3 mb-4 text-sm text-blue-600 rounded-lg bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300"
           >
             <p>
-              <span class="font-medium">File count: </span>
-              {{ fileCount.toLocaleString() }} file{{ fileCount !== 1 ? 's' : '' }}
+              <span class="font-medium">Contents: </span>
+              {{ fileCount.toLocaleString() }} file{{ fileCount !== 1 ? 's' : '' }},
+              {{ folderCount.toLocaleString() }} folder{{ folderCount !== 1 ? 's' : '' }}
             </p>
           </div>
 

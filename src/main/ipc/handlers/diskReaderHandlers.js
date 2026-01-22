@@ -98,8 +98,8 @@ export class DiskReaderHandler extends BaseHandler {
       if (!existsSync(path))
         return { error: 'Folder does not exist' }
 
-      const fileCount = await countFolderContent(path, depth)
-      return { fileCount }
+      const { fileCount, folderCount } = await countFolderContent(path, depth)
+      return { fileCount, folderCount }
     }
     catch (error) {
       console.error('Error counting files in folder:', error)

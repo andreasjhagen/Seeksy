@@ -85,9 +85,12 @@ export class SystemHandler extends BaseHandler {
     }
   }
 
-  async handleSetProgressBar(_, { progress, mode = 'normal' }) {
+  async handleSetProgressBar(event, { progress, mode = 'normal' }) {
     try {
-      const window = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+      // Get the window that sent the request (the settings window in this case)
+      const senderWindow = BrowserWindow.fromWebContents(event.sender)
+      const window = senderWindow || BrowserWindow.getAllWindows()[0]
+
       if (!window) {
         throw new Error('No window available')
       }

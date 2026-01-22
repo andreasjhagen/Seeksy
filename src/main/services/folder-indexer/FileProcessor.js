@@ -173,8 +173,8 @@ export class FileProcessor extends EventEmitter {
       // Process parent folders first (pass watched folder to avoid duplicate lookup)
       await this._ensureParentFolderProcessed(filePath, watchedFolder)
 
-      // Check if file exists in DB
-      const existingFile = await fileDB.getFile(filePath)
+      // Check if file exists in DB (use cached lookup for better performance)
+      const existingFile = await fileDB.getCachedFile(filePath)
       logger.debug(`Scanning file: ${filePath}`)
 
       // Skip unchanged files
