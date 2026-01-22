@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useWatcherStatus } from '../../../../composables/useWatcherStatus'
 
 const props = defineProps({
@@ -19,16 +20,32 @@ const props = defineProps({
 
 defineEmits(['remove'])
 
-const { toggleFolderPause, formatFileCount, formatDepth, getFolderStatusInfo } = useWatcherStatus()
+const { t } = useI18n()
+
+const { toggleFolderPause, formatDepth, getFolderStatusInfo } = useWatcherStatus()
 
 const isToggling = ref(false)
 
 const statusInfo = computed(() => getFolderStatusInfo(props.folder))
 
-const statusText = computed(() => statusInfo.value.statusText)
+// Translate status text
+const statusText = computed(() => {
+  const info = statusInfo.value
+  if (info.statusKey === 'processingFiles') {
+    return t('settings.watchedFolders.status.processingFiles', { count: props.folder.pendingTasks || 0 })
+  }
+  return t(`settings.watchedFolders.status.${info.statusKey}`)
+})
 const statusClass = computed(() => statusInfo.value.statusClass)
 const progressBarClass = computed(() => statusInfo.value.progressBarClass)
 const actionButtonClass = computed(() => statusInfo.value.actionButtonClass)
+
+// File count formatted
+const fileCountText = computed(() => {
+  const processed = (props.folder.processedFiles || 0).toLocaleString()
+  const total = (props.folder.totalFiles || 0).toLocaleString()
+  return t('settings.watchedFolders.card.filesCount', { processed, total })
+})
 
 // Extract folder name from path
 const folderName = computed(() => {
@@ -56,8 +73,8 @@ const progress = computed(() => {
 
 const buttonText = computed(() => {
   if (isToggling.value)
-    return 'Working...'
-  return props.folder.isPaused ? 'Resume' : 'Pause'
+    return t('settings.watchedFolders.card.working')
+  return props.folder.isPaused ? t('common.resume') : t('common.pause')
 })
 
 const buttonIcon = computed(() => {
@@ -110,10 +127,10 @@ async function onPauseResume() {
         <!-- Stats column -->
         <div class="text-right text-xs">
           <div class="font-medium text-gray-700 dark:text-gray-300 tabular-nums whitespace-nowrap">
-            {{ formatFileCount(props.folder.processedFiles, props.folder.totalFiles) }}
+            {{ fileCountText }}
           </div>
           <div class="text-gray-500 dark:text-gray-500 whitespace-nowrap">
-            Depth: {{ formatDepth(props.folder.depth) }}
+            {{ t('settings.watchedFolders.card.depth') }} {{ formatDepth(props.folder.depth) }}
           </div>
         </div>
 
@@ -137,7 +154,7 @@ async function onPauseResume() {
           </button>
           <button
             class="flex items-center p-1 text-white transition-all duration-200 bg-red-600 rounded-md cursor-pointer hover:bg-red-700"
-            title="Remove folder" @click="$emit('remove', props.folder.path)"
+            :title="t('settings.watchedFolders.card.removeFolder')" @click="$emit('remove', props.folder.path)"
           >
             <span class="text-sm material-symbols-rounded">close</span>
           </button>

@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { IPC } from '../../../../../../main/ipc/ipcChannels'
 import { useWatcherStatus } from '../../../../composables/useWatcherStatus'
 import ConfirmationModal from '../../../common/ConfirmationModal.vue'
@@ -7,6 +8,7 @@ import AddFolderDialog from './AddFolderDialog.vue'
 import FolderProgressCard from './FolderProgressCard.vue'
 import PerformanceSettings from './PerformanceSettings.vue'
 
+const { t } = useI18n()
 const { status, toggleGlobalPause, addWatchPath, removeWatchPath, updateWatcherStatus } = useWatcherStatus()
 
 const showDialog = ref(false)
@@ -57,7 +59,7 @@ function validatePath(newPath) {
     return {
       valid: false,
       reason: 'duplicate',
-      message: `The directory "${newPath}" is already being watched.`,
+      message: t('settings.watchedFolders.folderAlreadyWatched', { path: newPath }),
     }
   }
 
@@ -69,7 +71,7 @@ function validatePath(newPath) {
     return {
       valid: false,
       reason: 'subfolder',
-      message: `The directory "${newPath}" is already included in watched folder "${parentFolder.path}".`,
+      message: t('settings.watchedFolders.folderIsSubfolder', { path: newPath, parent: parentFolder.path }),
     }
   }
 
@@ -82,7 +84,7 @@ function validatePath(newPath) {
       valid: true,
       reason: 'parent',
       childFolders,
-      message: `This folder contains ${childFolders.length} already watched subfolder(s). Adding this folder will replace those individual folders.`,
+      message: t('settings.watchedFolders.folderContainsWatched', { count: childFolders.length }),
     }
   }
 
@@ -117,7 +119,7 @@ async function handleConfirm({ paths, depth }) {
           // If parent folder, ask user if they want to replace child folders
           const childPaths = validation.childFolders.map(f => f.path).join('\n- ')
           const confirmReplace = window.confirm(
-            `The directory "${path}" contains these already watched folders:\n- ${childPaths}\n\nAdding this parent folder will replace the individual subfolders. Continue?`,
+            t('settings.watchedFolders.confirmReplaceMessage', { path, folders: `- ${childPaths}` }),
           )
 
           if (confirmReplace) {
@@ -136,7 +138,7 @@ async function handleConfirm({ paths, depth }) {
         const result = await addWatchPath(path, { depth })
         if (!result.success) {
           hasErrors = true
-          warnings.push(`Failed to add directory: ${path}`)
+          warnings.push(t('settings.watchedFolders.failedToAdd', { path }))
         }
       }
 
@@ -214,18 +216,18 @@ onBeforeUnmount(() => {
 <template>
   <div class="p-6 bg-white shadow-xs rounded-xl dark:bg-gray-800">
     <h2 class="pb-2 text-lg font-medium text-gray-900 border-b border-gray-200 dark:text-gray-100 dark:border-gray-700">
-      Watched Directories
+      {{ t('settings.watchedFolders.title') }}
     </h2>
 
     <div class="flex items-center justify-between py-2 ">
       <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-        Manage directories for file indexing
+        {{ t('settings.watchedFolders.description') }}
       </p>
       <button
         class="px-4 py-2 text-sm font-medium text-white rounded-lg cursor-pointer bg-accent hover:bg-accent-700"
         @click="showAddDirectoryDialog"
       >
-        Add Directory
+        {{ t('settings.watchedFolders.addFolder') }}
       </button>
     </div>
 
@@ -236,10 +238,10 @@ onBeforeUnmount(() => {
         <div class="flex items-center justify-between mb-2">
           <div>
             <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
-              Total Indexing Progress
+              {{ t('settings.watchedFolders.totalProgress') }}
             </h3>
             <p class="text-xs text-gray-500 dark:text-gray-400">
-              {{ status.processedFiles }}/{{ status.totalFiles }} files processed
+              {{ t('common.filesProcessed', { processed: status.processedFiles, total: status.totalFiles }) }}
             </p>
           </div>
           <button
@@ -252,7 +254,7 @@ onBeforeUnmount(() => {
             <span class="text-base material-symbols-rounded">
               {{ status.isPaused ? 'play_arrow' : 'pause' }}
             </span>
-            <span>{{ status.isPaused ? 'Resume' : 'Pause' }}</span>
+            <span>{{ status.isPaused ? t('common.resume') : t('common.pause') }}</span>
           </button>
         </div>
 
@@ -282,7 +284,7 @@ onBeforeUnmount(() => {
                   clip-rule="evenodd"
                 />
               </svg>
-              <span class="font-medium text-gray-900 dark:text-gray-100">Indexed Folders ({{ status.folders.length
+              <span class="font-medium text-gray-900 dark:text-gray-100">{{ t('settings.watchedFolders.indexedFolders') }} ({{ status.folders.length
               }})</span>
             </div>
           </div>
@@ -299,7 +301,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-else class="pt-4 text-sm text-gray-500 dark:text-gray-400">
-          No folders are currently being watched. Add a directory to begin indexing.
+          {{ t('settings.watchedFolders.noFolders') }} {{ t('settings.watchedFolders.noFoldersHint') }}
         </div>
       </div>
     </div>
@@ -315,9 +317,9 @@ onBeforeUnmount(() => {
     <!-- Remove Folder Confirmation Modal -->
     <ConfirmationModal
       :is-open="showRemoveFolderModal"
-      title="Remove Watched Folder"
-      :message="`Are you sure you want to remove '${folderToRemove}' from watched directories? All indexed files from this folder will be removed from the database.`"
-      confirm-text="Remove Folder"
+      :title="t('settings.watchedFolders.confirmRemoveTitle')"
+      :message="t('settings.watchedFolders.confirmRemoveMessage', { path: folderToRemove })"
+      :confirm-text="t('settings.watchedFolders.confirmRemoveButton')"
       variant="danger"
       icon="folder_off"
       @confirm="confirmRemoveDirectory"

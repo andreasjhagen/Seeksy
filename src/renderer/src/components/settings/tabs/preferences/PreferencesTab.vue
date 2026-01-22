@@ -1,10 +1,13 @@
 <script setup>
+import { useI18n } from 'vue-i18n'
 import { IPC_CHANNELS } from '../../../../../../main/ipc/ipcChannels'
+import { setLanguage, SUPPORTED_LANGUAGES } from '../../../../locales'
 import { useSettingsStore } from '../../../../stores/settings-store'
 import ToggleButton from '../../../common/ToggleButton.vue'
 import ShortcutInput from './ShortcutInput.vue'
 import WindowDisplaySettings from './WindowDisplaySettings.vue'
 
+const { t } = useI18n()
 const settingsStore = useSettingsStore()
 const settings = settingsStore.settings
 
@@ -84,6 +87,12 @@ const predefinedColors = [
   { name: 'Purple', value: '#472483' },
   { name: 'Pink', value: '#e769a1' },
 ]
+
+// Language change handler
+function changeLanguage(langCode) {
+  setLanguage(langCode)
+  settingsStore.updateSetting('language', langCode)
+}
 </script>
 
 <template>
@@ -93,12 +102,12 @@ const predefinedColors = [
       <h2
         class="pb-2 text-lg font-medium text-gray-900 border-b border-gray-200 dark:text-gray-100 dark:border-gray-700"
       >
-        UI Customization
+        {{ t('settings.preferences.uiCustomization') }}
       </h2>
 
       <ToggleButton
-        title="Dark Mode"
-        description="Switch between light and dark theme"
+        :title="t('settings.preferences.darkMode')"
+        :description="t('settings.preferences.darkModeDescription')"
         :value="settings.darkMode"
         @toggle="toggleDarkMode"
       />
@@ -106,10 +115,10 @@ const predefinedColors = [
       <div class="flex items-center justify-between">
         <div>
           <h3 class="text-gray-900 dark:text-gray-100">
-            Accent Color
+            {{ t('settings.preferences.accentColor') }}
           </h3>
           <p class="text-sm text-gray-500 dark:text-gray-400">
-            Choose your preferred accent color
+            {{ t('settings.preferences.accentColorDescription') }}
           </p>
         </div>
         <div class="flex gap-2">
@@ -128,10 +137,10 @@ const predefinedColors = [
       <div class="flex items-center justify-between">
         <div>
           <h3 class="text-gray-900 dark:text-gray-100">
-            UI Scale
+            {{ t('settings.preferences.uiScale') }}
           </h3>
           <p class="text-sm text-gray-500 dark:text-gray-400">
-            Adjust the size of UI elements ({{ settings.uiScale || 100 }}%)
+            {{ t('settings.preferences.uiScaleDescription') }} ({{ settings.uiScale || 100 }}%)
           </p>
         </div>
         <div class="flex items-center gap-3">
@@ -150,9 +159,34 @@ const predefinedColors = [
             class="px-2 py-1 text-xs text-gray-600 transition-colors bg-gray-100 rounded hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
             @click="updateUIScale(100)"
           >
-            Reset
+            {{ t('common.reset') }}
           </button>
         </div>
+      </div>
+
+      <!-- Language Selector -->
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-gray-900 dark:text-gray-100">
+            {{ t('settings.preferences.language') }}
+          </h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            {{ t('settings.preferences.languageDescription') }}
+          </p>
+        </div>
+        <select
+          :value="settings.language"
+          class="px-3 py-2 text-sm bg-gray-100 border border-gray-300 rounded-lg cursor-pointer dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-accent-500"
+          @change="changeLanguage($event.target.value)"
+        >
+          <option
+            v-for="lang in SUPPORTED_LANGUAGES"
+            :key="lang.code"
+            :value="lang.code"
+          >
+            {{ lang.nativeName }}
+          </option>
+        </select>
       </div>
     </div>
 
@@ -161,12 +195,12 @@ const predefinedColors = [
       <h2
         class="pb-2 text-lg font-medium text-gray-900 border-b border-gray-200 dark:text-gray-100 dark:border-gray-700"
       >
-        Search Type Options
+        {{ t('settings.preferences.searchTypes') }}
       </h2>
 
       <ToggleButton
-        title="Show Favorites"
-        description="Show favorite items when search is empty"
+        :title="t('settings.preferences.showFavorites')"
+        :description="t('settings.preferences.showFavoritesDescription')"
         :value="settings.showFavorites"
         @toggle="() => updateSetting('showFavorites', !settings.showFavorites)"
       />
@@ -176,8 +210,8 @@ const predefinedColors = [
           <ToggleButton
             v-for="type in settings.includedSearchTypes"
             :key="type.name"
-            :title="capitalizeFirstLetter(type.name)"
-            :description="`Include ${type.name} in search results`"
+            :title="t(`settings.preferences.searchTypeNames.${type.name}`)"
+            :description="t('settings.preferences.searchTypesDescription')"
             :value="type.enabled"
             @toggle="() => toggleSearchType(type.name)"
           />
@@ -190,7 +224,7 @@ const predefinedColors = [
       <h2
         class="pb-2 text-lg font-medium text-gray-900 border-b border-gray-200 dark:text-gray-100 dark:border-gray-700"
       >
-        Window Settings
+        {{ t('settings.preferences.searchPosition') }}
       </h2>
 
       <WindowDisplaySettings
@@ -204,12 +238,12 @@ const predefinedColors = [
       <h2
         class="pb-2 text-lg font-medium text-gray-900 border-b border-gray-200 dark:text-gray-100 dark:border-gray-700"
       >
-        System Settings
+        {{ t('settings.preferences.behavior') }}
       </h2>
 
       <ToggleButton
-        title="Start on Boot"
-        description="Automatically start application when you log in"
+        :title="t('settings.preferences.autostart')"
+        :description="t('settings.preferences.autostartDescription')"
         :value="settings.autostart"
         @toggle="toggleAutostart"
       />
@@ -217,10 +251,10 @@ const predefinedColors = [
       <div class="flex items-center justify-between">
         <div>
           <h3 class="text-gray-900 dark:text-gray-100">
-            Search Shortcut
+            {{ t('settings.preferences.searchShortcut') }}
           </h3>
           <p class="text-sm text-gray-500 dark:text-gray-400">
-            Global keyboard shortcut to open search
+            {{ t('settings.preferences.searchShortcutDescription') }}
           </p>
         </div>
         <ShortcutInput

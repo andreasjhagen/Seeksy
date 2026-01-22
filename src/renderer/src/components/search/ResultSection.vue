@@ -1,5 +1,6 @@
 <script setup>
 import { computed, inject, provide, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useSearchResultsStore } from '../../stores/search-results-store'
 
 const props = defineProps({
@@ -31,6 +32,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['toggleCollapse', 'sectionReorder'])
+
+const { t } = useI18n()
 
 const searchStore = useSearchResultsStore()
 const isDragging = ref(false)
@@ -66,7 +69,13 @@ const resultTypeConfig = computed(() => {
 })
 
 const title = computed(() => {
-  return props.customTitle || resultTypeConfig.value.displayName || props.resultType
+  if (props.customTitle)
+    return props.customTitle
+  // Use translation key if available, otherwise fall back to result type name
+  const displayNameKey = resultTypeConfig.value.displayNameKey
+  if (displayNameKey)
+    return t(displayNameKey)
+  return resultTypeConfig.value.displayName || props.resultType
 })
 
 const gridCols = computed(() => {

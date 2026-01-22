@@ -122,29 +122,29 @@ export function useWatcherStatus() {
 
   function getFolderStatusInfo(folder) {
     const statusMap = {
-      scanning: { text: 'Initial Scan', class: 'bg-purple-100 text-purple-800', progress: 'bg-purple-500' },
+      scanning: { key: 'scanning', class: 'bg-purple-100 text-purple-800', progress: 'bg-purple-500' },
       indexing: {
-        text: folder.pendingTasks > 0 ? `Processing Files (${folder.pendingTasks})` : 'Processing Changes',
+        key: folder.pendingTasks > 0 ? 'processingFiles' : 'processingChanges',
         class: 'bg-accent-100 text-accent-800',
         progress: 'bg-accent-500',
       },
-      watching: { text: 'Watching', class: 'bg-green-100 text-green-800', progress: 'bg-green-500' },
-      ready: { text: 'Watching', class: 'bg-green-100 text-green-800', progress: 'bg-green-500' }, // For backward compatibility
-      error: { text: 'Error', class: 'bg-red-100 text-red-800', progress: 'bg-red-500' },
-      paused: { text: 'Paused', class: 'bg-orange-100 text-orange-800', progress: 'bg-yellow-500' },
-      initializing: { text: 'Initializing', class: 'bg-blue-100 text-blue-800', progress: 'bg-blue-500' },
+      watching: { key: 'watching', class: 'bg-green-100 text-green-800', progress: 'bg-green-500' },
+      ready: { key: 'watching', class: 'bg-green-100 text-green-800', progress: 'bg-green-500' }, // For backward compatibility
+      error: { key: 'error', class: 'bg-red-100 text-red-800', progress: 'bg-red-500' },
+      paused: { key: 'paused', class: 'bg-orange-100 text-orange-800', progress: 'bg-yellow-500' },
+      initializing: { key: 'initializing', class: 'bg-blue-100 text-blue-800', progress: 'bg-blue-500' },
     }
 
     // Use folder's state directly from watcher status
     const currentState = folder.isPaused ? 'paused' : folder.state
     const state = statusMap[currentState] || {
-      text: 'Waiting',
+      key: 'waiting',
       class: 'bg-gray-100 text-gray-800',
       progress: 'bg-accent-500',
     }
 
     return {
-      statusText: state.text,
+      statusKey: state.key,
       statusClass: state.class,
       progressBarClass: state.progress,
       actionButtonClass: folder.isPaused ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700',

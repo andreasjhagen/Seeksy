@@ -1,4 +1,7 @@
 <script setup>
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
 const props = defineProps({
   value: {
     type: String,
@@ -8,11 +11,21 @@ const props = defineProps({
 
 const emit = defineEmits(['update'])
 
-// Window display options
-const windowDisplayOptions = [
-  { value: 'cursor', label: 'Where mouse cursor is', description: 'Show on the display where your mouse cursor is located' },
-  { value: 'primary', label: 'Primary display', description: 'Always show on your main display' },
-]
+const { t } = useI18n()
+
+// Window display options with translation keys
+const windowDisplayOptions = computed(() => [
+  {
+    value: 'cursor',
+    label: t('settings.preferences.searchPositionOptions.cursor'),
+    description: t('settings.preferences.searchPositionOptions.cursorDescription'),
+  },
+  {
+    value: 'primary',
+    label: t('settings.preferences.searchPositionOptions.center'),
+    description: t('settings.preferences.searchPositionOptions.centerDescription'),
+  },
+])
 
 function updateDisplaySetting(value) {
   emit('update', 'windowDisplay', value)
@@ -22,7 +35,7 @@ function updateDisplaySetting(value) {
 <template>
   <div class="space-y-4">
     <p class="text-sm text-gray-500 dark:text-gray-400">
-      Choose where the search window appears when activated
+      {{ t('settings.preferences.searchPositionDescription') }}
     </p>
 
     <div class="pl-2 space-y-3">

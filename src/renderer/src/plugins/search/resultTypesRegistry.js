@@ -65,7 +65,7 @@ export function createEditNoteAction() {
 const defaultResultTypes = [
   {
     name: RESULT_TYPES.DISK,
-    displayName: 'Files & Folders',
+    displayNameKey: 'search.sections.files',
     searchCall: async (query, filters, isFiltered) => {
       if (!query.trim() && !isFiltered)
         return []
@@ -109,7 +109,7 @@ const defaultResultTypes = [
   },
   {
     name: RESULT_TYPES.APPLICATION,
-    displayName: 'Applications',
+    displayNameKey: 'search.sections.apps',
     searchCall: async (query, filters, isFiltered) => {
       if (!query.trim())
         return []
@@ -132,7 +132,7 @@ const defaultResultTypes = [
   },
   {
     name: RESULT_TYPES.EMOJI,
-    displayName: 'Emojis',
+    displayNameKey: 'search.sections.emoji',
     searchCall: (query, filters, isFiltered) => {
       if (!query.trim())
         return []

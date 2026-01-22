@@ -1,12 +1,14 @@
 <script setup>
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { IPC_CHANNELS } from '../../../../main/ipc/ipcChannels'
 import { useKeyboardNavigation } from '../../composables/useKeyboardNavigation'
 import { useSearchResultsStore } from '../../stores/search-results-store'
 import OpenSettingsButton from './OpenSettingsButton.vue'
 
 const emit = defineEmits(['toggle-search-mode'])
+const { t } = useI18n()
 const searchStore = useSearchResultsStore()
 const { filters, isLoading, isFilteredMode } = storeToRefs(searchStore)
 const { hasActiveFilters } = storeToRefs(searchStore)
@@ -87,7 +89,7 @@ defineExpose({
           <input
             ref="searchInput"
             v-model="searchQuery"
-            placeholder="Search files, folders, apps..."
+            :placeholder="t('search.placeholder')"
             class="flex-1 p-2 text-gray-800 placeholder-gray-400 bg-transparent border-none outline-hidden dark:text-gray-100 dark:placeholder-gray-500"
             @input="searchStore.debouncedSearch"
             @keydown.down.prevent="handleFocusResults"

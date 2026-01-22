@@ -1,6 +1,7 @@
 <script setup>
 import { onClickOutside } from '@vueuse/core'
 import { computed, getCurrentInstance, onMounted, ref, watchEffect } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useContextMenu } from '../../composables/useContextMenu'
 import DialogPopup from '../common/DialogPopup.vue'
 
@@ -12,6 +13,9 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['item-edited'])
+
+const { t } = useI18n()
+
 const contextMenu = useContextMenu()
 const menuRef = ref(null)
 
@@ -146,7 +150,7 @@ function handleNotesCancel() {
 
     <!-- Notes Dialog -->
     <DialogPopup
-      title="Edit Notes"
+      :title="t('search.notes.title')"
       :is-open="showNotesDialog"
       @close="handleNotesCancel"
       @confirm="handleNotesConfirm"
@@ -154,7 +158,7 @@ function handleNotesCancel() {
       <textarea
         v-model="noteContent"
         class="w-full h-32 p-2 border rounded-sm dark:bg-gray-700 dark:border-gray-600"
-        placeholder="Enter notes here..."
+        :placeholder="t('search.notes.placeholder')"
       />
     </DialogPopup>
   </Teleport>

@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   value: {
@@ -9,6 +10,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update', 'reset'])
+
+const { t } = useI18n()
 
 const KEY_MAPPINGS = {
   ' ': 'Space',
@@ -57,14 +60,14 @@ function handleKeyDown(e) {
       type="text"
       :value="formattedValue"
       class="px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-      placeholder="Press keys..."
+      :placeholder="t('settings.preferences.searchShortcutPlaceholder')"
       @keydown.prevent="handleKeyDown"
     >
     <button
       class="px-3 py-2 text-sm text-gray-600 border rounded-md hover:bg-gray-100 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
       @click="$emit('reset')"
     >
-      Reset
+      {{ t('common.reset') }}
     </button>
   </div>
 </template>
