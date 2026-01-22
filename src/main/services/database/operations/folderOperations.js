@@ -96,13 +96,15 @@ export const folderOperations = {
     const name = path.basename(folderPath)
 
     // Preserve existing values if not provided in updates
+    // Note: We skip folder count updates during indexing for performance
+    // Counts can be recalculated lazily when needed
     const finalUpdates = {
       name,
       parentPath: parentPath === folderPath ? null : parentPath,
       modifiedAt: updates.modifiedAt || Date.now(),
       indexedAt: Date.now(),
       directChildCount: updates.directChildCount ?? existingFolder?.directChildCount ?? 0,
-      directFileCount: updates.directFileCount ?? this.getFolderFileCount(folderPath),
+      directFileCount: updates.directFileCount ?? existingFolder?.directFileCount ?? 0,
       watchedFolderPath: updates.watchedFolderPath ?? existingFolder?.watchedFolderPath ?? null,
     }
 
@@ -126,10 +128,9 @@ export const folderOperations = {
         finalUpdates.watchedFolderPath,
       )
 
-    // Update parent folder counts only if there was an actual update
-    if (result.changes > 0 && parentPath !== folderPath) {
-      await this.updateFolderCounts(parentPath)
-    }
+    // Skip recursive parent updates during indexing - counts will be stale but
+    // can be recalculated later if needed. This is a significant performance win.
+    // The old code: await this.updateFolderCounts(parentPath)
 
     return result
   },
