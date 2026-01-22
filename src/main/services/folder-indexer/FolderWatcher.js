@@ -20,6 +20,7 @@ export class FolderWatcher extends EventEmitter {
     this.initialScanComplete = false
     this.isProcessing = false
     this.processingQueue = []
+    this.directoryQueue = [] // Separate queue for directories (lower priority)
     this.queueOverflowPaused = false // Track if we paused due to queue overflow
 
     // Batch processing options
@@ -84,16 +85,32 @@ export class FolderWatcher extends EventEmitter {
     this.watcher = chokidar
       .watch(this.watchPath, watcherOptions)
       .on('add', (path, stats) => this.queueFileEvent('add', path, stats))
+      .on('addDir', (path, stats) => {
+        // Queue directories separately for lower-priority processing
+        // Skip the root watched path itself
+        if (path !== this.watchPath && !this.isPaused) {
+          this.directoryQueue.push({ event: 'addDir', path, stats })
+          this.stats.totalFiles++
+        }
+      })
       .on('change', (path, stats) => this.queueFileEvent('change', path, stats))
       .on('unlink', path => this.queueFileEvent('remove', path))
+      .on('unlinkDir', (path) => {
+        if (path !== this.watchPath) {
+          this.queueFileEvent('removeDir', path)
+        }
+      })
       .on('ready', () => {
         this.initialScanComplete = true
-        this.stats.state = this.processingQueue.length > 0 ? 'indexing' : 'watching'
+
+        // Start processing directories after files are discovered
+        const hasWork = this.processingQueue.length > 0 || this.directoryQueue.length > 0
+        this.stats.state = hasWork ? 'indexing' : 'watching'
         this.emitStatus()
         this.emit('ready')
         this.emit('initial-scan-complete', this.getStatus())
 
-        if (this.processingQueue.length > 0 && !this.isProcessing) {
+        if (hasWork && !this.isProcessing) {
           this.processQueue()
         }
       })
@@ -122,7 +139,7 @@ export class FolderWatcher extends EventEmitter {
     if (event === 'add') {
       this.stats.totalFiles++
     }
-    else if (event === 'remove') {
+    else if (event === 'remove' || event === 'removeDir') {
       this.stats.totalFiles = Math.max(0, this.stats.totalFiles - 1)
     }
 
@@ -178,63 +195,15 @@ export class FolderWatcher extends EventEmitter {
     this.isProcessing = true
 
     try {
-      while (this.processingQueue.length > 0 && !this.isPaused) {
-        // Use smaller batch size during initial scan for smoother progress, full batch after
-        const batchActuallyEnabled = this.enableBatching && this.initialScanComplete
-        const batchSize = batchActuallyEnabled
-          ? this.batchSize
-          : performanceConfig.batching.initialScanBatchSize
-        const batch = this.processingQueue.splice(0, batchSize)
+      // Process file events first (higher priority)
+      await this._processFileQueue()
 
-        // Group batch by event type for more efficient processing
-        const adds = batch.filter(item => item.event === 'add')
-        const changes = batch.filter(item => item.event === 'change')
-        const removes = batch.filter(item => item.event === 'remove')
+      // Process directory events (lower priority, after all file events)
+      await this._processDirectoryQueue()
 
-        // Process removes first as they're typically faster
-        if (removes.length > 0) {
-          await Promise.all(removes.map(async ({ path }) => {
-            try {
-              await this.processor.removePath(path)
-              this.stats.processedFiles = Math.max(0, this.stats.processedFiles - 1)
-            }
-            catch (error) {
-              console.error(`Error removing ${path}:`, error)
-            }
-          }))
-        }
-
-        // Process adds and changes
-        if (adds.length > 0 || changes.length > 0) {
-          const items = [...adds, ...changes]
-          await Promise.all(items.map(async ({ event, path, stats }) => {
-            try {
-              await this.processor.processPath(path, stats)
-              if (event === 'add') {
-                this.stats.processedFiles++
-              }
-            }
-            catch (error) {
-              console.error(`Error processing ${path}:`, error)
-            }
-          }))
-
-          // Flush pending database writes after each batch for efficiency
-          this.processor.flushPendingWrites()
-        }
-
-        this.emitStatus()
-
-        // Add delay between batches
-        if (!this.isPaused && this.processingQueue.length > 0) {
-          await new Promise(resolve => setTimeout(resolve, this.processingDelay))
-        }
-      }
-
-      // Update state when queue is empty
-      if (this.processingQueue.length === 0 && !this.isPaused && this.initialScanComplete) {
+      // Update state when all queues are empty
+      if (this._areQueuesEmpty() && !this.isPaused && this.initialScanComplete) {
         this.stats.state = 'watching'
-        // Clear processedPaths after initial scan to free memory
         this.processor.clearProcessedPaths()
         this.emit('processing-complete', this.getStatus())
       }
@@ -258,6 +227,129 @@ export class FolderWatcher extends EventEmitter {
         this.flushPendingEvents()
       }
     }
+  }
+
+  /**
+   * Process the file event queue (add, change, remove events)
+   * @private
+   */
+  async _processFileQueue() {
+    while (this.processingQueue.length > 0 && !this.isPaused) {
+      const batchSize = this._getCurrentBatchSize()
+      const batch = this.processingQueue.splice(0, batchSize)
+
+      // Group batch by event type for efficient processing
+      const adds = batch.filter(item => item.event === 'add')
+      const changes = batch.filter(item => item.event === 'change')
+      const removes = batch.filter(item => item.event === 'remove' || item.event === 'removeDir')
+
+      // Process removes first (faster operations)
+      if (removes.length > 0) {
+        await this._processRemovals(removes)
+      }
+
+      // Process adds and changes
+      const upserts = [...adds, ...changes]
+      if (upserts.length > 0) {
+        await this._processUpserts(upserts)
+        this.processor.flushPendingWrites()
+      }
+
+      this.emitStatus()
+
+      if (!this.isPaused && this.processingQueue.length > 0) {
+        await this._delay(this.processingDelay)
+      }
+    }
+  }
+
+  /**
+   * Process the directory queue (lower priority than files)
+   * @private
+   */
+  async _processDirectoryQueue() {
+    while (this.directoryQueue.length > 0 && !this.isPaused) {
+      const batchSize = performanceConfig.batching.initialScanBatchSize
+      const batch = this.directoryQueue.splice(0, batchSize)
+
+      await Promise.all(batch.map(async ({ path, stats }) => {
+        try {
+          await this.processor.processPath(path, stats)
+          this.stats.processedFiles++
+        }
+        catch (error) {
+          console.error(`Error processing directory ${path}:`, error)
+        }
+      }))
+
+      this.processor.flushPendingWrites()
+      this.emitStatus()
+
+      if (!this.isPaused && this.directoryQueue.length > 0) {
+        await this._delay(this.processingDelay)
+      }
+    }
+  }
+
+  /**
+   * Process removal events (files and directories)
+   * @private
+   */
+  async _processRemovals(removes) {
+    await Promise.all(removes.map(async ({ path }) => {
+      try {
+        await this.processor.removePath(path)
+        this.stats.processedFiles = Math.max(0, this.stats.processedFiles - 1)
+      }
+      catch (error) {
+        console.error(`Error removing ${path}:`, error)
+      }
+    }))
+  }
+
+  /**
+   * Process add/change events (files)
+   * @private
+   */
+  async _processUpserts(items) {
+    await Promise.all(items.map(async ({ event, path, stats }) => {
+      try {
+        await this.processor.processPath(path, stats)
+        if (event === 'add') {
+          this.stats.processedFiles++
+        }
+      }
+      catch (error) {
+        console.error(`Error processing ${path}:`, error)
+      }
+    }))
+  }
+
+  /**
+   * Get the current batch size based on scan state
+   * @private
+   */
+  _getCurrentBatchSize() {
+    const batchActuallyEnabled = this.enableBatching && this.initialScanComplete
+    return batchActuallyEnabled
+      ? this.batchSize
+      : performanceConfig.batching.initialScanBatchSize
+  }
+
+  /**
+   * Check if all queues are empty
+   * @private
+   */
+  _areQueuesEmpty() {
+    return this.processingQueue.length === 0 && this.directoryQueue.length === 0
+  }
+
+  /**
+   * Async delay helper
+   * @private
+   */
+  _delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms))
   }
 
   startStatusUpdates() {
@@ -290,7 +382,7 @@ export class FolderWatcher extends EventEmitter {
       isPaused: this.isPaused,
       initialScanComplete: this.initialScanComplete,
       depth: this.depth,
-      pendingTasks: this.processingQueue.length || 0,
+      pendingTasks: this.processingQueue.length + this.directoryQueue.length,
     }
   }
 
@@ -328,6 +420,7 @@ export class FolderWatcher extends EventEmitter {
       this.stats.totalFiles = 0
       this.stats.processedFiles = 0
       this.processingQueue = []
+      this.directoryQueue = []
       this.stats.state = 'scanning'
       this.queueOverflowPaused = false
 
@@ -367,6 +460,7 @@ export class FolderWatcher extends EventEmitter {
     this.isPaused = true
     this.stats.state = 'closed'
     this.processingQueue = []
+    this.directoryQueue = []
     this.isProcessing = false
 
     return true

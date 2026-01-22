@@ -138,7 +138,7 @@ window.api.on(IPC_CHANNELS.SHOW_MAIN_WINDOW, async () => {
           />
           <NoWatchedFolders v-if="!hasWatchedFolders" class="shrink-0" />
           <FavoriteResults v-if="!searchStore.query && !hasResults && settingsStore.settings.showFavorites" class="overflow-y-auto" />
-          <SearchResults v-if="hasResults" class="overflow-y-auto" />
+          <SearchResults v-if="hasResults || (searchStore.query && searchStore.hasSearched)" class="overflow-y-auto" />
         </div>
       </div>
     </div>
