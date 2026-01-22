@@ -225,15 +225,30 @@ export class FileProcessor extends EventEmitter {
   }
 
   /**
-   * Ensures the parent folder is processed before processing a file
+   * Ensures all parent folders up to (but not including) the watched folder are processed
    *
    * @param {string} filePath - Path to the file
    * @private
    */
   async _ensureParentFolderProcessed(filePath) {
-    const folderPath = path.dirname(filePath)
-    if (!this.processedPaths.has(folderPath)) {
-      logger.debug(`Processing parent folder first: ${folderPath}`)
+    // Find the watched folder this file belongs to
+    const watchedFolder = await this._findWatchedParentFolder(filePath)
+    const watchedPath = watchedFolder?.path
+
+    // Collect all parent folders that need processing (from immediate parent up to watched folder)
+    const foldersToProcess = []
+    let currentPath = path.dirname(filePath)
+
+    while (currentPath && currentPath !== watchedPath && currentPath !== path.dirname(currentPath)) {
+      if (!this.processedPaths.has(currentPath)) {
+        foldersToProcess.push(currentPath)
+      }
+      currentPath = path.dirname(currentPath)
+    }
+
+    // Process folders from root-most to leaf (reverse order) so parents are indexed before children
+    for (const folderPath of foldersToProcess.reverse()) {
+      logger.debug(`Processing parent folder: ${folderPath}`)
       const folderStats = await this._safeFileStat(folderPath)
       if (folderStats) {
         await this.processDirectory(folderPath, folderStats)
