@@ -121,8 +121,11 @@ export class FileProcessor extends EventEmitter {
     }
 
     try {
-      // Process parent folder first
-      await this._ensureParentFolderProcessed(filePath)
+      // Get watched folder once (used for both parent processing and file metadata)
+      const watchedFolder = await this._findWatchedParentFolder(filePath)
+
+      // Process parent folders first (pass watched folder to avoid duplicate lookup)
+      await this._ensureParentFolderProcessed(filePath, watchedFolder)
 
       // Check if file exists in DB
       const existingFile = await fileDB.getFile(filePath)
@@ -142,8 +145,7 @@ export class FileProcessor extends EventEmitter {
         return { success: false, type: 'error', path: filePath, error: 'Failed to process file metadata' }
       }
 
-      // Add watched folder path
-      const watchedFolder = await this._findWatchedParentFolder(filePath)
+      // Add watched folder path (reuse the already-fetched value)
       fileDetails.fileData.watchedFolderPath = watchedFolder?.path || null
 
       await this._saveFileToDatabase(filePath, fileDetails)
@@ -228,22 +230,34 @@ export class FileProcessor extends EventEmitter {
    * Ensures all parent folders up to (but not including) the watched folder are processed
    *
    * @param {string} filePath - Path to the file
+   * @param {object|null} watchedFolder - Pre-fetched watched folder (optional, for performance)
    * @private
    */
-  async _ensureParentFolderProcessed(filePath) {
-    // Find the watched folder this file belongs to
-    const watchedFolder = await this._findWatchedParentFolder(filePath)
-    const watchedPath = watchedFolder?.path
+  async _ensureParentFolderProcessed(filePath, watchedFolder = null) {
+    // Use provided watched folder or find it
+    const watched = watchedFolder ?? await this._findWatchedParentFolder(filePath)
+    const watchedPath = watched?.path
+
+    // Quick check: if immediate parent is already processed, likely all ancestors are too
+    const immediateParent = path.dirname(filePath)
+    if (this.processedPaths.has(immediateParent)) {
+      return
+    }
 
     // Collect all parent folders that need processing (from immediate parent up to watched folder)
     const foldersToProcess = []
-    let currentPath = path.dirname(filePath)
+    let currentPath = immediateParent
 
     while (currentPath && currentPath !== watchedPath && currentPath !== path.dirname(currentPath)) {
       if (!this.processedPaths.has(currentPath)) {
         foldersToProcess.push(currentPath)
       }
       currentPath = path.dirname(currentPath)
+    }
+
+    // If nothing to process, return early
+    if (foldersToProcess.length === 0) {
+      return
     }
 
     // Process folders from root-most to leaf (reverse order) so parents are indexed before children

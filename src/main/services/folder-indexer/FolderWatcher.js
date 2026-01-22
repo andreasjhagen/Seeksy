@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events'
 import chokidar from 'chokidar'
 import { createIgnorePatterns } from './config/exclusionPatterns.js'
+import { performanceConfig } from './config/performanceConfig.js'
 import { watcherConfig } from './config/watcherConfig.js'
 import { FileProcessor } from './FileProcessor.js'
 
@@ -178,9 +179,11 @@ export class FolderWatcher extends EventEmitter {
 
     try {
       while (this.processingQueue.length > 0 && !this.isPaused) {
-        // Process in batches if enabled and not during initial scan
+        // Use smaller batch size during initial scan for smoother progress, full batch after
         const batchActuallyEnabled = this.enableBatching && this.initialScanComplete
-        const batchSize = batchActuallyEnabled ? this.batchSize : 1
+        const batchSize = batchActuallyEnabled
+          ? this.batchSize
+          : performanceConfig.batching.initialScanBatchSize
         const batch = this.processingQueue.splice(0, batchSize)
 
         // Group batch by event type for more efficient processing

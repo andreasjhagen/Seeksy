@@ -30,5 +30,8 @@ export const performanceConfig = {
 
     // Minimum batch size allowed
     minBatchSize: 1,
+
+    // Batch size during initial scan (smaller for smoother progress, but > 1 for performance)
+    initialScanBatchSize: 5,
   },
 }
