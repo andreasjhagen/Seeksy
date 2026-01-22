@@ -1,5 +1,6 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { marked } from 'marked'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { IPC_CHANNELS } from '../../../../../../main/ipc/ipcChannels'
 
 defineProps({
@@ -9,11 +10,42 @@ defineProps({
   },
 })
 
+// Configure marked for safe rendering
+marked.setOptions({
+  breaks: true, // Convert line breaks to <br>
+  gfm: true, // GitHub Flavored Markdown
+})
+
 // Update state
 const updateStatus = ref('idle') // 'idle', 'checking', 'available', 'downloading', 'ready', 'error'
 const updateInfo = ref(null)
 const downloadProgress = ref(null)
 const errorMessage = ref('')
+const showChangelog = ref(false)
+
+// Computed property to format release notes (for update available/ready states)
+const formattedChangelog = computed(() => {
+  if (!updateInfo.value?.releaseNotes) {
+    return null
+  }
+
+  const notes = updateInfo.value.releaseNotes
+
+  // Handle array format (when fullChangelog is true)
+  if (Array.isArray(notes)) {
+    return notes.map(note => ({
+      version: note.version,
+      note: marked.parse(note.note || ''),
+    }))
+  }
+
+  // Handle string format
+  if (typeof notes === 'string') {
+    return [{ version: updateInfo.value.version, note: marked.parse(notes) }]
+  }
+
+  return null
+})
 
 // Format bytes to human readable
 function formatBytes(bytes, decimals = 2) {
@@ -220,6 +252,41 @@ onUnmounted(() => {
             </p>
           </div>
         </div>
+
+        <!-- Collapsible Changelog -->
+        <div v-if="formattedChangelog" class="border border-gray-200 rounded-lg dark:border-gray-600">
+          <button
+            class="flex items-center justify-between w-full px-4 py-3 text-left transition-colors cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50"
+            @click="showChangelog = !showChangelog"
+          >
+            <span class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+              <span class="material-symbols-rounded text-base">description</span>
+              What's new in v{{ updateInfo?.version }}
+            </span>
+            <span
+              class="transition-transform duration-200 material-symbols-rounded text-gray-500"
+              :class="{ 'rotate-180': showChangelog }"
+            >
+              expand_more
+            </span>
+          </button>
+          <div
+            v-show="showChangelog"
+            class="px-4 pb-4 border-t border-gray-200 dark:border-gray-600"
+          >
+            <div
+              v-for="(entry, index) in formattedChangelog"
+              :key="index"
+              class="pt-3"
+            >
+              <div
+                class="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-300"
+                v-html="entry.note"
+              />
+            </div>
+          </div>
+        </div>
+
         <div class="flex gap-3">
           <button
             class="px-4 py-2 text-sm font-medium text-white rounded-lg cursor-pointer bg-accent-600 hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
@@ -231,7 +298,7 @@ onUnmounted(() => {
             class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg cursor-pointer hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
             @click="openReleasesPage"
           >
-            View release notes
+            View on GitHub
           </button>
         </div>
       </div>
@@ -281,6 +348,41 @@ onUnmounted(() => {
             </p>
           </div>
         </div>
+
+        <!-- Collapsible Changelog -->
+        <div v-if="formattedChangelog" class="border border-gray-200 rounded-lg dark:border-gray-600">
+          <button
+            class="flex items-center justify-between w-full px-4 py-3 text-left transition-colors cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50"
+            @click="showChangelog = !showChangelog"
+          >
+            <span class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+              <span class="material-symbols-rounded text-base">description</span>
+              What's new in v{{ updateInfo?.version }}
+            </span>
+            <span
+              class="transition-transform duration-200 material-symbols-rounded text-gray-500"
+              :class="{ 'rotate-180': showChangelog }"
+            >
+              expand_more
+            </span>
+          </button>
+          <div
+            v-show="showChangelog"
+            class="px-4 pb-4 border-t border-gray-200 dark:border-gray-600"
+          >
+            <div
+              v-for="(entry, index) in formattedChangelog"
+              :key="index"
+              class="pt-3"
+            >
+              <div
+                class="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-300"
+                v-html="entry.note"
+              />
+            </div>
+          </div>
+        </div>
+
         <div class="flex gap-3">
           <button
             class="px-4 py-2 text-sm font-medium text-white rounded-lg cursor-pointer bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
@@ -292,7 +394,7 @@ onUnmounted(() => {
             class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg cursor-pointer hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
             @click="openReleasesPage"
           >
-            View release notes
+            View on GitHub
           </button>
         </div>
         <p class="text-xs text-gray-500 dark:text-gray-400">

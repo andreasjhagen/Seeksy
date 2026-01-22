@@ -99,6 +99,7 @@ export const IPC = {
     DOWNLOAD_UPDATE: 'updater:download-update',
     INSTALL_UPDATE: 'updater:install-update',
     GET_UPDATE_STATUS: 'updater:get-update-status',
+    GET_RELEASE_NOTES: 'updater:get-release-notes',
 
     // Update events (main -> renderer)
     CHECKING_FOR_UPDATE: 'updater:checking-for-update',

@@ -34,18 +34,15 @@ export const EXCLUDED_PATTERNS = {
     'log',
   ],
   FILES: [
-    '*.iso',
+    // Large disk images and virtual machine files
     '*.vmdk',
     '*.vdi',
+    // Temporary and backup files
     '*.bak',
     '*.tmp',
     '*.temp',
     '*.lock',
     '*.log',
-    '*.mp4',
-    '*.mov',
-    '*.avi',
-    '*.mkv',
   ],
 }
 
@@ -79,9 +76,19 @@ export function createIgnorePatterns() {
     `${folder}`,
   ]).flat()
 
+  // File patterns need **/ prefix to match at any depth
+  const filePatterns = EXCLUDED_PATTERNS.FILES.map((pattern) => {
+    // If pattern already starts with **/, leave it as is
+    if (pattern.startsWith('**/')) {
+      return pattern
+    }
+    // Otherwise, add **/ prefix for recursive matching
+    return `**/${pattern}`
+  })
+
   return [
     /(^|[/\\])\../, // dot files and folders
     ...folderPatterns,
-    ...EXCLUDED_PATTERNS.FILES,
+    ...filePatterns,
   ]
 }
