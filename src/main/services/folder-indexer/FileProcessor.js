@@ -266,7 +266,16 @@ export class FileProcessor extends EventEmitter {
       this._watchedFoldersCacheTime = now
     }
 
-    return this._watchedFoldersCache.find(folder => itemPath.startsWith(folder.path))
+    // Use proper path comparison to avoid false matches
+    // e.g., "/home/foo" should not match "/home/foobar"
+    return this._watchedFoldersCache.find((folder) => {
+      // Exact match
+      if (itemPath === folder.path) {
+        return true
+      }
+      // Path is inside the folder (must have a path separator after the folder path)
+      return itemPath.startsWith(folder.path + path.sep)
+    })
   }
 
   /**

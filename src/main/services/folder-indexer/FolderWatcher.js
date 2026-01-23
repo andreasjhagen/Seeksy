@@ -1,5 +1,7 @@
+import { stat } from 'node:fs/promises'
 import { EventEmitter } from 'node:events'
 import chokidar from 'chokidar'
+import { fileDB } from '../database/database.js'
 import { createIgnorePatterns } from './config/exclusionPatterns.js'
 import { performanceConfig } from './config/performanceConfig.js'
 import { watcherConfig } from './config/watcherConfig.js'
@@ -49,6 +51,9 @@ export class FolderWatcher extends EventEmitter {
       this.stats.state = 'scanning'
       this.emitStatus()
 
+      // Add the watched folder itself to the folders table so it appears in search results
+      await this._addWatchedFolderToDatabase()
+
       // Skip pre-counting - we'll discover files incrementally for better UX
       // The totalFiles count will be updated as chokidar discovers files
 
@@ -62,6 +67,25 @@ export class FolderWatcher extends EventEmitter {
       this.stats.state = 'error'
       this.emit('error', error)
       throw error
+    }
+  }
+
+  /**
+   * Adds the watched folder itself to the folders table
+   * This ensures the watched folder shows up in search results
+   * @private
+   */
+  async _addWatchedFolderToDatabase() {
+    try {
+      const stats = await stat(this.watchPath)
+      await fileDB.updateFolder(this.watchPath, {
+        modifiedAt: stats.mtimeMs,
+        watchedFolderPath: this.watchPath, // The watched folder is its own parent
+      })
+    }
+    catch (error) {
+      console.error(`Failed to add watched folder to database: ${this.watchPath}`, error)
+      // Non-critical error, continue with initialization
     }
   }
 
