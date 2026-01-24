@@ -138,7 +138,13 @@ async function handleConfirm({ paths, depth }) {
         const result = await addWatchPath(path, { depth })
         if (!result.success) {
           hasErrors = true
-          warnings.push(t('settings.watchedFolders.failedToAdd', { path }))
+          // Show detailed error for overlapping folders
+          if (result.error) {
+            warnings.push(result.error)
+          }
+          else {
+            warnings.push(t('settings.watchedFolders.failedToAdd', { path }))
+          }
         }
       }
 

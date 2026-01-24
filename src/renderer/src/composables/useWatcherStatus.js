@@ -31,7 +31,7 @@ export function useWatcherStatus() {
 
   // Setup a status update listener that the main process can trigger
   function setupStatusListener() {
-    window.api.on(IPC.BACKEND.INDEXER_GET_STATUS, async (event) => {
+    window.api.on(IPC.BACKEND.INDEXER_GET_STATUS, async (_event) => {
       await updateWatcherStatus()
     })
   }
@@ -75,7 +75,17 @@ export function useWatcherStatus() {
 
   async function addWatchPath(path, options = { depth: Infinity }) {
     try {
-      await window.api.invoke(IPC_CHANNELS.INDEXER_ADD_PATH, path, options)
+      const result = await window.api.invoke(IPC_CHANNELS.INDEXER_ADD_PATH, path, options)
+
+      // Handle the new response format with overlap detection
+      if (result && !result.success) {
+        return {
+          success: false,
+          error: result.error || 'Failed to add watch path',
+          overlappingFolder: result.overlappingFolder,
+        }
+      }
+
       await updateWatcherStatus()
       return { success: true }
     }

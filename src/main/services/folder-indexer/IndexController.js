@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { access } from 'node:fs/promises'
 import path from 'node:path'
+import { checkWatchedFolderOverlap } from '../../utils/pathUtils.js'
 import { fileDB } from '../database/database.js'
 import { performanceConfig } from './config/performanceConfig.js'
 import { watcherConfig } from './config/watcherConfig.js'
@@ -266,9 +267,29 @@ export class IndexController extends EventEmitter {
   }
 
   // Public API methods
+  /**
+   * Add a new watched folder path
+   * @param {string} watchPath - Path to watch
+   * @param {object} options - Watch options
+   * @param {number} options.depth - Maximum depth to watch (Infinity for unlimited)
+   * @returns {Promise<object>} Result object with success boolean and optional error
+   */
   async addWatchPath(watchPath, options = { depth: Infinity }) {
     if (!this.initialized)
       await this.initialize()
+
+    // Check for overlapping watched folders
+    const existingFolders = await fileDB.getWatchedFolders()
+    const overlapCheck = checkWatchedFolderOverlap(watchPath, options.depth, existingFolders)
+
+    if (overlapCheck.overlaps) {
+      console.warn(`[IndexController] Cannot add watch path - overlap detected: ${overlapCheck.reason}`)
+      return {
+        success: false,
+        error: overlapCheck.reason,
+        overlappingFolder: overlapCheck.existingFolder?.path,
+      }
+    }
 
     // Queue this watcher if there's already an active indexing watcher or watchers in queue
     const shouldQueue = this.currentActiveIndexingWatchPath !== null || this.watcherQueue.length > 0
@@ -283,7 +304,7 @@ export class IndexController extends EventEmitter {
     console.log(`[IndexController] _initWatcher result for ${watchPath}: ${result}`)
 
     if (!result) {
-      return result
+      return { success: false, error: 'Failed to initialize watcher' }
     }
 
     // If this watcher started immediately (not queued), set it as active indexing watcher
@@ -298,7 +319,23 @@ export class IndexController extends EventEmitter {
       }
     }
 
-    return result
+    // Invalidate watched folders cache in all active watchers' FileProcessors
+    this._invalidateWatchedFoldersCaches()
+
+    return { success: true }
+  }
+
+  /**
+   * Invalidate the watched folders cache in all watchers' FileProcessors
+   * Call this when watched folders are added or removed
+   * @private
+   */
+  _invalidateWatchedFoldersCaches() {
+    for (const watcher of this.watchers.values()) {
+      if (watcher.processor) {
+        watcher.processor.invalidateWatchedFoldersCache()
+      }
+    }
   }
 
   async removeWatchPath(watchPath) {
@@ -312,6 +349,10 @@ export class IndexController extends EventEmitter {
       this.folders.delete(watchPath)
       this.active.delete(watchPath)
       await fileDB.removeWatchFolderFromDb(watchPath)
+
+      // Invalidate watched folders cache in remaining watchers
+      this._invalidateWatchedFoldersCaches()
+
       this._updateStatus()
       return true
     }

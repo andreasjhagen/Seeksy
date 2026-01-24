@@ -64,9 +64,25 @@ export class IndexHandler extends BaseHandler {
   }
 
   async handleAddPath(_, path, options = { depth: Infinity }) {
+    // First check if the path can be added (no overlaps)
+    const result = await this.indexer.addWatchPath(path, options)
+
+    if (!result.success) {
+      // Return the error without adding to database
+      return {
+        success: false,
+        error: result.error,
+        overlappingFolder: result.overlappingFolder,
+      }
+    }
+
+    // Only add to database if watcher was successfully created
     await fileDB.addWatchFolder(path, options.depth)
-    await this.indexer.addWatchPath(path, options)
-    return this.indexer.getWatcherStatus(path)
+
+    return {
+      success: true,
+      status: this.indexer.getWatcherStatus(path),
+    }
   }
 
   async handleRemovePath(_, path) {

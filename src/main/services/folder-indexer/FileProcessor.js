@@ -10,6 +10,7 @@ import { EventEmitter } from 'node:events'
 import { stat } from 'node:fs/promises'
 import path from 'node:path'
 import { createLogger } from '../../utils/logger.js'
+import { getCacheKey, pathStartsWith } from '../../utils/pathUtils.js'
 import { fileDB } from '../database/database.js'
 import { getFileMetadata } from './getFileMetadata.js'
 
@@ -96,6 +97,31 @@ export class FileProcessor extends EventEmitter {
     this._watchedFoldersCacheTime = 0
   }
 
+  // Path tracking helper methods using normalized keys
+  _hasProcessedPath(filePath) {
+    return this.processedPaths.has(getCacheKey(filePath))
+  }
+
+  _addProcessedPath(filePath) {
+    this.processedPaths.add(getCacheKey(filePath))
+  }
+
+  _deleteProcessedPath(filePath) {
+    this.processedPaths.delete(getCacheKey(filePath))
+  }
+
+  _hasProcessingPath(filePath) {
+    return this.processingPaths.has(getCacheKey(filePath))
+  }
+
+  _setProcessingPath(filePath) {
+    this.processingPaths.set(getCacheKey(filePath), Date.now())
+  }
+
+  _deleteProcessingPath(filePath) {
+    this.processingPaths.delete(getCacheKey(filePath))
+  }
+
   /**
    * Process a file or directory path
    *
@@ -104,14 +130,14 @@ export class FileProcessor extends EventEmitter {
    * @returns {Promise<object>} Result of the processing operation
    */
   async processPath(filePath, providedStats = null) {
-    // Skip if already being processed
-    if (this.processingPaths.has(filePath)) {
+    // Skip if already being processed (using normalized key for consistency)
+    if (this._hasProcessingPath(filePath)) {
       logger.debug(`Skipping already processing path: ${filePath}`)
       return { success: true, path: filePath, status: 'already-processing' }
     }
 
     try {
-      this.processingPaths.set(filePath, Date.now())
+      this._setProcessingPath(filePath)
 
       const stats = providedStats || await this._safeFileStat(filePath)
       if (!stats) {
@@ -130,7 +156,7 @@ export class FileProcessor extends EventEmitter {
       return this._handleError('processing', filePath, error)
     }
     finally {
-      this.processingPaths.delete(filePath)
+      this._deleteProcessingPath(filePath)
     }
   }
 
@@ -144,7 +170,7 @@ export class FileProcessor extends EventEmitter {
     try {
       logger.info(`Removing from database: ${path}`)
       const result = await fileDB.removePath(path)
-      this.processedPaths.delete(path)
+      this._deleteProcessedPath(path)
       return { success: true, type: 'removed', path, affected: result }
     }
     catch (error) {
@@ -161,7 +187,7 @@ export class FileProcessor extends EventEmitter {
    * @returns {Promise<object>} Result of the processing operation
    */
   async processFile(filePath, stats) {
-    if (this.processedPaths.has(filePath)) {
+    if (this._hasProcessedPath(filePath)) {
       logger.debug(`Skipping already processed file: ${filePath}`)
       return { success: true, type: 'file', path: filePath, status: 'already-processed' }
     }
@@ -179,7 +205,7 @@ export class FileProcessor extends EventEmitter {
 
       // Skip unchanged files
       if (existingFile && existingFile.modifiedAt === stats.mtimeMs) {
-        this.processedPaths.add(filePath)
+        this._addProcessedPath(filePath)
         logger.debug(`Skipping unchanged file: ${filePath}`)
         return { success: true, type: 'file', path: filePath, status: 'unchanged' }
       }
@@ -195,7 +221,7 @@ export class FileProcessor extends EventEmitter {
       fileDetails.fileData.watchedFolderPath = watchedFolder?.path || null
 
       await this._saveFileToDatabase(filePath, fileDetails)
-      this.processedPaths.add(filePath)
+      this._addProcessedPath(filePath)
 
       logger.debug(`Successfully processed file: ${filePath} (${existingFile ? 'updated' : 'indexed'})`)
       return {
@@ -224,7 +250,7 @@ export class FileProcessor extends EventEmitter {
         modifiedAt: stats.mtimeMs,
         watchedFolderPath: watchedFolder?.path || null,
       })
-      this.processedPaths.add(dirPath)
+      this._addProcessedPath(dirPath)
       logger.debug(`Processed directory: ${dirPath}`)
       return { success: true, type: 'directory', path: dirPath }
     }
@@ -266,16 +292,10 @@ export class FileProcessor extends EventEmitter {
       this._watchedFoldersCacheTime = now
     }
 
-    // Use proper path comparison to avoid false matches
+    // Use pathStartsWith for proper cross-platform path comparison
+    // This handles path separator differences (/ vs \) and case sensitivity on Windows
     // e.g., "/home/foo" should not match "/home/foobar"
-    return this._watchedFoldersCache.find((folder) => {
-      // Exact match
-      if (itemPath === folder.path) {
-        return true
-      }
-      // Path is inside the folder (must have a path separator after the folder path)
-      return itemPath.startsWith(folder.path + path.sep)
-    })
+    return this._watchedFoldersCache.find(folder => pathStartsWith(itemPath, folder.path))
   }
 
   /**
@@ -292,16 +312,24 @@ export class FileProcessor extends EventEmitter {
 
     // Quick check: if immediate parent is already processed, likely all ancestors are too
     const immediateParent = path.dirname(filePath)
-    if (this.processedPaths.has(immediateParent)) {
+    if (this._hasProcessedPath(immediateParent)) {
       return
     }
 
     // Collect all parent folders that need processing (from immediate parent up to watched folder)
     const foldersToProcess = []
     let currentPath = immediateParent
+    let iterationGuard = 0
+    const maxIterations = 100 // Safety guard against infinite loops
 
     while (currentPath && currentPath !== watchedPath && currentPath !== path.dirname(currentPath)) {
-      if (!this.processedPaths.has(currentPath)) {
+      // Safety guard against infinite loops (e.g., symlink cycles, unusual paths)
+      if (++iterationGuard > maxIterations) {
+        logger.warn(`Max iterations reached while processing parent folders for: ${filePath}`)
+        break
+      }
+
+      if (!this._hasProcessedPath(currentPath)) {
         foldersToProcess.push(currentPath)
       }
       currentPath = path.dirname(currentPath)
