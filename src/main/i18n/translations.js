@@ -32,6 +32,48 @@ const translations = {
       updateReady: 'Seeksy - Update bereit zur Installation (v{version})',
     },
   },
+  fr: {
+    tray: {
+      openSearch: 'Ouvrir la recherche',
+      settings: 'Paramètres',
+      quit: 'Quitter',
+      updateAvailable: 'Mise à jour disponible (v{version})',
+      installUpdate: 'Installer la mise à jour (v{version})',
+    },
+    tooltip: {
+      default: 'Seeksy',
+      updateAvailable: 'Seeksy - Mise à jour disponible (v{version})',
+      updateReady: 'Seeksy - Mise à jour prête à installer (v{version})',
+    },
+  },
+  it: {
+    tray: {
+      openSearch: 'Apri ricerca',
+      settings: 'Impostazioni',
+      quit: 'Esci',
+      updateAvailable: 'Aggiornamento disponibile (v{version})',
+      installUpdate: 'Installa aggiornamento (v{version})',
+    },
+    tooltip: {
+      default: 'Seeksy',
+      updateAvailable: 'Seeksy - Aggiornamento disponibile (v{version})',
+      updateReady: 'Seeksy - Aggiornamento pronto per l\'installazione (v{version})',
+    },
+  },
+  es: {
+    tray: {
+      openSearch: 'Abrir búsqueda',
+      settings: 'Configuración',
+      quit: 'Salir',
+      updateAvailable: 'Actualización disponible (v{version})',
+      installUpdate: 'Instalar actualización (v{version})',
+    },
+    tooltip: {
+      default: 'Seeksy',
+      updateAvailable: 'Seeksy - Actualización disponible (v{version})',
+      updateReady: 'Seeksy - Actualización lista para instalar (v{version})',
+    },
+  },
 }
 
 let currentLanguage = 'en'

@@ -1,36 +1,10 @@
 {
-  "app": {
-    "name": "Seeksy",
-    "description": "Quick file and app launcher"
-  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
-    "delete": "Delete",
-    "edit": "Edit",
-    "add": "Add",
-    "remove": "Remove",
-    "search": "Search",
-    "loading": "Loading...",
-    "error": "Error",
-    "success": "Success",
-    "warning": "Warning",
-    "info": "Info",
-    "yes": "Yes",
-    "no": "No",
-    "ok": "OK",
-    "close": "Close",
-    "back": "Back",
-    "next": "Next",
-    "done": "Done",
-    "enabled": "Enabled",
-    "disabled": "Disabled",
-    "on": "On",
-    "off": "Off",
     "reset": "Reset",
     "resume": "Resume",
     "pause": "Pause",
-    "files": "files",
     "filesProcessed": "{processed}/{total} files processed"
   },
   "settings": {
@@ -71,7 +45,6 @@
       "searchShortcut": "Search Shortcut",
       "searchShortcutDescription": "Global keyboard shortcut to open search",
       "searchShortcutPlaceholder": "Press keys...",
-      "restoreDefault": "Restore default",
       "language": "Language",
       "languageDescription": "Select the display language for the interface"
     },
@@ -84,14 +57,12 @@
       "noFoldersHint": "Add a directory to begin indexing.",
       "totalProgress": "Total Indexing Progress",
       "indexedFolders": "Indexed Folders",
-      "removeFolder": "Remove Folder",
       "confirmRemoveTitle": "Remove Watched Folder",
       "confirmRemoveMessage": "Are you sure you want to remove '{path}' from watched directories? All indexed files from this folder will be removed from the database.",
       "confirmRemoveButton": "Remove Folder",
       "folderAlreadyWatched": "The directory \"{path}\" is already being watched.",
       "folderIsSubfolder": "The directory \"{path}\" is already included in watched folder \"{parent}\".",
       "folderContainsWatched": "This folder contains {count} already watched subfolder(s). Adding this folder will replace those individual folders.",
-      "confirmReplaceTitle": "Replace Subfolders?",
       "confirmReplaceMessage": "The directory \"{path}\" contains these already watched folders:\n{folders}\n\nAdding this parent folder will replace the individual subfolders. Continue?",
       "failedToAdd": "Failed to add directory: {path}",
       "addDialog": {
@@ -107,7 +78,6 @@
         "selectedPaths": "Selected Paths:",
         "recursiveDepth": "Recursive Depth:",
         "depthCurrentOnly": "0 - Current directory only",
-        "depthLevel": "{level} level deep | {level} levels deep",
         "depthUnlimited": "∞ - Unlimited depth (all subfolders)",
         "checkFileCount": "Check File Count",
         "checking": "Checking...",
@@ -128,9 +98,7 @@
       },
       "card": {
         "depth": "Depth:",
-        "working": "Working...",
-        "removeFolder": "Remove folder",
-        "filesCount": "{processed} / {total} files"
+        "removeFolder": "Remove folder"
       }
     },
     "performance": {
@@ -149,7 +117,6 @@
       "delayRange": "({min}ms - {max}ms)",
       "delayDescription": "Higher values reduce system load but slow down indexing",
       "batchSize": "Batch Size:",
-      "batchSizeFiles": "{count} files",
       "batchRange": "({min} - {max})",
       "batchDescription": "Larger batch sizes can improve performance but may use more memory"
     },
@@ -159,7 +126,6 @@
       "author": "Author",
       "authorName": "Andreas Hagen",
       "license": "License",
-      "description": "A fast, invokable desktop search for files, folders and applications",
       "updates": "Updates",
       "currentVersion": "Current version: {version}",
       "upToDate": "You're up to date",
@@ -204,70 +170,22 @@
     "noResults": "No results found",
     "noResultsHint": "Try a different search term",
     "sections": {
-      "favorites": "Favorites",
       "files": "Files & Folders",
       "apps": "Applications",
       "emoji": "Emojis"
-    },
-    "actions": {
-      "open": "Open",
-      "openFolder": "Open Folder",
-      "openWith": "Open With...",
-      "copyPath": "Copy Path",
-      "copyEmoji": "Copy Emoji",
-      "addToFavorites": "Add to Favorites",
-      "removeFromFavorites": "Remove from Favorites",
-      "showInFolder": "Show in Folder",
-      "properties": "Properties"
-    },
-    "contextMenu": {
-      "open": "Open",
-      "openFolder": "Open containing folder",
-      "copyPath": "Copy file path",
-      "copyEmoji": "Copy emoji",
-      "favorite": "Add to favorites",
-      "unfavorite": "Remove from favorites"
     },
     "notes": {
       "title": "Edit Notes",
       "placeholder": "Enter notes here..."
     },
     "noWatchedFolders": {
-      "title": "No Folders Indexed",
       "description": "Add folders in Settings to start searching your files.",
       "openSettings": "Open Settings"
     }
   },
-  "tray": {
-    "openSearch": "Open Search",
-    "settings": "Settings",
-    "quit": "Quit",
-    "updateAvailable": "Update Available (v{version})",
-    "installUpdate": "Install Update (v{version})"
-  },
-  "notifications": {
-    "folderAdded": "Folder added to watched list",
-    "folderRemoved": "Folder removed from watched list",
-    "shortcutUpdated": "Shortcut updated",
-    "shortcutInvalid": "Invalid shortcut combination",
-    "settingsSaved": "Settings saved",
-    "updateDownloaded": "Update downloaded and ready to install",
-    "indexingComplete": "Indexing complete",
-    "indexingError": "Error during indexing"
-  },
   "errors": {
-    "general": "An error occurred",
-    "folderNotFound": "Folder not found",
-    "folderAlreadyWatched": "This folder is already being watched",
-    "permissionDenied": "Permission denied",
-    "networkError": "Network error",
-    "updateFailed": "Update failed",
     "checkUpdateFailed": "Failed to check for updates",
     "downloadUpdateFailed": "Failed to download update",
     "installUpdateFailed": "Failed to install update"
-  },
-  "languages": {
-    "en": "English",
-    "de": "Deutsch (German)"
   }
 }

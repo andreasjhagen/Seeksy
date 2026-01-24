@@ -2,6 +2,7 @@ import { stat } from 'node:fs/promises'
 import { EventEmitter } from 'node:events'
 import chokidar from 'chokidar'
 import { fileDB } from '../database/database.js'
+import { countFolderContent } from '../disk-reader/utils/countFiles.js'
 import { createIgnorePatterns } from './config/exclusionPatterns.js'
 import { performanceConfig } from './config/performanceConfig.js'
 import { watcherConfig } from './config/watcherConfig.js'
@@ -32,11 +33,12 @@ export class FolderWatcher extends EventEmitter {
     this.batchTimer = null
     this.pendingEvents = new Map() // Stores latest event for each path
 
-    // Stats - use discovered count instead of pre-counting
+    // Stats - pre-counted total for stable progress calculation
     this.stats = {
-      totalFiles: 0, // Will be updated incrementally during scan
+      totalFiles: 0, // Will be set by pre-count before indexing starts
       processedFiles: 0,
       state: 'initializing',
+      preCountComplete: false, // Track if we've finished counting
     }
 
     // Configuration
@@ -54,8 +56,9 @@ export class FolderWatcher extends EventEmitter {
       // Add the watched folder itself to the folders table so it appears in search results
       await this._addWatchedFolderToDatabase()
 
-      // Skip pre-counting - we'll discover files incrementally for better UX
-      // The totalFiles count will be updated as chokidar discovers files
+      // Pre-count files first for stable progress calculation
+      // This prevents progress bar jumps as the total is known before indexing starts
+      await this._preCountFiles()
 
       // Setup watcher and status updates
       this.setupWatcher()
@@ -89,6 +92,25 @@ export class FolderWatcher extends EventEmitter {
     }
   }
 
+  /**
+   * Pre-counts files in the watch path to establish a stable total for progress calculation
+   * This prevents progress bar jumps during indexing
+   * @private
+   */
+  async _preCountFiles() {
+    try {
+      const { fileCount, folderCount } = await countFolderContent(this.watchPath, this.depth)
+      // Total includes both files and folders since we index both
+      this.stats.totalFiles = fileCount + folderCount
+      this.stats.preCountComplete = true
+    }
+    catch (error) {
+      console.error(`Failed to pre-count files in: ${this.watchPath}`, error)
+      // Non-critical - we'll fall back to incremental counting if this fails
+      this.stats.preCountComplete = false
+    }
+  }
+
   setupWatcher() {
     const watcherOptions = {
       ignored: createIgnorePatterns(),
@@ -114,7 +136,10 @@ export class FolderWatcher extends EventEmitter {
         // Skip the root watched path itself
         if (path !== this.watchPath && !this.isPaused) {
           this.directoryQueue.push({ event: 'addDir', path, stats })
-          this.stats.totalFiles++
+          // Only increment totalFiles if pre-count failed or this is after initial scan
+          if (!this.stats.preCountComplete || this.initialScanComplete) {
+            this.stats.totalFiles++
+          }
         }
       })
       .on('change', (path, stats) => this.queueFileEvent('change', path, stats))
@@ -159,12 +184,20 @@ export class FolderWatcher extends EventEmitter {
       }
     }
 
-    // Update stats based on event - increment discovery count for add events
-    if (event === 'add') {
-      this.stats.totalFiles++
-    }
-    else if (event === 'remove' || event === 'removeDir') {
-      this.stats.totalFiles = Math.max(0, this.stats.totalFiles - 1)
+    // Update stats based on event
+    // Only adjust totalFiles if pre-count failed (fallback to incremental counting)
+    // or if this is a change after the initial scan (file added/removed while watching)
+    if (!this.stats.preCountComplete || this.initialScanComplete) {
+      if (event === 'add' && !this.stats.preCountComplete) {
+        this.stats.totalFiles++
+      }
+      else if (event === 'add' && this.initialScanComplete) {
+        // New file added after initial scan - increment total
+        this.stats.totalFiles++
+      }
+      else if (event === 'remove' || event === 'removeDir') {
+        this.stats.totalFiles = Math.max(0, this.stats.totalFiles - 1)
+      }
     }
 
     if (this.enableBatching && this.initialScanComplete) {
@@ -439,14 +472,18 @@ export class FolderWatcher extends EventEmitter {
       return false
 
     try {
-      // Reset state without pre-counting - discover files incrementally
+      // Reset state for fresh scan
       this.initialScanComplete = false
       this.stats.totalFiles = 0
       this.stats.processedFiles = 0
+      this.stats.preCountComplete = false
       this.processingQueue = []
       this.directoryQueue = []
       this.stats.state = 'scanning'
       this.queueOverflowPaused = false
+
+      // Pre-count files first for stable progress calculation
+      await this._preCountFiles()
 
       // Set up watcher and updates
       this.setupWatcher()

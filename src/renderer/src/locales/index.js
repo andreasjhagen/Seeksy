@@ -1,11 +1,17 @@
 import { createI18n } from 'vue-i18n'
 import de from './de.json'
 import en from './en.json'
+import es from './es.json'
+import fr from './fr.json'
+import it from './it.json'
 
 // Supported languages
 export const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English', nativeName: 'English' },
   { code: 'de', name: 'German', nativeName: 'Deutsch' },
+  { code: 'fr', name: 'French', nativeName: 'Français' },
+  { code: 'it', name: 'Italian', nativeName: 'Italiano' },
+  { code: 'es', name: 'Spanish', nativeName: 'Español' },
 ]
 
 // Default language fallback
@@ -51,6 +57,9 @@ const i18n = createI18n({
   messages: {
     en,
     de,
+    fr,
+    it,
+    es,
   },
   // Silence missing translation warnings in production
   silentTranslationWarn: import.meta.env.PROD,

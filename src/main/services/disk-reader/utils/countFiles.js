@@ -5,6 +5,33 @@ import { EXCLUDED_PATTERNS } from '../../folder-indexer/config/exclusionPatterns
 // Maximum concurrent directory reads to avoid overwhelming the filesystem
 const MAX_CONCURRENT_READS = 50
 
+// Pre-compile file exclusion patterns for better performance
+const _compiledFilePatterns = EXCLUDED_PATTERNS.FILES.map((pattern) => {
+  // Convert glob pattern (e.g., *.log) to regex
+  const escaped = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape regex special chars except * and ?
+    .replace(/\*/g, '.*') // * -> .*
+    .replace(/\?/g, '.') // ? -> .
+  return new RegExp(`^${escaped}$`, 'i')
+})
+
+// Pre-lowercase excluded folder names for case-insensitive comparison
+const _excludedFoldersLower = EXCLUDED_PATTERNS.FOLDERS.map(f => f.toLowerCase())
+
+/**
+ * Check if a filename matches any excluded file pattern
+ */
+function isExcludedFile(filename) {
+  return _compiledFilePatterns.some(pattern => pattern.test(filename))
+}
+
+/**
+ * Check if a folder name matches any excluded folder pattern (case-insensitive)
+ */
+function isExcludedFolder(foldername) {
+  return _excludedFoldersLower.includes(foldername.toLowerCase())
+}
+
 /**
  * Count files and folders in a directory using parallel operations for performance
  * Uses withFileTypes to avoid separate stat() calls - much faster than traditional approach
@@ -24,14 +51,21 @@ export async function countFolderContent(folderPath, depth = Infinity) {
       const subdirs = []
 
       for (const entry of entries) {
-        // Skip hidden files/folders and excluded patterns
-        if (entry.name.startsWith('.') || EXCLUDED_PATTERNS.FOLDERS.includes(entry.name))
+        // Skip hidden files/folders
+        if (entry.name.startsWith('.'))
           continue
 
         if (entry.isFile()) {
-          fileCount++
+          // Skip files matching excluded patterns (*.log, *.bak, *.tmp, etc.)
+          if (!isExcludedFile(entry.name)) {
+            fileCount++
+          }
         }
         else if (entry.isDirectory()) {
+          // Skip excluded folders (case-insensitive)
+          if (isExcludedFolder(entry.name))
+            continue
+
           folderCount++
           // Queue subdirectory for processing if depth allows
           if (remainingDepth > 0) {

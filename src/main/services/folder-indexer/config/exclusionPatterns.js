@@ -67,27 +67,33 @@ export function isExcludedPath(path) {
 
 /**
  * Create a chokidar-compatible ignore patterns array
+ * NOTE: chokidar 4.x's internal anymatch does NOT support glob patterns as strings
+ * (it only does exact string matching). We must use RegExp or functions.
  */
 export function createIgnorePatterns() {
-  const folderPatterns = EXCLUDED_PATTERNS.FOLDERS.map(folder => [
-    `**/${folder}/**`,
-    `**/${folder}`,
-    `${folder}/**`,
-    `${folder}`,
-  ]).flat()
+  // Build folder exclusion patterns
+  const folderPatterns = EXCLUDED_PATTERNS.FOLDERS.map((folder) => {
+    // Create regex that matches:
+    // - /folder/ anywhere in path
+    // - /folder at end of path (the folder itself)
+    // - folder/ at start (relative path)
+    const escaped = _escapeRegex(folder)
+    return new RegExp(`(?:[/\\\\]${escaped}(?:[/\\\\]|$))|(?:^${escaped}(?:[/\\\\]|$))`, 'i')
+  })
 
-  // File patterns need **/ prefix to match at any depth
+  // Build file exclusion patterns
   const filePatterns = EXCLUDED_PATTERNS.FILES.map((pattern) => {
-    // If pattern already starts with **/, leave it as is
-    if (pattern.startsWith('**/')) {
-      return pattern
-    }
-    // Otherwise, add **/ prefix for recursive matching
-    return `**/${pattern}`
+    // Convert glob pattern to regex
+    // *.ext -> matches any file ending with .ext
+    const escaped = pattern
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape regex special chars except * and ?
+      .replace(/\*/g, '.*') // * -> .*
+      .replace(/\?/g, '.') // ? -> .
+    return new RegExp(`(?:[/\\\\]|^)${escaped}$`, 'i')
   })
 
   return [
-    /(^|[/\\])\../, // dot files and folders
+    /(^|[/\\])\./, // dot files and folders (hidden files)
     ...folderPatterns,
     ...filePatterns,
   ]
