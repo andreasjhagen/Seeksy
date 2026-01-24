@@ -298,7 +298,7 @@ onBeforeUnmount(() => {
           <!-- Expandable folder details -->
           <div
             v-if="showFolderDetails"
-            class="mt-2 space-y-3 transition-all duration-300 ease-in-out divide-y divide-gray-200 dark:divide-gray-700"
+            class="mt-2 transition-all duration-300 ease-in-out divide-y divide-gray-100 dark:divide-gray-700/50"
           >
             <div v-for="folder in status.folders" :key="folder.path">
               <FolderProgressCard :folder="folder" @remove="removeDirectory" />

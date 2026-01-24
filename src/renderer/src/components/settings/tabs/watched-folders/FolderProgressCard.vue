@@ -44,7 +44,7 @@ const actionButtonClass = computed(() => statusInfo.value.actionButtonClass)
 const fileCountText = computed(() => {
   const processed = (props.folder.processedFiles || 0).toLocaleString()
   const total = (props.folder.totalFiles || 0).toLocaleString()
-  return t('settings.watchedFolders.card.filesCount', { processed, total })
+  return `${processed} / ${total}`
 })
 
 // Extract folder name from path
@@ -71,12 +71,6 @@ const progress = computed(() => {
   return Math.round((props.folder.processedFiles / props.folder.totalFiles) * 100)
 })
 
-const buttonText = computed(() => {
-  if (isToggling.value)
-    return t('settings.watchedFolders.card.working')
-  return props.folder.isPaused ? t('common.resume') : t('common.pause')
-})
-
 const buttonIcon = computed(() => {
   if (isToggling.value)
     return 'sync'
@@ -101,74 +95,71 @@ async function onPauseResume() {
 </script>
 
 <template>
-  <div class="p-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg transition-colors group">
-    <!-- Main content row -->
-    <div class="flex items-start justify-between gap-3">
-      <!-- Left: Folder info -->
-      <div class="flex-1 min-w-0">
-        <!-- Folder name with status badge -->
-        <div class="flex items-center gap-2 mb-0.5">
-          <span class="material-symbols-rounded text-gray-400 dark:text-gray-500 text-base">folder</span>
-          <span class="px-1.5 py-0.5 text-xs font-medium rounded-full shrink-0" :class="statusClass">
-            {{ statusText }}
+  <!-- Compact two-row layout: name/stats on top, path below -->
+  <div class="py-1.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded transition-colors group">
+    <!-- Row 1: Folder icon, status, name, stats, actions -->
+    <div class="flex items-center gap-2">
+      <!-- Folder icon -->
+      <span class="material-symbols-rounded text-gray-400 dark:text-gray-500 text-base shrink-0">folder</span>
+
+      <!-- Status badge - compact -->
+      <span class="px-1.5 py-0.5 text-[10px] font-medium rounded shrink-0" :class="statusClass">
+        {{ statusText }}
+      </span>
+
+      <!-- Folder name - flexible width -->
+      <span class="flex-1 min-w-0 font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
+        {{ folderName }}
+      </span>
+
+      <!-- File count - right aligned -->
+      <div class="text-xs text-right tabular-nums whitespace-nowrap text-gray-600 dark:text-gray-400 shrink-0">
+        <span class="font-medium">{{ fileCountText }}</span>
+        <span class="text-gray-400 dark:text-gray-500 text-[10px] ml-1">{{ t('settings.watchedFolders.card.depth') }}{{ formatDepth(props.folder.depth) }}</span>
+      </div>
+
+      <!-- Inline progress bar - narrow -->
+      <div class="w-16 h-1.5 bg-gray-200 rounded-full dark:bg-gray-700 shrink-0 hidden md:block">
+        <div
+          class="h-full transition-all duration-300 rounded-full"
+          :class="[progressBarClass, props.folder.isPaused ? 'opacity-50' : '']"
+          :style="{ width: `${progress}%` }"
+        />
+      </div>
+
+      <!-- Action buttons - compact -->
+      <div class="flex items-center gap-1 shrink-0">
+        <button
+          class="flex items-center justify-center w-7 h-7 text-xs transition-all duration-200 rounded cursor-pointer"
+          :class="[
+            actionButtonClass,
+            isToggling ? 'opacity-75 cursor-wait' : '',
+            props.folder.isPaused ? 'hover:brightness-110' : 'hover:brightness-110',
+          ]"
+          :disabled="isToggling"
+          :title="props.folder.isPaused ? t('common.resume') : t('common.pause')"
+          @click="onPauseResume"
+        >
+          <span
+            class="text-base material-symbols-rounded"
+            :class="{ 'animate-spin': isToggling && buttonIcon === 'sync' }"
+          >
+            {{ buttonIcon }}
           </span>
-          <h3 class="font-medium text-gray-900 truncate dark:text-gray-100">
-            {{ folderName }}
-          </h3>
-        </div>
-        <!-- Full path -->
-        <p class="text-xs text-gray-500 dark:text-gray-400 truncate pl-6">
-          {{ parentPath }}
-        </p>
-      </div>
-
-      <!-- Right: Stats and actions -->
-      <div class="flex items-center gap-3 shrink-0">
-        <!-- Stats column -->
-        <div class="text-right text-xs">
-          <div class="font-medium text-gray-700 dark:text-gray-300 tabular-nums whitespace-nowrap">
-            {{ fileCountText }}
-          </div>
-          <div class="text-gray-500 dark:text-gray-500 whitespace-nowrap">
-            {{ t('settings.watchedFolders.card.depth') }} {{ formatDepth(props.folder.depth) }}
-          </div>
-        </div>
-
-        <!-- Action buttons -->
-        <div class="flex items-center gap-1">
-          <button
-            class="flex items-center gap-0.5 px-2 py-1 text-xs transition-all duration-200 rounded-md cursor-pointer"
-            :class="[
-              actionButtonClass,
-              isToggling ? 'opacity-75 cursor-wait' : '',
-              props.folder.isPaused ? 'hover:bg-emerald-300' : 'hover:bg-orange-300',
-            ]" :disabled="isToggling" @click="onPauseResume"
-          >
-            <span
-              class="text-sm material-symbols-rounded"
-              :class="{ 'animate-spin': isToggling && buttonIcon === 'sync' }"
-            >
-              {{ buttonIcon }}
-            </span>
-            <span class="hidden sm:inline">{{ buttonText }}</span>
-          </button>
-          <button
-            class="flex items-center p-1 text-white transition-all duration-200 bg-red-600 rounded-md cursor-pointer hover:bg-red-700"
-            :title="t('settings.watchedFolders.card.removeFolder')" @click="$emit('remove', props.folder.path)"
-          >
-            <span class="text-sm material-symbols-rounded">close</span>
-          </button>
-        </div>
+        </button>
+        <button
+          class="flex items-center justify-center w-7 h-7 text-white transition-all duration-200 bg-red-600 rounded cursor-pointer hover:bg-red-700"
+          :title="t('settings.watchedFolders.card.removeFolder')"
+          @click="$emit('remove', props.folder.path)"
+        >
+          <span class="text-base material-symbols-rounded">close</span>
+        </button>
       </div>
     </div>
 
-    <!-- Progress bar - full width -->
-    <div class="mt-2 h-1 bg-gray-200 rounded-full dark:bg-gray-700">
-      <div
-        class="h-full transition-all duration-300 rounded-full"
-        :class="[progressBarClass, props.folder.isPaused ? 'opacity-50' : '']"
-        :style="{ width: `${progress}%` }"
-      />
-    </div>
+    <!-- Row 2: Full path - not truncated, wraps if needed -->
+    <p class="text-[11px] text-gray-400 dark:text-gray-500 pl-6 mt-0.5 break-all">
+      {{ parentPath }}
+    </p>
   </div>
 </template>
