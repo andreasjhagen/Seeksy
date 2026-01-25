@@ -21,6 +21,9 @@ export class IndexController extends EventEmitter {
     this.isProcessingQueue = false // Flag to track if we're currently processing the queue
     this.currentActiveIndexingWatchPath = null // Track the currently active indexing watcher
 
+    // Track removed watched folders (persists until user dismisses)
+    this.removedWatchedFolders = []
+
     // Create status manager to handle throttled updates
     this.statusManager = new StatusManager(
       status => this.emit('status-update', status),
@@ -73,8 +76,22 @@ export class IndexController extends EventEmitter {
     try {
       const folders = await fileDB.getWatchedFolders()
 
-      // Create all watchers but keep them paused initially
+      // First, check if all watched folders still exist and clean up missing ones
+      const validFolders = []
       for (const folder of folders) {
+        try {
+          await access(folder.path)
+          validFolders.push(folder)
+        }
+        catch {
+          // Folder no longer exists - clean it up
+          console.log(`[IndexController] Watched folder no longer exists, removing: ${folder.path}`)
+          await this._cleanupMissingWatchedFolder(folder.path)
+        }
+      }
+
+      // Create watchers only for valid (existing) folders
+      for (const folder of validFolders) {
         await this._initWatcher(folder.path, { depth: folder.depth, startPaused: true })
         // Add a small delay between initializations
         await new Promise(resolve => setTimeout(resolve, 500))
@@ -490,6 +507,55 @@ export class IndexController extends EventEmitter {
           path: watchPath,
           state: 'not-found',
         }
+  }
+
+  /**
+   * Clean up a watched folder that no longer exists on disk
+   * Removes the watched folder entry from the database.
+   * Related files and folders are automatically cleaned up via CASCADE DELETE.
+   * @param {string} watchPath - Path of the watched folder that was removed/renamed
+   * @private
+   */
+  async _cleanupMissingWatchedFolder(watchPath) {
+    try {
+      console.log(`[IndexController] Cleaning up missing watched folder: ${watchPath}`)
+
+      // Remove the watched folder entry from the database
+      // Files and folders with this watchedFolderPath will be automatically
+      // cleaned up via the CASCADE DELETE foreign key constraint
+      await fileDB.removeWatchFolderFromDb(watchPath)
+
+      console.log(`[IndexController] Successfully removed missing watched folder from database: ${watchPath}`)
+
+      // Add to the list of removed folders (for UI notification)
+      if (!this.removedWatchedFolders.includes(watchPath)) {
+        this.removedWatchedFolders.push(watchPath)
+      }
+
+      // Emit an event so live UI updates can happen
+      this.emit('watched-folder-removed', { path: watchPath, reason: 'folder-not-found' })
+
+      return { success: true }
+    }
+    catch (error) {
+      console.error(`[IndexController] Error cleaning up missing watched folder ${watchPath}:`, error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  /**
+   * Get the list of removed watched folders (for UI notification)
+   * @returns {string[]} List of removed folder paths
+   */
+  getRemovedWatchedFolders() {
+    return [...this.removedWatchedFolders]
+  }
+
+  /**
+   * Clear the list of removed watched folders (after user dismisses notification)
+   */
+  clearRemovedWatchedFolders() {
+    this.removedWatchedFolders = []
   }
 
   async cleanup() {

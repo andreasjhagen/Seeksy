@@ -143,7 +143,7 @@ function handleNotesCancel() {
           @click="item.action"
         >
           <span v-if="item.icon" class="material-symbols-outlined">{{ item.icon }}</span>
-          {{ item.label }}
+          {{ item.label.startsWith('contextMenu.') ? t(item.label) : item.label }}
         </button>
       </template>
     </div>

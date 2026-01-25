@@ -22,9 +22,35 @@ const showFolderDetails = ref(false)
 const showRemoveFolderModal = ref(false)
 const folderToRemove = ref(null)
 
+// Removed folders notification state
+const removedFolders = ref([])
+
 // Toggle folder details visibility
 function toggleFolderDetails() {
   showFolderDetails.value = !showFolderDetails.value
+}
+
+// Fetch removed folders notification
+async function fetchRemovedFolders() {
+  try {
+    const folders = await window.api.invoke(IPC.BACKEND.INDEXER_GET_REMOVED_FOLDERS)
+    removedFolders.value = folders || []
+  }
+  catch (error) {
+    console.error('Failed to fetch removed folders:', error)
+    removedFolders.value = []
+  }
+}
+
+// Dismiss removed folders notification
+async function dismissRemovedFoldersNotice() {
+  try {
+    await window.api.invoke(IPC.BACKEND.INDEXER_CLEAR_REMOVED_FOLDERS)
+    removedFolders.value = []
+  }
+  catch (error) {
+    console.error('Failed to clear removed folders:', error)
+  }
 }
 
 const globalProgress = computed(() => {
@@ -186,6 +212,7 @@ async function confirmRemoveDirectory() {
 
 onMounted(() => {
   updateWatcherStatus()
+  fetchRemovedFolders()
   statusInterval.value = setInterval(updateWatcherStatus, 250)
 })
 
@@ -224,6 +251,34 @@ onBeforeUnmount(() => {
     <h2 class="pb-2 text-lg font-medium text-gray-900 border-b border-gray-200 dark:text-gray-100 dark:border-gray-700">
       {{ t('settings.watchedFolders.title') }}
     </h2>
+
+    <!-- Removed Folders Notification -->
+    <div
+      v-if="removedFolders.length > 0"
+      class="flex items-start gap-3 p-3 mt-4 border rounded-lg bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700/50"
+    >
+      <span class="shrink-0 text-xl text-amber-600 dark:text-amber-400 material-symbols-rounded">warning</span>
+      <div class="flex-1 min-w-0">
+        <h4 class="text-sm font-medium text-amber-800 dark:text-amber-200">
+          {{ t('settings.watchedFolders.removedFoldersNotice.title') }}
+        </h4>
+        <p class="mt-1 text-sm text-amber-700 dark:text-amber-300">
+          {{ t('settings.watchedFolders.removedFoldersNotice.message') }}
+        </p>
+        <ul class="pl-4 mt-2 text-sm list-disc text-amber-600 dark:text-amber-400">
+          <li v-for="folder in removedFolders" :key="folder" class="truncate">
+            {{ folder }}
+          </li>
+        </ul>
+      </div>
+      <button
+        class="shrink-0 inline-flex cursor-pointer p-1 transition-colors rounded text-amber-600 hover:text-amber-800 hover:bg-amber-100 dark:text-amber-400 dark:hover:text-amber-200 dark:hover:bg-amber-800/30"
+        :title="t('settings.watchedFolders.removedFoldersNotice.dismiss')"
+        @click="dismissRemovedFoldersNotice"
+      >
+        <span class="text-xl material-symbols-rounded">close</span>
+      </button>
+    </div>
 
     <div class="flex items-center justify-between py-2 ">
       <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">

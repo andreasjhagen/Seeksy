@@ -5,7 +5,32 @@
     "reset": "Restablecer",
     "resume": "Reanudar",
     "pause": "Pausar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
+    "clear": "Limpiar",
     "filesProcessed": "{processed}/{total} archivos procesados"
+  },
+  "tooltips": {
+    "showInFolder": "Mostrar en carpeta",
+    "openFile": "Abrir archivo",
+    "openFolder": "Abrir carpeta",
+    "favorite": "Favorito",
+    "hasNotes": "Tiene notas",
+    "toggleFilteredSearch": "Alternar búsqueda filtrada",
+    "settings": "Configuración",
+    "expandSection": "Expandir sección",
+    "collapseSection": "Contraer sección"
+  },
+  "contextMenu": {
+    "open": "Abrir",
+    "launch": "Iniciar",
+    "showInFolder": "Mostrar en carpeta",
+    "copy": "Copiar",
+    "copyPath": "Copiar ruta",
+    "editNote": "Editar nota",
+    "toggleFavorite": "Alternar favorito",
+    "addToFavorites": "Añadir a favoritos",
+    "removeFromFavorites": "Quitar de favoritos"
   },
   "settings": {
     "title": "Configuración",
@@ -99,6 +124,11 @@
       "card": {
         "depth": "Profundidad:",
         "removeFolder": "Eliminar carpeta"
+      },
+      "removedFoldersNotice": {
+        "title": "Carpetas eliminadas automáticamente",
+        "message": "Las siguientes carpetas monitoreadas no se pudieron encontrar y han sido eliminadas del índice:",
+        "dismiss": "Cerrar"
       }
     },
     "performance": {

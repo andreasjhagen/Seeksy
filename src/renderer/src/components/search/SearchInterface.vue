@@ -97,7 +97,7 @@ defineExpose({
           >
           <div class="flex items-center gap-1">
             <button
-              title="Toggle Filtered Search"
+              :title="t('tooltips.toggleFilteredSearch')"
               type="button"
               class="flex items-center justify-center p-2 transition-colors rounded-lg cursor-pointer"
               :class="isFilteredMode

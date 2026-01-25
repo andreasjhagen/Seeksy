@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { IPC_CHANNELS } from '../../../../../main/ipc/ipcChannels'
 import { useFileIconHandler } from '../../../composables/useFileIconHandler'
 
@@ -15,6 +16,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['launch', 'context-menu'])
+
+const { t } = useI18n()
 
 // Use our file icon handler composable
 const { hasIconError, handleIconError } = useFileIconHandler(props.app, { autoLoad: false })
@@ -74,7 +77,7 @@ function handleContextMenu(event) {
         v-if="app.isFavorite"
         class="text-yellow-500 material-symbols-outlined"
         style="font-size: 14px;"
-        title="Favorite"
+        :title="t('tooltips.favorite')"
       >
         star
       </span>
@@ -83,7 +86,7 @@ function handleContextMenu(event) {
         v-if="app.notes"
         class="text-gray-400 material-symbols-outlined"
         style="font-size: 14px;"
-        title="Has Notes"
+        :title="t('tooltips.hasNotes')"
       >
         sticky_note_2
       </span>

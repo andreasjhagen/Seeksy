@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { IPC_CHANNELS } from '../../../../../main/ipc/ipcChannels'
 
 const props = defineProps({
@@ -14,6 +15,9 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['copy', 'contextmenu'])
+
+const { t } = useI18n()
+
 const isFavorite = ref(false)
 const hasNotes = ref(false)
 
@@ -92,7 +96,7 @@ function handleContextMenu(event) {
         v-if="isFavorite"
         class="text-yellow-500 material-symbols-outlined"
         style="font-size: 12px;"
-        title="Favorite"
+        :title="t('tooltips.favorite')"
       >
         star
       </span>
@@ -100,7 +104,7 @@ function handleContextMenu(event) {
         v-if="hasNotes"
         class="text-gray-400 material-symbols-outlined"
         style="font-size: 12px;"
-        title="Has Notes"
+        :title="t('tooltips.hasNotes')"
       >
         sticky_note_2
       </span>

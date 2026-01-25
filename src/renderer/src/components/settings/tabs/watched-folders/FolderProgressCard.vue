@@ -61,8 +61,13 @@ const parentPath = computed(() => {
   const name = folderName.value
   // Remove the folder name from the end, accounting for trailing slash
   let parent = path.slice(0, path.lastIndexOf(name))
-  // Clean up any trailing slashes
-  return parent.replace(/[/\\]+$/, '') || '/'
+  // Clean up any trailing slashes but preserve drive letter format on Windows (e.g., "D:\")
+  parent = parent.replace(/[/\\]+$/, '')
+  // If parent is just a drive letter (e.g., "D:"), add the backslash back
+  if (/^[A-Z]:$/i.test(parent)) {
+    return `${parent}\\`
+  }
+  return parent || '/'
 })
 
 const progress = computed(() => {

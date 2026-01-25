@@ -5,7 +5,32 @@
     "reset": "Réinitialiser",
     "resume": "Reprendre",
     "pause": "Pause",
+    "confirm": "Confirmer",
+    "delete": "Supprimer",
+    "clear": "Effacer",
     "filesProcessed": "{processed}/{total} fichiers traités"
+  },
+  "tooltips": {
+    "showInFolder": "Afficher dans le dossier",
+    "openFile": "Ouvrir le fichier",
+    "openFolder": "Ouvrir le dossier",
+    "favorite": "Favori",
+    "hasNotes": "A des notes",
+    "toggleFilteredSearch": "Basculer la recherche filtrée",
+    "settings": "Paramètres",
+    "expandSection": "Développer la section",
+    "collapseSection": "Réduire la section"
+  },
+  "contextMenu": {
+    "open": "Ouvrir",
+    "launch": "Lancer",
+    "showInFolder": "Afficher dans le dossier",
+    "copy": "Copier",
+    "copyPath": "Copier le chemin",
+    "editNote": "Modifier la note",
+    "toggleFavorite": "Basculer le favori",
+    "addToFavorites": "Ajouter aux favoris",
+    "removeFromFavorites": "Retirer des favoris"
   },
   "settings": {
     "title": "Paramètres",
@@ -99,6 +124,11 @@
       "card": {
         "depth": "Profondeur :",
         "removeFolder": "Supprimer le dossier"
+      },
+      "removedFoldersNotice": {
+        "title": "Dossiers supprimés automatiquement",
+        "message": "Les dossiers surveillés suivants n'ont pas pu être trouvés et ont été supprimés de l'index :",
+        "dismiss": "Fermer"
       }
     },
     "performance": {

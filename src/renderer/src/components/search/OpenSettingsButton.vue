@@ -1,5 +1,8 @@
 <script setup>
+import { useI18n } from 'vue-i18n'
 import { IPC } from '../../../../main/ipc/ipcChannels'
+
+const { t } = useI18n()
 
 async function openSettings() {
   await window.api.invoke(IPC.WINDOW.SHOW_SETTINGS_PAGE)
@@ -9,7 +12,7 @@ async function openSettings() {
 <template>
   <button
     class="p-2 text-gray-500 rounded-full cursor-pointer hover:bg-gray-700 hover:text-gray-300"
-    title="Settings"
+    :title="t('tooltips.settings')"
     @click="openSettings"
   >
     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">

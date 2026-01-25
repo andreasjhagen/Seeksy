@@ -62,6 +62,10 @@ export const IPC = {
     INDEXER_SET_BATCH_SIZE: 'indexer:set-batch-size',
     INDEXER_SET_ENABLE_BATCHING: 'indexer:set-enable-batching',
 
+    // Removed watched folders tracking
+    INDEXER_GET_REMOVED_FOLDERS: 'indexer:get-removed-folders',
+    INDEXER_CLEAR_REMOVED_FOLDERS: 'indexer:clear-removed-folders',
+
     // Settings management
     SETTINGS_GET: 'settings:get',
     SETTINGS_SET: 'settings:set',

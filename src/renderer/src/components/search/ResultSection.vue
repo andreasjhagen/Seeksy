@@ -221,7 +221,7 @@ function onDrop(event) {
       <button
         class="flex items-center justify-center w-6 h-6 p-1 text-gray-600 transition-colors transition-opacity duration-200 opacity-0 cursor-pointer collapse-toggle hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
         :class="{ 'opacity-100': collapsed }"
-        :title="collapsed ? 'Expand section' : 'Collapse section'"
+        :title="collapsed ? t('tooltips.expandSection') : t('tooltips.collapseSection')"
         @click="toggleCollapse"
       >
         <span v-if="collapsed" class="text-base leading-none material-symbols-outlined">expand_more</span>

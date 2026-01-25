@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { IPC_CHANNELS } from '../../../../../main/ipc/ipcChannels'
 import { getFileType } from '../../../../../utils/mimeTypeUtils'
 import { useFileIconHandler } from '../../../composables/useFileIconHandler'
@@ -17,6 +18,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['refresh', 'contextmenu', 'copy', 'open-file', 'show-in-directory'])
+
+const { t } = useI18n()
 
 // Track favorite and notes status
 const isFavorite = ref(props.item.isFavorite || false)
@@ -194,7 +197,7 @@ onMounted(async () => {
         v-if="isFavorite"
         class="text-yellow-500 material-symbols-outlined"
         style="font-size: 12px;"
-        title="Favorite"
+        :title="t('tooltips.favorite')"
       >
         star
       </span>
@@ -203,7 +206,7 @@ onMounted(async () => {
         v-if="hasNotes"
         class="text-gray-400 material-symbols-outlined"
         style="font-size: 12px;"
-        title="Has Notes"
+        :title="t('tooltips.hasNotes')"
       >
         sticky_note_2
       </span>

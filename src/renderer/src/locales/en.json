@@ -5,7 +5,32 @@
     "reset": "Reset",
     "resume": "Resume",
     "pause": "Pause",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "clear": "Clear",
     "filesProcessed": "{processed}/{total} files processed"
+  },
+  "tooltips": {
+    "showInFolder": "Show in folder",
+    "openFile": "Open file",
+    "openFolder": "Open folder",
+    "favorite": "Favorite",
+    "hasNotes": "Has notes",
+    "toggleFilteredSearch": "Toggle filtered search",
+    "settings": "Settings",
+    "expandSection": "Expand section",
+    "collapseSection": "Collapse section"
+  },
+  "contextMenu": {
+    "open": "Open",
+    "launch": "Launch",
+    "showInFolder": "Show in Folder",
+    "copy": "Copy",
+    "copyPath": "Copy Path",
+    "editNote": "Edit Note",
+    "toggleFavorite": "Toggle Favorite",
+    "addToFavorites": "Add to Favorites",
+    "removeFromFavorites": "Remove from Favorites"
   },
   "settings": {
     "title": "Settings",
@@ -99,6 +124,11 @@
       "card": {
         "depth": "Depth:",
         "removeFolder": "Remove folder"
+      },
+      "removedFoldersNotice": {
+        "title": "Folders Automatically Removed",
+        "message": "The following watched folders could not be found and have been removed from the index:",
+        "dismiss": "Dismiss"
       }
     },
     "performance": {

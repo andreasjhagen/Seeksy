@@ -5,7 +5,32 @@
     "reset": "Zurücksetzen",
     "resume": "Fortsetzen",
     "pause": "Pausieren",
+    "confirm": "Bestätigen",
+    "delete": "Löschen",
+    "clear": "Leeren",
     "filesProcessed": "{processed}/{total} Dateien verarbeitet"
+  },
+  "tooltips": {
+    "showInFolder": "Im Ordner anzeigen",
+    "openFile": "Datei öffnen",
+    "openFolder": "Ordner öffnen",
+    "favorite": "Favorit",
+    "hasNotes": "Hat Notizen",
+    "toggleFilteredSearch": "Gefilterte Suche umschalten",
+    "settings": "Einstellungen",
+    "expandSection": "Abschnitt erweitern",
+    "collapseSection": "Abschnitt einklappen"
+  },
+  "contextMenu": {
+    "open": "Öffnen",
+    "launch": "Starten",
+    "showInFolder": "Im Ordner anzeigen",
+    "copy": "Kopieren",
+    "copyPath": "Pfad kopieren",
+    "editNote": "Notiz bearbeiten",
+    "toggleFavorite": "Favorit umschalten",
+    "addToFavorites": "Zu Favoriten hinzufügen",
+    "removeFromFavorites": "Aus Favoriten entfernen"
   },
   "settings": {
     "title": "Einstellungen",
@@ -99,6 +124,11 @@
       "card": {
         "depth": "Tiefe:",
         "removeFolder": "Ordner entfernen"
+      },
+      "removedFoldersNotice": {
+        "title": "Ordner automatisch entfernt",
+        "message": "Die folgenden überwachten Ordner konnten nicht gefunden werden und wurden aus dem Index entfernt:",
+        "dismiss": "Schließen"
       }
     },
     "performance": {

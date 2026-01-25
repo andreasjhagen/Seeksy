@@ -24,6 +24,8 @@ export class IndexHandler extends BaseHandler {
       [IPC.BACKEND.INDEXER_GET_PERFORMANCE_SETTINGS]: this.handleGetPerformanceSettings.bind(this),
       [IPC.BACKEND.INDEXER_SET_BATCH_SIZE]: this.handleSetBatchSize.bind(this),
       [IPC.BACKEND.INDEXER_SET_ENABLE_BATCHING]: this.handleSetEnableBatching.bind(this),
+      [IPC.BACKEND.INDEXER_GET_REMOVED_FOLDERS]: this.handleGetRemovedFolders.bind(this),
+      [IPC.BACKEND.INDEXER_CLEAR_REMOVED_FOLDERS]: this.handleClearRemovedFolders.bind(this),
     })
   }
 
@@ -123,6 +125,15 @@ export class IndexHandler extends BaseHandler {
 
   async handleSetEnableBatching(_, enabled) {
     return this.indexer.setEnableBatching(enabled)
+  }
+
+  async handleGetRemovedFolders() {
+    return this.indexer.getRemovedWatchedFolders()
+  }
+
+  async handleClearRemovedFolders() {
+    this.indexer.clearRemovedWatchedFolders()
+    return { success: true }
   }
 }
 
