@@ -11,6 +11,7 @@ export const IPC = {
     FOCUS_SEARCH: 'window:focus-search',
     SEARCH_KEYCOMBO_DOWN: 'window:search-keycombo-down',
     SEARCH_WINDOW_FOCUS_LOST: 'window:search-focus-lost',
+    GET_ALL_DISPLAYS: 'window:get-all-displays',
   },
 
   FRONTEND: {

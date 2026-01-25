@@ -32,6 +32,9 @@ export const EXCLUDED_PATTERNS = {
     '.backup',
     'logs',
     'log',
+    // App-specific folders to prevent infinite loops
+    'thumbnail-cache',
+    'app-icons',
   ],
   FILES: [
     // Large disk images and virtual machine files
@@ -43,6 +46,13 @@ export const EXCLUDED_PATTERNS = {
     '*.temp',
     '*.lock',
     '*.log',
+    // Seeksy database files - prevent infinite loops when indexing userData folder
+    'file-index.db',
+    'file-index.db-wal',
+    'file-index.db-shm',
+    '*.db',
+    '*.db-wal',
+    '*.db-shm',
   ],
 }
 

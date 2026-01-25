@@ -53,7 +53,12 @@
         "cursor": "Al cursore",
         "cursorDescription": "La finestra appare alla posizione del cursore",
         "center": "Schermo principale",
-        "centerDescription": "Mostra sempre sullo schermo principale"
+        "centerDescription": "Mostra sempre sullo schermo principale",
+        "display": "Schermo {number}",
+        "displayDescription": "Mostra sullo schermo ({resolution})",
+        "primaryDisplay": "Schermo {number}",
+        "primaryDisplayDescription": "Mostra sullo schermo principale ({resolution})",
+        "primary": "Principale"
       },
       "searchTypes": "Tipi di ricerca",
       "searchTypesDescription": "Includi nei risultati di ricerca",

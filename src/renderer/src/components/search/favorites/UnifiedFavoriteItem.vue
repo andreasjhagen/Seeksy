@@ -184,7 +184,7 @@ onMounted(async () => {
 
 <template>
   <div
-    class="relative transition-all duration-200 rounded-lg cursor-pointer favorite-item group"
+    class="relative z-10 transition-all duration-300 transform rounded-lg cursor-pointer favorite-item group origin-center hover:z-20 hover:scale-105"
     :class="[isSelected ? 'ring-2 ring-accent-400' : 'hover:ring-1 hover:ring-accent-300']"
     :title="itemTitle"
     @click="handleClick"
@@ -217,7 +217,7 @@ onMounted(async () => {
       v-if="isEmoji"
       class="flex items-center justify-center w-full overflow-hidden text-4xl rounded-t-lg bg-gray-50 h-14 dark:bg-gray-700"
     >
-      {{ emoji.char }}
+      <span class="transition-transform duration-300 origin-center group-hover:scale-125">{{ emoji.char }}</span>
     </div>
 
     <!-- Icon/Thumbnail - Show for all non-emoji types -->
@@ -230,7 +230,7 @@ onMounted(async () => {
         <img
           v-if="item.icon && !hasIconError"
           :src="item.icon"
-          class="object-contain w-full h-full p-2"
+          class="object-contain w-full h-full p-2 transition-transform duration-300 origin-center group-hover:scale-125"
           :alt="displayName"
           @error="handleIconError"
         >
@@ -247,7 +247,7 @@ onMounted(async () => {
         <!-- Folder specific styling -->
         <div
           v-if="getFileType(item) === 'directory'"
-          class="flex flex-col items-center justify-center w-full h-full bg-amber-100/50 dark:bg-amber-800/30"
+          class="flex flex-col items-center justify-center w-full h-full transition-transform duration-300 origin-center group-hover:scale-110 bg-amber-100/50 dark:bg-amber-800/30"
         >
           <span class="material-symbols-outlined text-amber-600 dark:text-amber-300/80" style="font-size: 36px;">
             folder
@@ -261,14 +261,14 @@ onMounted(async () => {
         <img
           v-else-if="iconSource"
           :src="iconSource"
-          class="object-contain max-w-full max-h-12"
+          class="object-contain max-w-full max-h-12 transition-transform duration-300 origin-center group-hover:scale-125"
           alt="file icon"
         >
 
         <!-- Fallback icon for files -->
         <div
           v-else
-          class="flex flex-col items-center justify-center w-full h-full"
+          class="flex flex-col items-center justify-center w-full h-full transition-transform duration-300 origin-center group-hover:scale-125"
         >
           <span
             class="text-gray-400 material-symbols-outlined"

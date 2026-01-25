@@ -53,7 +53,12 @@
         "cursor": "At Cursor",
         "cursorDescription": "Window appears at your mouse cursor position",
         "center": "Primary Display",
-        "centerDescription": "Always show on your main display"
+        "centerDescription": "Always show on your main display",
+        "display": "Display {number}",
+        "displayDescription": "Show on display ({resolution})",
+        "primaryDisplay": "Display {number}",
+        "primaryDisplayDescription": "Show on primary display ({resolution})",
+        "primary": "Primary"
       },
       "searchTypes": "Search Types",
       "searchTypesDescription": "Include in search results",

@@ -53,7 +53,12 @@
         "cursor": "Am Cursor",
         "cursorDescription": "Fenster erscheint an der Mausposition",
         "center": "Primärer Bildschirm",
-        "centerDescription": "Immer auf dem Hauptbildschirm anzeigen"
+        "centerDescription": "Immer auf dem Hauptbildschirm anzeigen",
+        "display": "Bildschirm {number}",
+        "displayDescription": "Auf Bildschirm anzeigen ({resolution})",
+        "primaryDisplay": "Bildschirm {number}",
+        "primaryDisplayDescription": "Auf Hauptbildschirm anzeigen ({resolution})",
+        "primary": "Primär"
       },
       "searchTypes": "Suchtypen",
       "searchTypesDescription": "In Suchergebnissen anzeigen",

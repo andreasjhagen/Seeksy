@@ -20,6 +20,7 @@ export class WindowHandler extends BaseHandler {
       [IPC.WINDOW.SHOW_MAIN_WINDOW]: this.handleShowMainWindow.bind(this),
       [IPC.WINDOW.SHOW_SETTINGS_PAGE]: this.handleShowSettingsPage.bind(this),
       [IPC.WINDOW.SHOW_SEARCH_PAGE]: this.handleShowSearchPage.bind(this),
+      [IPC.WINDOW.GET_ALL_DISPLAYS]: this.handleGetAllDisplays.bind(this),
       [IPC.BACKEND.VALIDATE_GLOBAL_SHORTCUT]: this.handleValidateShortcut.bind(this),
     })
 
@@ -82,6 +83,21 @@ export class WindowHandler extends BaseHandler {
     }
   }
 
+  async handleGetAllDisplays() {
+    const screen = require('electron').screen
+    const displays = screen.getAllDisplays()
+    const primaryDisplay = screen.getPrimaryDisplay()
+
+    return displays.map((display, index) => ({
+      id: display.id,
+      label: display.label || `Display ${index + 1}`,
+      isPrimary: display.id === primaryDisplay.id,
+      bounds: display.bounds,
+      workArea: display.workArea,
+      scaleFactor: display.scaleFactor,
+    }))
+  }
+
   // Helper methods
   showMainWindow() {
     if (!this.mainWindow)
@@ -120,9 +136,17 @@ export class WindowHandler extends BaseHandler {
       // Get the display that contains the cursor
       return screen.getDisplayNearestPoint(cursorPosition)
     }
-    else {
-      // Default to primary display for any other setting
+    else if (displaySetting === 'primary') {
+      // Primary display setting
       return screen.getPrimaryDisplay()
+    }
+    else {
+      // Specific display ID setting - try to find the display by ID
+      const displays = screen.getAllDisplays()
+      const displayId = Number.parseInt(displaySetting, 10)
+      const targetDisplay = displays.find(d => d.id === displayId)
+      // Fall back to primary display if the specific display is not found
+      return targetDisplay || screen.getPrimaryDisplay()
     }
   }
 
