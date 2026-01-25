@@ -119,6 +119,25 @@ class AppSettingsStore extends EventEmitter {
     this.emit('settings-reset')
     return true
   }
+
+  // Removed watched folders management (for user notifications)
+  getRemovedWatchedFolders() {
+    return this.store.get('removedWatchedFolders', [])
+  }
+
+  addRemovedWatchedFolder(path) {
+    const folders = this.getRemovedWatchedFolders()
+    if (!folders.includes(path)) {
+      folders.push(path)
+      this.store.set('removedWatchedFolders', folders)
+    }
+    return folders
+  }
+
+  clearRemovedWatchedFolders() {
+    this.store.set('removedWatchedFolders', [])
+    return []
+  }
 }
 
 export const appSettings = new AppSettingsStore()

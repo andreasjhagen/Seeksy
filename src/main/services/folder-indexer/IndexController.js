@@ -3,6 +3,7 @@ import { access } from 'node:fs/promises'
 import path from 'node:path'
 import { checkWatchedFolderOverlap } from '../../utils/pathUtils.js'
 import { fileDB } from '../database/database.js'
+import { appSettings } from '../electron-store/AppSettingsStore.js'
 import { performanceConfig } from './config/performanceConfig.js'
 import { watcherConfig } from './config/watcherConfig.js'
 import { FolderWatcher } from './FolderWatcher.js'
@@ -20,9 +21,6 @@ export class IndexController extends EventEmitter {
     this.watcherQueue = [] // Queue for sequential watcher starting
     this.isProcessingQueue = false // Flag to track if we're currently processing the queue
     this.currentActiveIndexingWatchPath = null // Track the currently active indexing watcher
-
-    // Track removed watched folders (persists until user dismisses)
-    this.removedWatchedFolders = []
 
     // Create status manager to handle throttled updates
     this.statusManager = new StatusManager(
@@ -527,10 +525,8 @@ export class IndexController extends EventEmitter {
 
       console.log(`[IndexController] Successfully removed missing watched folder from database: ${watchPath}`)
 
-      // Add to the list of removed folders (for UI notification)
-      if (!this.removedWatchedFolders.includes(watchPath)) {
-        this.removedWatchedFolders.push(watchPath)
-      }
+      // Add to persistent storage for UI notification (survives app restarts)
+      appSettings.addRemovedWatchedFolder(watchPath)
 
       // Emit an event so live UI updates can happen
       this.emit('watched-folder-removed', { path: watchPath, reason: 'folder-not-found' })
@@ -548,14 +544,14 @@ export class IndexController extends EventEmitter {
    * @returns {string[]} List of removed folder paths
    */
   getRemovedWatchedFolders() {
-    return [...this.removedWatchedFolders]
+    return appSettings.getRemovedWatchedFolders()
   }
 
   /**
    * Clear the list of removed watched folders (after user dismisses notification)
    */
   clearRemovedWatchedFolders() {
-    this.removedWatchedFolders = []
+    appSettings.clearRemovedWatchedFolders()
   }
 
   async cleanup() {
