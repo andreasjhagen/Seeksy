@@ -33,10 +33,6 @@ export class PerformanceManager extends EventEmitter {
     this.batchSizeHistory = []
     this.smoothingWindowSize = 3
     this.smoothingFactor = 0.3
-
-    // Load tracking
-    this.loadFactor = 1.0
-    this.lastActiveWatchers = 0
   }
 
   /**
@@ -62,7 +58,7 @@ export class PerformanceManager extends EventEmitter {
     // Case 3: Multiple folders - scale delay based on active count
     // Each additional folder increases delay proportionally
     const targetDelay = autoConfig.singleFolderDelay
-      * Math.pow(autoConfig.multiFolderDelayMultiplier, activeWatchers - 1)
+      * (autoConfig.multiFolderDelayMultiplier ** (activeWatchers - 1))
 
     // Apply smoothing and constraints
     return this.smoothValue(
@@ -71,26 +67,6 @@ export class PerformanceManager extends EventEmitter {
       this.minDelay,
       this.maxDelay,
     )
-  }
-
-  /**
-   * Update the system load factor based on various metrics
-   */
-  updateLoadFactor(activeWatchers, _watchingWatchers) {
-    // Base load factor from active watchers (can be extended with more metrics)
-    // Continuous scaling from 0 to ~1.0 for normal loads, can exceed 1.0 for heavy loads
-    const watcherLoadFactor = activeWatchers === 0
-      ? 0
-      : (Math.log(1 + activeWatchers) / Math.log(5))
-
-    // Could incorporate CPU usage: cpuUsageFactor = cpuUsagePercent / 100
-    // Could incorporate memory usage: memoryFactor = memoryUsagePercent / 100
-    // Could incorporate queue size: queueFactor = pendingOperations / 1000
-
-    // For now, just using watcher count as our primary load indicator
-    this.loadFactor = watcherLoadFactor
-
-    return this.loadFactor
   }
 
   /**
@@ -146,7 +122,7 @@ export class PerformanceManager extends EventEmitter {
     // Multiple folders - reduce batch size proportionally
     // Each additional folder divides batch size
     const targetSize = Math.round(
-      autoConfig.singleFolderBatchSize / Math.pow(autoConfig.multiFolderBatchDivisor, activeWatchers - 1),
+      autoConfig.singleFolderBatchSize / autoConfig.multiFolderBatchDivisor ** (activeWatchers - 1),
     )
 
     // Apply smoothing and constraints
@@ -171,9 +147,6 @@ export class PerformanceManager extends EventEmitter {
 
     const activeWatchers = stats.activeIndexingWatchers || 0
     const watchingWatchers = stats.watchingWatchers || 0
-
-    // Update load factor first
-    this.updateLoadFactor(activeWatchers, watchingWatchers)
 
     const newDelay = this.calculateOptimalDelay(activeWatchers, watchingWatchers)
     const newBatchSize = this.calculateOptimalBatchSize(activeWatchers)
@@ -215,9 +188,6 @@ export class PerformanceManager extends EventEmitter {
 
     const activeWatchers = stats.activeIndexingWatchers || 0
     const watchingWatchers = stats.watchingWatchers || 0
-
-    // Update load factor first
-    this.updateLoadFactor(activeWatchers, watchingWatchers)
 
     const newDelay = this.calculateOptimalDelay(activeWatchers, watchingWatchers)
 
