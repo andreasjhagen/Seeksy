@@ -48,6 +48,8 @@ crashReporterService.initialize()
 let mainWindow = null
 let settingsWindow = null
 let tray = null
+let indexerInstance = null
+let isIndexingPaused = false
 
 // Get icon path based on platform
 function getIconPath() {
@@ -230,6 +232,24 @@ function updateTrayMenu() {
       },
     },
     { type: 'separator' },
+    // Pause/Resume indexing option
+    {
+      label: isIndexingPaused ? t('tray.resumeIndexing') : t('tray.pauseIndexing'),
+      click: () => {
+        if (indexerInstance) {
+          if (isIndexingPaused) {
+            indexerInstance.resumeAll()
+            isIndexingPaused = false
+          }
+          else {
+            indexerInstance.pauseAll()
+            isIndexingPaused = true
+          }
+          updateTrayMenu() // Refresh menu to show updated state
+        }
+      },
+    },
+    { type: 'separator' },
   ]
 
   // Add update-related menu items
@@ -266,12 +286,15 @@ function updateTrayMenu() {
 
   const contextMenu = Menu.buildFromTemplate(menuTemplate)
 
-  // Update tooltip to show update status
+  // Update tooltip to show status
   if (updateAvailable && !updateDownloaded) {
     tray.setToolTip(t('tooltip.updateAvailable', { version: updateInfo?.version || 'new' }))
   }
   else if (updateDownloaded) {
     tray.setToolTip(t('tooltip.updateReady', { version: updateInfo?.version || 'new' }))
+  }
+  else if (isIndexingPaused) {
+    tray.setToolTip(t('tooltip.paused'))
   }
   else {
     tray.setToolTip(t('tooltip.default'))
@@ -398,6 +421,18 @@ app.whenReady().then(() => {
 
   // Initialize services
   const indexer = new IndexController(fileDB)
+  indexerInstance = indexer // Store reference globally for tray menu access
+
+  // Listen for indexer status changes to sync tray menu
+  indexer.on('status-update', (status) => {
+    const shouldBePaused = status.isPaused
+    if (shouldBePaused !== isIndexingPaused) {
+      isIndexingPaused = shouldBePaused
+      if (tray) {
+        updateTrayMenu() // Refresh tray to reflect indexer state
+      }
+    }
+  })
 
   // Create windows
   createMainWindow()
