@@ -50,9 +50,6 @@ export const EXCLUDED_PATTERNS = {
     'file-index.db',
     'file-index.db-wal',
     'file-index.db-shm',
-    '*.db',
-    '*.db-wal',
-    '*.db-shm',
   ],
 }
 
