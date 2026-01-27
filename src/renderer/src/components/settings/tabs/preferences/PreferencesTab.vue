@@ -125,8 +125,10 @@ function changeLanguage(langCode) {
           <button
             v-for="color in predefinedColors"
             :key="color.value"
-            class="w-8 h-8 transition-all border-2 border-transparent rounded-full cursor-pointer"
-            :class="{ 'border-black dark:border-white': settings.accentColor === color.value }"
+            class="w-8 h-8 transition-all rounded-full cursor-pointer ring-offset-2 ring-offset-white dark:ring-offset-gray-800"
+            :class="settings.accentColor === color.value
+              ? 'ring-2 ring-gray-700 dark:ring-white'
+              : 'ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-gray-400 dark:hover:ring-gray-500'"
             :style="{ backgroundColor: color.value }"
             @click="updateSetting('accentColor', color.value)"
           />
