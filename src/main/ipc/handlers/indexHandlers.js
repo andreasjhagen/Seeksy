@@ -66,20 +66,23 @@ export class IndexHandler extends BaseHandler {
   }
 
   async handleAddPath(_, path, options = { depth: Infinity }) {
-    // First check if the path can be added (no overlaps)
+    // Add to database FIRST to ensure the foreign key constraint can be satisfied
+    // when files are indexed. This prevents race conditions where files are
+    // processed before the watched_folders entry exists.
+    await fileDB.addWatchFolder(path, options.depth)
+
+    // Now check if the path can be added and start the watcher
     const result = await this.indexer.addWatchPath(path, options)
 
     if (!result.success) {
-      // Return the error without adding to database
+      // Remove the database entry since watcher creation failed
+      fileDB.removeWatchFolderFromDb(path)
       return {
         success: false,
         error: result.error,
         overlappingFolder: result.overlappingFolder,
       }
     }
-
-    // Only add to database if watcher was successfully created
-    await fileDB.addWatchFolder(path, options.depth)
 
     return {
       success: true,
