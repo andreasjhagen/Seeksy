@@ -41,6 +41,20 @@ const VIDEO_EXTENSIONS = new Set([
   '.3gp',
 ])
 
+// Supported audio extensions for cover art extraction
+const AUDIO_EXTENSIONS = new Set([
+  '.mp3',
+  '.m4a',
+  '.aac',
+  '.ogg',
+  '.flac',
+  '.wma',
+  '.wav',
+  '.aiff',
+  '.ape',
+  '.opus',
+])
+
 export class ThumbnailCache {
   constructor(config = {}) {
     // Initialize cache directory, max cache age, thumbnail size, and last cleanup time
@@ -152,7 +166,7 @@ export class ThumbnailCache {
   }
 
   async generateThumbnail(filePath) {
-    // Generate a thumbnail for an image or video and cache it
+    // Generate a thumbnail for an image, video, or audio file and cache it
     if (await this.shouldCleanup()) {
       await this.cleanupOldCache()
     }
@@ -163,13 +177,17 @@ export class ThumbnailCache {
         return `data:image/jpeg;base64,${cachedThumbnail.toString('base64')}`
       }
 
-      // Determine if this is a video file
+      // Determine file type based on extension
       const ext = path.extname(filePath).toLowerCase()
       const isVideo = VIDEO_EXTENSIONS.has(ext)
+      const isAudio = AUDIO_EXTENSIONS.has(ext)
 
       let thumbnail
       if (isVideo) {
         thumbnail = await this._generateVideoThumbnail(filePath)
+      }
+      else if (isAudio) {
+        thumbnail = await this._extractAudioCoverArt(filePath)
       }
       else {
         thumbnail = await this._generateImageThumbnail(filePath)
@@ -328,5 +346,79 @@ export class ThumbnailCache {
     const mins = Math.floor((seconds % 3600) / 60)
     const secs = Math.floor(seconds % 60)
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+
+  /**
+   * Extract embedded cover art from an audio file using ffmpeg
+   * @private
+   */
+  async _extractAudioCoverArt(audioPath) {
+    // Check if ffmpeg is available
+    if (!ffmpegAvailable) {
+      console.warn('Skipping audio cover art extraction - ffmpeg not available')
+      return null
+    }
+
+    // Create a temporary file for the extracted cover art
+    const tempDir = os.tmpdir()
+    const tempFile = path.join(tempDir, `seeksy-cover-${crypto.randomBytes(8).toString('hex')}.jpg`)
+
+    try {
+      // Extract cover art from audio file
+      await this._extractCoverArtFromAudio(audioPath, tempFile)
+
+      // Check if the file was created (cover art exists)
+      if (!existsSync(tempFile)) {
+        return null
+      }
+
+      // Read and resize the cover art using sharp
+      const thumbnail = await sharp(tempFile)
+        .resize(this.thumbnailSize, this.thumbnailSize, {
+          fit: 'contain',
+          background: { r: 255, g: 255, b: 255, alpha: 0 },
+        })
+        .jpeg({ quality: 85 })
+        .toBuffer()
+
+      return thumbnail
+    }
+    catch (error) {
+      // No cover art found or extraction failed - this is expected for many audio files
+      return null
+    }
+    finally {
+      // Clean up temp file
+      try {
+        if (existsSync(tempFile)) {
+          await fs.unlink(tempFile)
+        }
+      }
+      catch {
+        // Ignore cleanup errors
+      }
+    }
+  }
+
+  /**
+   * Extract embedded cover art from audio file using ffmpeg
+   * @private
+   */
+  _extractCoverArtFromAudio(audioPath, outputPath) {
+    return new Promise((resolve, reject) => {
+      ffmpeg(audioPath)
+        .outputOptions([
+          '-an', // Disable audio output
+          '-vcodec', 'mjpeg', // Use MJPEG codec for the image
+          '-vframes', '1', // Extract only one frame
+        ])
+        .output(outputPath)
+        .on('end', resolve)
+        .on('error', (err) => {
+          // Cover art not found or extraction failed
+          reject(err)
+        })
+        .run()
+    })
   }
 }

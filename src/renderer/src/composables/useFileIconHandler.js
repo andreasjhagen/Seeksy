@@ -38,12 +38,21 @@ export function useFileIconHandler(file, options = {}) {
   }
 
   /**
-   * Check if a file supports thumbnail generation (images and videos)
+   * Check if a file is an audio file based on its name/extension
+   * @param {string} filename - The file name to check
+   * @returns {boolean} - Whether the file appears to be an audio file
+   */
+  function isAudioFile(filename) {
+    return isFileOfType(filename, 'audio')
+  }
+
+  /**
+   * Check if a file supports thumbnail generation (images, videos, and audio with cover art)
    * @param {string} filename - The file name to check
    * @returns {boolean} - Whether the file supports thumbnails
    */
   function supportsThumbnail(filename) {
-    return isImageFile(filename) || isVideoFile(filename)
+    return isImageFile(filename) || isVideoFile(filename) || isAudioFile(filename)
   }
 
   /**
@@ -117,6 +126,7 @@ export function useFileIconHandler(file, options = {}) {
     hasIconError,
     isImageFile,
     isVideoFile,
+    isAudioFile,
     supportsThumbnail,
     handleIconError,
     loadThumbnail,

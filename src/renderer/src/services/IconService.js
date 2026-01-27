@@ -352,13 +352,27 @@ class IconService {
   }
 
   /**
-   * Check if a file supports thumbnail generation (images and videos)
+   * Check if a file is an audio file based on extension
+   * @param {string} filename - Filename to check
+   * @returns {boolean} True if the file is an audio file
+   * @private
+   */
+  _isAudioFile(filename) {
+    if (!filename)
+      return false
+    const audioExtensions = ['.mp3', '.m4a', '.aac', '.ogg', '.flac', '.wma', '.wav', '.aiff', '.ape', '.opus']
+    const ext = filename.toLowerCase().substring(filename.lastIndexOf('.'))
+    return audioExtensions.includes(ext)
+  }
+
+  /**
+   * Check if a file supports thumbnail generation (images, videos, and audio with cover art)
    * @param {string} filename - Filename to check
    * @returns {boolean} True if the file supports thumbnails
    * @private
    */
   _supportsThumbnail(filename) {
-    return this._isImageFile(filename) || this._isVideoFile(filename)
+    return this._isImageFile(filename) || this._isVideoFile(filename) || this._isAudioFile(filename)
   }
 
   /**

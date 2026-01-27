@@ -192,9 +192,21 @@ export class DiskReaderHandler extends BaseHandler {
       else if (contentType === 'audio') {
         const buffer = await fs.readFile(filePath)
         const base64Data = buffer.toString('base64')
+
+        // Try to extract cover art
+        let coverArt = null
+        try {
+          coverArt = await thumbnailCache.generateThumbnail(filePath)
+        }
+        catch (error) {
+          // Cover art extraction failed, continue without it
+          console.debug('No cover art found for audio file:', filePath)
+        }
+
         return {
           type: 'audio',
           content: `data:${mimeType};base64,${base64Data}`,
+          coverArt,
         }
       }
 
