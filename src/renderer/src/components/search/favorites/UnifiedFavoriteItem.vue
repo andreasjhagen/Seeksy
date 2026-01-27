@@ -100,7 +100,7 @@ function getMimeTypeDisplay(item) {
     return ''
 
   if (item.type === 'folder')
-    return 'Folder'
+    return t('common.folder')
 
   // If we have a mime type stored on the item, use it
   if (item.mimeType) {
@@ -110,7 +110,7 @@ function getMimeTypeDisplay(item) {
 
   // Get mime type from file type
   const fileType = getFileType(item)
-  return fileType !== 'unknown' ? capitalizeFirstLetter(fileType) : 'File'
+  return fileType !== 'unknown' ? capitalizeFirstLetter(fileType) : t('common.file')
 }
 
 function getDisplayPath(item) {
@@ -118,7 +118,7 @@ function getDisplayPath(item) {
     return ''
 
   if (!isFileOrFolder.value && item.metadata?.applicationType === 'appid') {
-    return 'Windows Store App'
+    return t('common.windowsStoreApp')
   }
   return item.path
 }
@@ -253,7 +253,7 @@ onMounted(async () => {
             folder
           </span>
           <span class="text-xs font-semibold text-amber-700 dark:text-amber-200">
-            Folder
+            {{ t('common.folder') }}
           </span>
         </div>
 

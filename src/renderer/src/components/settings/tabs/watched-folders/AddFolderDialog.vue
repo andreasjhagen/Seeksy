@@ -185,22 +185,22 @@ defineExpose({ setError })
                 {{ t('settings.watchedFolders.addDialog.depthCurrentOnly') }}
               </option>
               <option value="1">
-                1 level deep
+                {{ t('settings.watchedFolders.addDialog.depth1') }}
               </option>
               <option value="2">
-                2 levels deep
+                {{ t('settings.watchedFolders.addDialog.depth2') }}
               </option>
               <option value="3">
-                3 levels deep
+                {{ t('settings.watchedFolders.addDialog.depth3') }}
               </option>
               <option value="4">
-                4 levels deep
+                {{ t('settings.watchedFolders.addDialog.depth4') }}
               </option>
               <option value="5">
-                5 levels deep
+                {{ t('settings.watchedFolders.addDialog.depth5') }}
               </option>
               <option value="6">
-                6 levels deep
+                {{ t('settings.watchedFolders.addDialog.depth6') }}
               </option>
               <option value="-1">
                 {{ t('settings.watchedFolders.addDialog.depthUnlimited') }}

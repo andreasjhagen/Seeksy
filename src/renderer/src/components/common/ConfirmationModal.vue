@@ -1,7 +1,9 @@
 <script setup>
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-defineProps({
+const props = defineProps({
   isOpen: {
     type: Boolean,
     required: true,
@@ -16,11 +18,11 @@ defineProps({
   },
   confirmText: {
     type: String,
-    default: 'Confirm',
+    default: '',
   },
   cancelText: {
     type: String,
-    default: 'Cancel',
+    default: '',
   },
   /**
    * Variant for different visual styles:
@@ -43,6 +45,12 @@ defineProps({
 })
 
 const emit = defineEmits(['confirm', 'cancel'])
+
+const { t } = useI18n()
+
+// Use translated defaults if props are empty
+const resolvedConfirmText = computed(() => props.confirmText || t('common.confirm'))
+const resolvedCancelText = computed(() => props.cancelText || t('common.cancel'))
 
 function onConfirm() {
   emit('confirm')
@@ -143,7 +151,7 @@ const defaultIcons = {
                   class="px-4 py-2 text-sm font-medium text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                   @click="onCancel"
                 >
-                  {{ cancelText }}
+                  {{ resolvedCancelText }}
                 </button>
                 <button
                   type="button"
@@ -151,7 +159,7 @@ const defaultIcons = {
                   :class="confirmButtonClass[variant]"
                   @click="onConfirm"
                 >
-                  {{ confirmText }}
+                  {{ resolvedConfirmText }}
                 </button>
               </div>
             </DialogPanel>

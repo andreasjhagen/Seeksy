@@ -33,7 +33,7 @@ function getInitial(name) {
 
 function getDisplayPath(app) {
   if (app.metadata?.applicationType === 'appid') {
-    return 'Windows Store App'
+    return t('common.windowsStoreApp')
   }
   return app.path
 }

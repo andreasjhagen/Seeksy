@@ -163,6 +163,11 @@ export function useWatcherStatus() {
 
   const hasWatchedFolders = computed(() => status.value.totalWatchers > 0)
 
+  // Cleanup the status listener
+  function cleanupStatusListener() {
+    window.api.removeAllListeners(IPC.BACKEND.INDEXER_GET_STATUS)
+  }
+
   // Setup lifecycle hooks
   onMounted(() => {
     setupStatusListener()
@@ -172,6 +177,7 @@ export function useWatcherStatus() {
 
   onUnmounted(() => {
     stopStatusUpdates()
+    cleanupStatusListener() // Clean up IPC listener to prevent memory leak
   })
 
   return {
