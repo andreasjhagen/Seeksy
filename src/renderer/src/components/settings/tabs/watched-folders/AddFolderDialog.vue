@@ -30,10 +30,20 @@ const countComplete = ref(false)
 const FILE_COUNT_THRESHOLD = 20000
 
 // Reset file count when depth changes
-watch(() => depth.value, () => {
+watch(() => depth.value, async () => {
   countComplete.value = false
   showFileCountWarning.value = false
+  if (props.selectedPaths.length > 0) {
+    await checkFileCount()
+  }
 })
+
+// Watch for dialog opening to calculate initial count
+watch(() => props.isOpen, async (newVal) => {
+  if (newVal && props.selectedPaths.length > 0) {
+    await checkFileCount()
+  }
+}, { immediate: true })
 
 function onClose() {
   error.value = ''
@@ -181,9 +191,6 @@ defineExpose({ setError })
               class="w-full p-2 border rounded-sm dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600"
               :disabled="loading"
             >
-              <option value="0">
-                {{ t('settings.watchedFolders.addDialog.depthCurrentOnly') }}
-              </option>
               <option value="1">
                 {{ t('settings.watchedFolders.addDialog.depth1') }}
               </option>
