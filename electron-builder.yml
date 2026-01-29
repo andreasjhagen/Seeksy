@@ -23,7 +23,7 @@ extraResources:
   - from: resources/
     to: .
 win:
-  executableName: seeksy
+  executableName: Seeksy
   target:
     - nsis
     - portable
