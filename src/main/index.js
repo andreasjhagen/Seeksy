@@ -88,7 +88,7 @@ function createMainWindow() {
     alwaysOnTop: true,
     skipTaskbar: true,
     hasShadow: false,
-    title: 'Seeksy',
+    title: t('window.search'),
     icon: getIconPath(),
     // Keep rounded corners but avoid setting a background color so the
     // transparent main window remains transparent on Windows desktop
@@ -100,6 +100,7 @@ function createMainWindow() {
       sandbox: false,
       nodeIntegration: true,
       contextIsolation: true,
+      devTools: is.dev,
     },
   })
 
@@ -131,7 +132,7 @@ function createSettingsWindow() {
     show: false,
     autoHideMenuBar: true,
     frame: true,
-    title: 'Seeksy Settings',
+    title: t('window.settings'),
     transparent: false,
     skipTaskbar: false, // Explicitly show in taskbar for Windows
     icon: getIconPath(),
@@ -144,6 +145,7 @@ function createSettingsWindow() {
       sandbox: false,
       nodeIntegration: true,
       contextIsolation: true,
+      devTools: is.dev,
     },
   })
 
@@ -174,6 +176,14 @@ function loadWindowContent(window) {
   else {
     window.loadFile(join(__dirnamePath, '../renderer/index.html'))
   }
+}
+
+/**
+ * Check if developer tools should be enabled
+ * @returns {boolean} True if dev tools should be enabled
+ */
+function shouldEnableDevTools() {
+  return is.dev
 }
 
 // === System Tray Management ===

@@ -5,6 +5,10 @@
 
 const translations = {
   en: {
+    window: {
+      search: 'Seeksy',
+      settings: 'Seeksy Settings',
+    },
     tray: {
       openSearch: 'Open Search',
       settings: 'Settings',
@@ -22,6 +26,10 @@ const translations = {
     },
   },
   de: {
+    window: {
+      search: 'Seeksy',
+      settings: 'Seeksy Einstellungen',
+    },
     tray: {
       openSearch: 'Suche öffnen',
       settings: 'Einstellungen',
@@ -39,6 +47,10 @@ const translations = {
     },
   },
   fr: {
+    window: {
+      search: 'Seeksy',
+      settings: 'Seeksy Paramètres',
+    },
     tray: {
       openSearch: 'Ouvrir la recherche',
       settings: 'Paramètres',
@@ -56,6 +68,10 @@ const translations = {
     },
   },
   it: {
+    window: {
+      search: 'Seeksy',
+      settings: 'Seeksy Impostazioni',
+    },
     tray: {
       openSearch: 'Apri ricerca',
       settings: 'Impostazioni',
@@ -73,6 +89,10 @@ const translations = {
     },
   },
   es: {
+    window: {
+      search: 'Seeksy',
+      settings: 'Seeksy Configuración',
+    },
     tray: {
       openSearch: 'Abrir búsqueda',
       settings: 'Configuración',

@@ -97,6 +97,7 @@ class ApplicationLauncher {
           await execPromise(`gtk-launch ${path.basename(appInfo.path, '.desktop')}`)
         }
         else if (appInfo.applicationType === 'flatpak') {
+          // Flatpak app IDs are stored directly (e.g., com.discordapp.Discord)
           await execPromise(`flatpak run ${appInfo.path}`)
         }
         else if (appInfo.applicationType === 'snap') {
@@ -109,7 +110,14 @@ class ApplicationLauncher {
           await execPromise(`"${appInfo.path}"`)
         }
         else {
-          await shell.openPath(appInfo.path)
+          // Fallback: Check if the path looks like a Flatpak app ID (com.example.app format)
+          const flatpakIdPattern = /^[a-z0-9_-]+\.[a-z0-9_-]+\.[a-z0-9_-]+$/i
+          if (flatpakIdPattern.test(appInfo.path)) {
+            await execPromise(`flatpak run ${appInfo.path}`)
+          }
+          else {
+            await shell.openPath(appInfo.path)
+          }
         }
       }
       else if (this.platform === 'win32') {
