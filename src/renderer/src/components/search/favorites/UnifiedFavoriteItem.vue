@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { IPC_CHANNELS } from '../../../../../main/ipc/ipcChannels'
 import { getFileType } from '../../../../../utils/mimeTypeUtils'
 import { useFileIconHandler } from '../../../composables/useFileIconHandler'
@@ -17,6 +18,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['refresh', 'contextmenu', 'copy', 'open-file', 'show-in-directory'])
+
+const { t } = useI18n()
 
 // Track favorite and notes status
 const isFavorite = ref(props.item.isFavorite || false)
@@ -44,7 +47,7 @@ const {
   fileIcon,
   hasIconError,
   handleIconError,
-  isImageFile,
+  supportsThumbnail,
 } = useFileIconHandler(props.item, { autoLoad: !isEmoji.value })
 
 const { getMimeIcon } = useMimeTypeIcons(isFileOrFolder.value ? props.item.mimeType : '')
@@ -62,7 +65,7 @@ const iconSource = computed(() => {
     if (getFileType(props.item) === 'directory') {
       return null // Fallback folder icon
     }
-    if (isImageFile(props.item.name)) {
+    if (supportsThumbnail(props.item.name)) {
       return thumbnail.value
     }
     return fileIcon.value || props.item.icon || null
@@ -97,7 +100,7 @@ function getMimeTypeDisplay(item) {
     return ''
 
   if (item.type === 'folder')
-    return 'Folder'
+    return t('common.folder')
 
   // If we have a mime type stored on the item, use it
   if (item.mimeType) {
@@ -107,7 +110,7 @@ function getMimeTypeDisplay(item) {
 
   // Get mime type from file type
   const fileType = getFileType(item)
-  return fileType !== 'unknown' ? capitalizeFirstLetter(fileType) : 'File'
+  return fileType !== 'unknown' ? capitalizeFirstLetter(fileType) : t('common.file')
 }
 
 function getDisplayPath(item) {
@@ -115,7 +118,7 @@ function getDisplayPath(item) {
     return ''
 
   if (!isFileOrFolder.value && item.metadata?.applicationType === 'appid') {
-    return 'Windows Store App'
+    return t('common.windowsStoreApp')
   }
   return item.path
 }
@@ -181,7 +184,7 @@ onMounted(async () => {
 
 <template>
   <div
-    class="relative transition-all duration-200 rounded-lg cursor-pointer favorite-item group"
+    class="relative z-10 transition-all duration-300 transform rounded-lg cursor-pointer favorite-item group origin-center hover:z-20 hover:scale-105"
     :class="[isSelected ? 'ring-2 ring-accent-400' : 'hover:ring-1 hover:ring-accent-300']"
     :title="itemTitle"
     @click="handleClick"
@@ -194,7 +197,7 @@ onMounted(async () => {
         v-if="isFavorite"
         class="text-yellow-500 material-symbols-outlined"
         style="font-size: 12px;"
-        title="Favorite"
+        :title="t('tooltips.favorite')"
       >
         star
       </span>
@@ -203,7 +206,7 @@ onMounted(async () => {
         v-if="hasNotes"
         class="text-gray-400 material-symbols-outlined"
         style="font-size: 12px;"
-        title="Has Notes"
+        :title="t('tooltips.hasNotes')"
       >
         sticky_note_2
       </span>
@@ -214,7 +217,7 @@ onMounted(async () => {
       v-if="isEmoji"
       class="flex items-center justify-center w-full overflow-hidden text-4xl rounded-t-lg bg-gray-50 h-14 dark:bg-gray-700"
     >
-      {{ emoji.char }}
+      <span class="transition-transform duration-300 origin-center group-hover:scale-125">{{ emoji.char }}</span>
     </div>
 
     <!-- Icon/Thumbnail - Show for all non-emoji types -->
@@ -227,7 +230,7 @@ onMounted(async () => {
         <img
           v-if="item.icon && !hasIconError"
           :src="item.icon"
-          class="object-contain w-full h-full p-2"
+          class="object-contain w-full h-full p-2 transition-transform duration-300 origin-center group-hover:scale-125"
           :alt="displayName"
           @error="handleIconError"
         >
@@ -244,13 +247,13 @@ onMounted(async () => {
         <!-- Folder specific styling -->
         <div
           v-if="getFileType(item) === 'directory'"
-          class="flex flex-col items-center justify-center w-full h-full bg-amber-100/50 dark:bg-amber-800/30"
+          class="flex flex-col items-center justify-center w-full h-full transition-transform duration-300 origin-center group-hover:scale-110 bg-amber-100/50 dark:bg-amber-800/30"
         >
           <span class="material-symbols-outlined text-amber-600 dark:text-amber-300/80" style="font-size: 36px;">
             folder
           </span>
           <span class="text-xs font-semibold text-amber-700 dark:text-amber-200">
-            Folder
+            {{ t('common.folder') }}
           </span>
         </div>
 
@@ -258,14 +261,14 @@ onMounted(async () => {
         <img
           v-else-if="iconSource"
           :src="iconSource"
-          class="object-contain max-w-full max-h-12"
+          class="object-contain max-w-full max-h-12 transition-transform duration-300 origin-center group-hover:scale-125"
           alt="file icon"
         >
 
         <!-- Fallback icon for files -->
         <div
           v-else
-          class="flex flex-col items-center justify-center w-full h-full"
+          class="flex flex-col items-center justify-center w-full h-full transition-transform duration-300 origin-center group-hover:scale-125"
         >
           <span
             class="text-gray-400 material-symbols-outlined"

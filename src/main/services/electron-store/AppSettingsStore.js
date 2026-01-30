@@ -44,6 +44,7 @@ class AppSettingsStore extends EventEmitter {
           darkMode: false,
           accentColor: '#1167b1',
           uiScale: 100, // UI scale percentage (50-150)
+          language: null, // null means auto-detect from OS
           includedSearchTypes: [
             { name: 'files', enabled: true },
             { name: 'apps', enabled: true },
@@ -103,6 +104,7 @@ class AppSettingsStore extends EventEmitter {
         darkMode: false,
         accentColor: '#1167b1',
         uiScale: 100,
+        language: null,
         includedSearchTypes: [
           { name: 'files', enabled: true },
           { name: 'apps', enabled: true },
@@ -116,6 +118,25 @@ class AppSettingsStore extends EventEmitter {
     Object.entries(defaults).forEach(([key, value]) => this.store.set(key, value))
     this.emit('settings-reset')
     return true
+  }
+
+  // Removed watched folders management (for user notifications)
+  getRemovedWatchedFolders() {
+    return this.store.get('removedWatchedFolders', [])
+  }
+
+  addRemovedWatchedFolder(path) {
+    const folders = this.getRemovedWatchedFolders()
+    if (!folders.includes(path)) {
+      folders.push(path)
+      this.store.set('removedWatchedFolders', folders)
+    }
+    return folders
+  }
+
+  clearRemovedWatchedFolders() {
+    this.store.set('removedWatchedFolders', [])
+    return []
   }
 }
 

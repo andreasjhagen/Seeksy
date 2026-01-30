@@ -1,6 +1,7 @@
 <script setup>
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, onMounted, provide, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useContextMenu } from '../../composables/useContextMenu'
 import { useKeyboardNavigation } from '../../composables/useKeyboardNavigation'
 import { useSearchActions } from '../../composables/useSearchActions'
@@ -10,6 +11,8 @@ import { useSettingsStore } from '../../stores/settings-store'
 import AppResults from './ext-applications/AppResults.vue'
 import DiskResults from './ext-disk/DiskResults.vue'
 import EmojiResults from './ext-emoji/EmojiResults.vue'
+
+const { t } = useI18n()
 
 // Create a global reactive reference for dragged section type
 // This will be provided to all ResultSection components
@@ -326,10 +329,10 @@ watch(
       <div class="flex flex-col items-center space-y-4">
         <span class="text-4xl">🔍</span>
         <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200">
-          No Results Found
+          {{ t('search.noResults') }}
         </h3>
         <p class="text-gray-600 dark:text-gray-400">
-          Try adjusting your search terms
+          {{ t('search.noResultsHint') }}
         </p>
       </div>
     </div>

@@ -11,6 +11,7 @@ export const IPC = {
     FOCUS_SEARCH: 'window:focus-search',
     SEARCH_KEYCOMBO_DOWN: 'window:search-keycombo-down',
     SEARCH_WINDOW_FOCUS_LOST: 'window:search-focus-lost',
+    GET_ALL_DISPLAYS: 'window:get-all-displays',
   },
 
   FRONTEND: {
@@ -22,6 +23,8 @@ export const IPC = {
     SHOW_APP_DATA_EXPLORER: 'disk-reader:show-app-data-explorer',
     COUNT_FOLDER_FILES: 'disk-reader:count-folder-files',
     GET_FILE_CONTENT: 'disk-reader:get-file-content',
+    CLEAR_THUMBNAIL_CACHE: 'disk-reader:clear-thumbnail-cache',
+    GET_THUMBNAIL_CACHE_STATS: 'disk-reader:get-thumbnail-cache-stats',
 
     // Favorites operations
     FAVORITES_ADD: 'favorites:add',
@@ -60,6 +63,10 @@ export const IPC = {
     INDEXER_SET_BATCH_SIZE: 'indexer:set-batch-size',
     INDEXER_SET_ENABLE_BATCHING: 'indexer:set-enable-batching',
 
+    // Removed watched folders tracking
+    INDEXER_GET_REMOVED_FOLDERS: 'indexer:get-removed-folders',
+    INDEXER_CLEAR_REMOVED_FOLDERS: 'indexer:clear-removed-folders',
+
     // Settings management
     SETTINGS_GET: 'settings:get',
     SETTINGS_SET: 'settings:set',
@@ -97,6 +104,7 @@ export const IPC = {
     DOWNLOAD_UPDATE: 'updater:download-update',
     INSTALL_UPDATE: 'updater:install-update',
     GET_UPDATE_STATUS: 'updater:get-update-status',
+    GET_RELEASE_NOTES: 'updater:get-release-notes',
 
     // Update events (main -> renderer)
     CHECKING_FOR_UPDATE: 'updater:checking-for-update',

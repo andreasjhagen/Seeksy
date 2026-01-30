@@ -199,6 +199,52 @@ export const fileOperations = {
     })()
   },
 
+  /**
+   * Batch upsert multiple files in a single transaction
+   * Much faster than individual upsertFileData calls for bulk operations
+   * @param {Array<{path: string, fileData: object}>} files - Array of file objects to upsert
+   * @returns {{success: boolean, count: number, errors: Array}} Result of batch operation
+   */
+  batchUpsertFiles(files) {
+    if (!files || files.length === 0) {
+      return { success: true, count: 0, errors: [] }
+    }
+
+    const errors = []
+    let successCount = 0
+
+    try {
+      // Run all upserts in a single transaction for ~5-10x performance improvement
+      this.db.transaction(() => {
+        for (const { path: filePath, fileData } of files) {
+          try {
+            const result = this.upsertFileData(filePath, fileData)
+            if (result.success) {
+              successCount++
+            }
+            else {
+              errors.push({ path: filePath, error: result.error })
+            }
+          }
+          catch (error) {
+            errors.push({ path: filePath, error: error.message })
+          }
+        }
+      })()
+
+      // Invalidate cache for all affected paths
+      for (const { path: filePath } of files) {
+        fileCache.delete(filePath)
+      }
+
+      return { success: true, count: successCount, errors }
+    }
+    catch (error) {
+      console.error('Batch upsert transaction failed:', error)
+      return { success: false, count: successCount, errors: [...errors, { error: error.message }] }
+    }
+  },
+
   async getTotalCount() {
     this._initFileStatements()
     return this._fileStatements.getTotalCount.get().count

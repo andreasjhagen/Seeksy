@@ -29,6 +29,33 @@ export function useFileIconHandler(file, options = {}) {
   }
 
   /**
+   * Check if a file is a video based on its name/extension
+   * @param {string} filename - The file name to check
+   * @returns {boolean} - Whether the file appears to be a video
+   */
+  function isVideoFile(filename) {
+    return isFileOfType(filename, 'video')
+  }
+
+  /**
+   * Check if a file is an audio file based on its name/extension
+   * @param {string} filename - The file name to check
+   * @returns {boolean} - Whether the file appears to be an audio file
+   */
+  function isAudioFile(filename) {
+    return isFileOfType(filename, 'audio')
+  }
+
+  /**
+   * Check if a file supports thumbnail generation (images, videos, and audio with cover art)
+   * @param {string} filename - The file name to check
+   * @returns {boolean} - Whether the file supports thumbnails
+   */
+  function supportsThumbnail(filename) {
+    return isImageFile(filename) || isVideoFile(filename) || isAudioFile(filename)
+  }
+
+  /**
    * Handle errors with icon loading
    * @param {Event} event - The error event
    */
@@ -40,12 +67,12 @@ export function useFileIconHandler(file, options = {}) {
   }
 
   /**
-   * Load thumbnail for an image file using centralized IconService
+   * Load thumbnail for an image or video file using centralized IconService
    * Benefits: deduplication, batching, and caching
    * @param {string} path - Path to the file
    */
   async function loadThumbnail(path) {
-    if (!path || !isImageFile(path))
+    if (!path || !supportsThumbnail(path))
       return
 
     try {
@@ -84,7 +111,7 @@ export function useFileIconHandler(file, options = {}) {
       const name = file.name
 
       if (path && name) {
-        if (isImageFile(name)) {
+        if (supportsThumbnail(name)) {
           loadThumbnail(path)
         }
 
@@ -98,6 +125,9 @@ export function useFileIconHandler(file, options = {}) {
     fileIcon,
     hasIconError,
     isImageFile,
+    isVideoFile,
+    isAudioFile,
+    supportsThumbnail,
     handleIconError,
     loadThumbnail,
     loadFileIcon,

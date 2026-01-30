@@ -10,11 +10,15 @@ import { EventEmitter } from 'node:events'
 import { stat } from 'node:fs/promises'
 import path from 'node:path'
 import { createLogger } from '../../utils/logger.js'
+import { getCacheKey, pathStartsWith } from '../../utils/pathUtils.js'
 import { fileDB } from '../database/database.js'
 import { getFileMetadata } from './getFileMetadata.js'
 
 // Create a dedicated logger for the file processor
 const logger = createLogger('FileProcessor')
+
+// Default batch size for database writes
+const DB_BATCH_SIZE = 50
 
 export class FileProcessor extends EventEmitter {
   /**
@@ -24,6 +28,10 @@ export class FileProcessor extends EventEmitter {
     super()
     this.processedPaths = new Set()
     this.processingPaths = new Map() // Track paths being processed
+
+    // Batch write buffer for improved database performance
+    this._pendingWrites = []
+    this._batchSize = DB_BATCH_SIZE
 
     // Cache for watched folders - sorted by path length descending
     this._watchedFoldersCache = null
@@ -38,7 +46,46 @@ export class FileProcessor extends EventEmitter {
   clearProcessedPaths() {
     const count = this.processedPaths.size
     this.processedPaths.clear()
+    // Also flush any pending writes
+    this.flushPendingWrites()
     logger.info(`Cleared ${count} entries from processedPaths cache`)
+  }
+
+  /**
+   * Flush pending writes to the database
+   * Call this after processing a batch of files or when transitioning states
+   */
+  flushPendingWrites() {
+    if (this._pendingWrites.length === 0) {
+      return { success: true, count: 0 }
+    }
+
+    const writes = this._pendingWrites
+    this._pendingWrites = []
+
+    logger.debug(`Flushing ${writes.length} pending writes to database`)
+    const result = fileDB.batchUpsertFiles(writes)
+
+    if (result.errors.length > 0) {
+      logger.warn(`Batch write completed with ${result.errors.length} errors`)
+    }
+
+    return result
+  }
+
+  /**
+   * Queue a file for batch writing to the database
+   * Automatically flushes when batch size is reached
+   * @param {string} filePath - Path to the file
+   * @param {object} fileData - File metadata to write
+   */
+  _queueFileWrite(filePath, fileData) {
+    this._pendingWrites.push({ path: filePath, fileData })
+
+    // Auto-flush when batch is full
+    if (this._pendingWrites.length >= this._batchSize) {
+      this.flushPendingWrites()
+    }
   }
 
   /**
@@ -50,6 +97,31 @@ export class FileProcessor extends EventEmitter {
     this._watchedFoldersCacheTime = 0
   }
 
+  // Path tracking helper methods using normalized keys
+  _hasProcessedPath(filePath) {
+    return this.processedPaths.has(getCacheKey(filePath))
+  }
+
+  _addProcessedPath(filePath) {
+    this.processedPaths.add(getCacheKey(filePath))
+  }
+
+  _deleteProcessedPath(filePath) {
+    this.processedPaths.delete(getCacheKey(filePath))
+  }
+
+  _hasProcessingPath(filePath) {
+    return this.processingPaths.has(getCacheKey(filePath))
+  }
+
+  _setProcessingPath(filePath) {
+    this.processingPaths.set(getCacheKey(filePath), Date.now())
+  }
+
+  _deleteProcessingPath(filePath) {
+    this.processingPaths.delete(getCacheKey(filePath))
+  }
+
   /**
    * Process a file or directory path
    *
@@ -58,14 +130,14 @@ export class FileProcessor extends EventEmitter {
    * @returns {Promise<object>} Result of the processing operation
    */
   async processPath(filePath, providedStats = null) {
-    // Skip if already being processed
-    if (this.processingPaths.has(filePath)) {
+    // Skip if already being processed (using normalized key for consistency)
+    if (this._hasProcessingPath(filePath)) {
       logger.debug(`Skipping already processing path: ${filePath}`)
       return { success: true, path: filePath, status: 'already-processing' }
     }
 
     try {
-      this.processingPaths.set(filePath, Date.now())
+      this._setProcessingPath(filePath)
 
       const stats = providedStats || await this._safeFileStat(filePath)
       if (!stats) {
@@ -84,7 +156,7 @@ export class FileProcessor extends EventEmitter {
       return this._handleError('processing', filePath, error)
     }
     finally {
-      this.processingPaths.delete(filePath)
+      this._deleteProcessingPath(filePath)
     }
   }
 
@@ -98,7 +170,7 @@ export class FileProcessor extends EventEmitter {
     try {
       logger.info(`Removing from database: ${path}`)
       const result = await fileDB.removePath(path)
-      this.processedPaths.delete(path)
+      this._deleteProcessedPath(path)
       return { success: true, type: 'removed', path, affected: result }
     }
     catch (error) {
@@ -115,22 +187,25 @@ export class FileProcessor extends EventEmitter {
    * @returns {Promise<object>} Result of the processing operation
    */
   async processFile(filePath, stats) {
-    if (this.processedPaths.has(filePath)) {
+    if (this._hasProcessedPath(filePath)) {
       logger.debug(`Skipping already processed file: ${filePath}`)
       return { success: true, type: 'file', path: filePath, status: 'already-processed' }
     }
 
     try {
-      // Process parent folder first
-      await this._ensureParentFolderProcessed(filePath)
+      // Get watched folder once (used for both parent processing and file metadata)
+      const watchedFolder = await this._findWatchedParentFolder(filePath)
 
-      // Check if file exists in DB
-      const existingFile = await fileDB.getFile(filePath)
+      // Process parent folders first (pass watched folder to avoid duplicate lookup)
+      await this._ensureParentFolderProcessed(filePath, watchedFolder)
+
+      // Check if file exists in DB (use cached lookup for better performance)
+      const existingFile = await fileDB.getCachedFile(filePath)
       logger.debug(`Scanning file: ${filePath}`)
 
       // Skip unchanged files
       if (existingFile && existingFile.modifiedAt === stats.mtimeMs) {
-        this.processedPaths.add(filePath)
+        this._addProcessedPath(filePath)
         logger.debug(`Skipping unchanged file: ${filePath}`)
         return { success: true, type: 'file', path: filePath, status: 'unchanged' }
       }
@@ -142,12 +217,11 @@ export class FileProcessor extends EventEmitter {
         return { success: false, type: 'error', path: filePath, error: 'Failed to process file metadata' }
       }
 
-      // Add watched folder path
-      const watchedFolder = await this._findWatchedParentFolder(filePath)
+      // Add watched folder path (reuse the already-fetched value)
       fileDetails.fileData.watchedFolderPath = watchedFolder?.path || null
 
       await this._saveFileToDatabase(filePath, fileDetails)
-      this.processedPaths.add(filePath)
+      this._addProcessedPath(filePath)
 
       logger.debug(`Successfully processed file: ${filePath} (${existingFile ? 'updated' : 'indexed'})`)
       return {
@@ -176,7 +250,7 @@ export class FileProcessor extends EventEmitter {
         modifiedAt: stats.mtimeMs,
         watchedFolderPath: watchedFolder?.path || null,
       })
-      this.processedPaths.add(dirPath)
+      this._addProcessedPath(dirPath)
       logger.debug(`Processed directory: ${dirPath}`)
       return { success: true, type: 'directory', path: dirPath }
     }
@@ -187,18 +261,15 @@ export class FileProcessor extends EventEmitter {
 
   // Helper Methods
   /**
-   * Saves file metadata to the database
+   * Saves file metadata to the database (queued for batch write)
    *
    * @param {string} filePath - Path to the file
    * @param {object} fileDetails - Metadata to save
    * @private
    */
   async _saveFileToDatabase(filePath, fileDetails) {
-    logger.debug(`Saving to database: ${filePath}`)
-    const dbResult = await fileDB.updateFile(filePath, fileDetails)
-    if (!dbResult) {
-      throw new Error('Failed to update file in database')
-    }
+    logger.debug(`Queueing for batch write: ${filePath}`)
+    this._queueFileWrite(filePath, fileDetails.fileData)
   }
 
   /**
@@ -221,19 +292,57 @@ export class FileProcessor extends EventEmitter {
       this._watchedFoldersCacheTime = now
     }
 
-    return this._watchedFoldersCache.find(folder => itemPath.startsWith(folder.path))
+    // Use pathStartsWith for proper cross-platform path comparison
+    // This handles path separator differences (/ vs \) and case sensitivity on Windows
+    // e.g., "/home/foo" should not match "/home/foobar"
+    return this._watchedFoldersCache.find(folder => pathStartsWith(itemPath, folder.path))
   }
 
   /**
-   * Ensures the parent folder is processed before processing a file
+   * Ensures all parent folders up to (but not including) the watched folder are processed
    *
    * @param {string} filePath - Path to the file
+   * @param {object|null} watchedFolder - Pre-fetched watched folder (optional, for performance)
    * @private
    */
-  async _ensureParentFolderProcessed(filePath) {
-    const folderPath = path.dirname(filePath)
-    if (!this.processedPaths.has(folderPath)) {
-      logger.debug(`Processing parent folder first: ${folderPath}`)
+  async _ensureParentFolderProcessed(filePath, watchedFolder = null) {
+    // Use provided watched folder or find it
+    const watched = watchedFolder ?? await this._findWatchedParentFolder(filePath)
+    const watchedPath = watched?.path
+
+    // Quick check: if immediate parent is already processed, likely all ancestors are too
+    const immediateParent = path.dirname(filePath)
+    if (this._hasProcessedPath(immediateParent)) {
+      return
+    }
+
+    // Collect all parent folders that need processing (from immediate parent up to watched folder)
+    const foldersToProcess = []
+    let currentPath = immediateParent
+    let iterationGuard = 0
+    const maxIterations = 100 // Safety guard against infinite loops
+
+    while (currentPath && currentPath !== watchedPath && currentPath !== path.dirname(currentPath)) {
+      // Safety guard against infinite loops (e.g., symlink cycles, unusual paths)
+      if (++iterationGuard > maxIterations) {
+        logger.warn(`Max iterations reached while processing parent folders for: ${filePath}`)
+        break
+      }
+
+      if (!this._hasProcessedPath(currentPath)) {
+        foldersToProcess.push(currentPath)
+      }
+      currentPath = path.dirname(currentPath)
+    }
+
+    // If nothing to process, return early
+    if (foldersToProcess.length === 0) {
+      return
+    }
+
+    // Process folders from root-most to leaf (reverse order) so parents are indexed before children
+    for (const folderPath of foldersToProcess.reverse()) {
+      logger.debug(`Processing parent folder: ${folderPath}`)
       const folderStats = await this._safeFileStat(folderPath)
       if (folderStats) {
         await this.processDirectory(folderPath, folderStats)

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { IPC_CHANNELS } from '../../../main/ipc/ipcChannels'
+import { getInitialLanguage, setLanguage } from '../locales'
 
 /**
  * Sets a value in a nested object structure
@@ -63,6 +64,7 @@ const DEFAULT_SETTINGS = {
   darkMode: false,
   accentColor: '#1167b1',
   uiScale: 100,
+  language: null, // null means auto-detect from OS
   includedSearchTypes: [
     { name: 'files', enabled: true },
     { name: 'apps', enabled: true },
@@ -109,10 +111,25 @@ export const useSettingsStore = defineStore('settings', () => {
       // Merge with defaults to ensure all properties exist
       settings.value = { ...DEFAULT_SETTINGS, ...storedSettings }
 
+      // Initialize language - auto-detect if not set
+      const languageToUse = getInitialLanguage(settings.value.language)
+      setLanguage(languageToUse)
+
+      // If language was auto-detected (null in settings), save the detected language
+      if (settings.value.language === null) {
+        settings.value.language = languageToUse
+        // Don't persist auto-detected language to allow OS changes to take effect
+      }
+
       // Listen for settings changes from other windows
       window.api.on(IPC_CHANNELS.SETTINGS_CHANGED, ({ key, value }) => {
         // Handle nested paths with the utility function
         setNestedValue(settings.value, key, value)
+
+        // Update language when changed from another window
+        if (key === 'language' && value) {
+          setLanguage(value)
+        }
       })
     }
     catch (error) {

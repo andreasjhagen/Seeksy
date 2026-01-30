@@ -1,11 +1,13 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { IPC_CHANNELS } from '../../../../../main/ipc/ipcChannels'
 import { useContextMenu } from '../../../composables/useContextMenu'
 import { useSearchActions } from '../../../composables/useSearchActions'
 import ResultSection from '../ResultSection.vue'
 import UnifiedFavoriteItem from './UnifiedFavoriteItem.vue'
 
+const { t } = useI18n()
 const favorites = ref([])
 const contextMenu = useContextMenu()
 const { handleOpenFile, handleShowInDirectory, handleCopyEmoji } = useSearchActions()
@@ -70,7 +72,7 @@ onBeforeUnmount(() => {
   <ResultSection
     v-if="favorites?.length > 0"
     result-type="favorites"
-    custom-title="Favorites"
+    :custom-title="t('search.favorites')"
     custom-grid-cols="grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
     class="p-6 space-y-4 bg-gray-200 shadow-md rounded-2xl dark:bg-gray-800 focus:outline-hidden"
   >

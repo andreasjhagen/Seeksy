@@ -1,6 +1,7 @@
 <script setup>
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/vue'
 import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { IPC } from '../../../../../../main/ipc/ipcChannels'
 
 const props = defineProps({
@@ -17,19 +18,32 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'confirm', 'error'])
 
+const { t } = useI18n()
+
 const depth = ref('3')
 const error = ref('')
 const loading = ref(false)
 const fileCount = ref(0)
+const folderCount = ref(0)
 const showFileCountWarning = ref(false)
 const countComplete = ref(false)
 const FILE_COUNT_THRESHOLD = 20000
 
 // Reset file count when depth changes
-watch(() => depth.value, () => {
+watch(() => depth.value, async () => {
   countComplete.value = false
   showFileCountWarning.value = false
+  if (props.selectedPaths.length > 0) {
+    await checkFileCount()
+  }
 })
+
+// Watch for dialog opening to calculate initial count
+watch(() => props.isOpen, async (newVal) => {
+  if (newVal && props.selectedPaths.length > 0) {
+    await checkFileCount()
+  }
+}, { immediate: true })
 
 function onClose() {
   error.value = ''
@@ -54,10 +68,12 @@ async function checkFileCount() {
   loading.value = true
   countComplete.value = false
   fileCount.value = 0
+  folderCount.value = 0
 
   try {
     const depthValue = depth.value === '-1' ? Infinity : Number.parseInt(depth.value)
     let totalFiles = 0
+    let totalFolders = 0
 
     // Count files for each selected path
     for (const path of props.selectedPaths) {
@@ -71,14 +87,16 @@ async function checkFileCount() {
       }
 
       totalFiles += result.fileCount
+      totalFolders += result.folderCount || 0
     }
 
     fileCount.value = totalFiles
+    folderCount.value = totalFolders
     showFileCountWarning.value = fileCount.value > FILE_COUNT_THRESHOLD
     countComplete.value = true
   }
   catch (err) {
-    error.value = `Error checking folder size: ${err.message}`
+    error.value = t('settings.watchedFolders.addDialog.checkError', { error: err.message })
     emit('error', error.value)
   }
   finally {
@@ -104,7 +122,7 @@ defineExpose({ setError })
           class="w-full max-w-md p-6 rounded-lg bg-slate-100 dark:bg-gray-800 dark:text-gray-100"
         >
           <DialogTitle class="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Add {{ selectedPaths.length > 1 ? 'Directories' : 'Directory' }}
+            {{ selectedPaths.length > 1 ? t('settings.watchedFolders.addDirectories') : t('settings.watchedFolders.addFolder') }}
           </DialogTitle>
 
           <!-- Error Message -->
@@ -121,9 +139,9 @@ defineExpose({ setError })
             class="p-3 mb-4 text-sm text-blue-600 bg-blue-100 rounded-lg dark:bg-blue-900/50 dark:text-blue-400"
           >
             <p class="font-medium">
-              Checking folder contents...
+              {{ t('settings.watchedFolders.addDialog.checkingContents') }}
             </p>
-            <p>Please wait while we analyze the folder size.</p>
+            <p>{{ t('settings.watchedFolders.addDialog.pleaseWait') }}</p>
           </div>
 
           <!-- File Count Warning -->
@@ -132,11 +150,11 @@ defineExpose({ setError })
             class="p-3 mb-4 text-sm rounded-lg text-amber-600 bg-amber-100 dark:bg-amber-900/50 dark:text-amber-400"
           >
             <p class="font-medium">
-              Warning: Large Folder Selection Detected
+              {{ t('settings.watchedFolders.addDialog.largeWarningTitle') }}
             </p>
-            <p>Selected folders contain {{ fileCount.toLocaleString() }} files, which exceeds the recommended limit of {{ FILE_COUNT_THRESHOLD.toLocaleString() }} files.</p>
+            <p>{{ t('settings.watchedFolders.addDialog.largeWarningMessage', { count: fileCount.toLocaleString(), limit: FILE_COUNT_THRESHOLD.toLocaleString() }) }}</p>
             <p class="mt-1">
-              Indexing a large number of files may degrade application performance.
+              {{ t('settings.watchedFolders.addDialog.largeWarningHint') }}
             </p>
           </div>
 
@@ -146,14 +164,15 @@ defineExpose({ setError })
             class="p-3 mb-4 text-sm text-blue-600 rounded-lg bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300"
           >
             <p>
-              <span class="font-medium">File count: </span>
-              {{ fileCount.toLocaleString() }} file{{ fileCount !== 1 ? 's' : '' }}
+              <span class="font-medium">{{ t('settings.watchedFolders.addDialog.contents') }} </span>
+              {{ t('settings.watchedFolders.addDialog.filesCount', { count: fileCount.toLocaleString() }) }},
+              {{ t('settings.watchedFolders.addDialog.foldersCount', { count: folderCount.toLocaleString() }) }}
             </p>
           </div>
 
           <div class="mb-4">
             <label class="block mb-2 text-sm text-gray-700 dark:text-gray-300">
-              Selected {{ selectedPaths.length > 1 ? 'Paths' : 'Path' }}:
+              {{ selectedPaths.length > 1 ? t('settings.watchedFolders.addDialog.selectedPaths') : t('settings.watchedFolders.addDialog.selectedPath') }}
             </label>
             <div class="overflow-y-auto max-h-40">
               <div
@@ -166,35 +185,32 @@ defineExpose({ setError })
             </div>
           </div>
           <div class="mb-4">
-            <label class="block mb-2 text-sm text-gray-700 dark:text-gray-300">Recursive Depth:</label>
+            <label class="block mb-2 text-sm text-gray-700 dark:text-gray-300">{{ t('settings.watchedFolders.addDialog.recursiveDepth') }}</label>
             <select
               v-model="depth"
               class="w-full p-2 border rounded-sm dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600"
               :disabled="loading"
             >
-              <option value="0">
-                0 - Current directory only
-              </option>
               <option value="1">
-                1 level deep
+                {{ t('settings.watchedFolders.addDialog.depth1') }}
               </option>
               <option value="2">
-                2 levels deep
+                {{ t('settings.watchedFolders.addDialog.depth2') }}
               </option>
               <option value="3">
-                3 levels deep
+                {{ t('settings.watchedFolders.addDialog.depth3') }}
               </option>
               <option value="4">
-                4 levels deep
+                {{ t('settings.watchedFolders.addDialog.depth4') }}
               </option>
               <option value="5">
-                5 levels deep
+                {{ t('settings.watchedFolders.addDialog.depth5') }}
               </option>
               <option value="6">
-                6 levels deep
+                {{ t('settings.watchedFolders.addDialog.depth6') }}
               </option>
               <option value="-1">
-                ∞ - Unlimited depth (all subfolders)
+                {{ t('settings.watchedFolders.addDialog.depthUnlimited') }}
               </option>
             </select>
           </div>
@@ -204,7 +220,7 @@ defineExpose({ setError })
               :disabled="loading || props.selectedPaths.length === 0"
               @click="checkFileCount"
             >
-              {{ loading ? 'Checking...' : 'Check File Count' }}
+              {{ loading ? t('settings.watchedFolders.addDialog.checking') : t('settings.watchedFolders.addDialog.checkFileCount') }}
             </button>
           </div>
           <div class="flex justify-end space-x-2">
@@ -212,14 +228,14 @@ defineExpose({ setError })
               class="px-4 py-2 text-gray-600 border rounded-sm cursor-pointer dark:text-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
               @click="onClose"
             >
-              Cancel
+              {{ t('common.cancel') }}
             </button>
             <button
               class="px-4 py-2 text-white rounded-sm cursor-pointer bg-accent-500 disabled:opacity-50 hover:bg-accent dark:bg-accent dark:hover:bg-accent-700"
               :disabled="loading"
               @click="onConfirm"
             >
-              Add {{ selectedPaths.length > 1 ? 'All Directories' : 'Directory' }}
+              {{ selectedPaths.length > 1 ? t('settings.watchedFolders.addDialog.addAllDirectories') : t('settings.watchedFolders.addFolder') }}
             </button>
           </div>
         </DialogPanel>

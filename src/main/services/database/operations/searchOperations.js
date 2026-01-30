@@ -70,24 +70,84 @@ export const searchOperations = {
   },
 
   /**
-   * Performs a quick search across files and folders
+   * Performs a quick search across files and folders with fuzzy matching.
+   * Supports multi-word queries where each word must appear somewhere in the name.
+   * Example: "web dev" matches "WEBsite_DEVelopment"
    *
    * @param {string} query - The search query string
    * @returns {Array} Array of matching items sorted by relevance
    */
   quickSearch(query) {
-    this._initSearchStatements()
-    const normalizedQuery = `%${query.toLowerCase().trim()}%`
-    const exactQuery = query.toLowerCase()
-    const startsWithQuery = `${exactQuery}%`
+    try {
+      if (!query || typeof query !== 'string') {
+        return []
+      }
 
-    // Execute with all parameters
-    return this._searchStatements.quickSearch.all(
-      exactQuery,
-      startsWithQuery,
-      normalizedQuery,
-      normalizedQuery,
-    )
+      const trimmedQuery = query.trim().toLowerCase()
+
+      // Split query into words for fuzzy matching
+      const words = trimmedQuery.split(/\s+/).filter(w => w.length > 0)
+
+      if (words.length === 0) {
+        return []
+      }
+
+      // For single word queries, use the optimized prepared statement
+      if (words.length === 1) {
+        this._initSearchStatements()
+        const normalizedQuery = `%${trimmedQuery}%`
+        const exactQuery = trimmedQuery
+        const startsWithQuery = `${exactQuery}%`
+
+        return this._searchStatements.quickSearch.all(
+          exactQuery,
+          startsWithQuery,
+          normalizedQuery,
+          normalizedQuery,
+        )
+      }
+
+      // For multi-word queries, build dynamic SQL for fuzzy matching
+      // Each word must appear somewhere in the name (in any order)
+      const wordConditions = words.map(() => 'lower(name) LIKE ?').join(' AND ')
+      const wordParams = words.map(w => `%${w}%`)
+
+      // Calculate ranking based on match quality
+      const sql = `
+        WITH RankedResults AS (
+          SELECT *,
+            CASE 
+              WHEN lower(name) = ? THEN 1
+              WHEN lower(name) LIKE ? THEN 2
+              WHEN lower(name) LIKE ? THEN 3
+              ELSE 4
+            END as rank
+          FROM all_items 
+          WHERE ${wordConditions}
+        )
+        SELECT * FROM RankedResults
+        ORDER BY 
+          isFavorite DESC,
+          rank,
+          modifiedAt DESC
+        LIMIT ${QUERY_LIMITS.QUICK_SEARCH}
+      `
+
+      const exactQuery = trimmedQuery
+      const startsWithQuery = `${exactQuery}%`
+      const containsQuery = `%${trimmedQuery}%`
+
+      return this.db.prepare(sql).all(
+        exactQuery,
+        startsWithQuery,
+        containsQuery,
+        ...wordParams,
+      )
+    } catch (error) {
+      console.error('quickSearch error:', error)
+      // Return empty array instead of crashing
+      return []
+    }
   },
 
   /**
@@ -114,18 +174,41 @@ export const searchOperations = {
     // Always include valid items
     conditions.push('1=1')
 
-    // Handle query - if query is present, search in name and notes
+    // Handle query - supports fuzzy multi-word matching
     if (query && query.trim()) {
-      conditions.push(`(
-        lower(name) LIKE ? 
-        OR EXISTS (
-          SELECT 1 FROM notes n 
-          WHERE n.target_path = all_items.path 
-          AND lower(n.content) LIKE ?
-        )
-      )`)
-      const normalizedQuery = `%${query.toLowerCase().trim()}%`
-      params.push(normalizedQuery, normalizedQuery)
+      const words = query.trim().toLowerCase().split(/\s+/).filter(w => w.length > 0)
+
+      if (words.length === 1) {
+        // Single word: match in name or notes
+        conditions.push(`(
+          lower(name) LIKE ? 
+          OR EXISTS (
+            SELECT 1 FROM notes n 
+            WHERE n.target_path = all_items.path 
+            AND lower(n.content) LIKE ?
+          )
+        )`)
+        const normalizedQuery = `%${words[0]}%`
+        params.push(normalizedQuery, normalizedQuery)
+      }
+      else {
+        // Multi-word fuzzy search: each word must appear in name or all words in notes
+        const nameConditions = words.map(() => 'lower(name) LIKE ?').join(' AND ')
+        const noteConditions = words.map(() => 'lower(n.content) LIKE ?').join(' AND ')
+
+        conditions.push(`(
+          (${nameConditions})
+          OR EXISTS (
+            SELECT 1 FROM notes n 
+            WHERE n.target_path = all_items.path 
+            AND ${noteConditions}
+          )
+        )`)
+
+        // Add params for name conditions, then for note conditions
+        words.forEach(w => params.push(`%${w}%`))
+        words.forEach(w => params.push(`%${w}%`))
+      }
     }
 
     // Type filter
@@ -254,22 +337,77 @@ export const searchOperations = {
    * @returns {Array} Array of matching applications
    */
   searchApplications(query) {
-    this._initSearchStatements()
-    const normalizedQuery = `%${query.toLowerCase()}%`
-    const exactQuery = query.toLowerCase()
+    const trimmedQuery = query.trim().toLowerCase()
+    const words = trimmedQuery.split(/\s+/).filter(w => w.length > 0)
+
+    if (words.length === 0) {
+      return []
+    }
+
+    // For single word queries, use the optimized prepared statement
+    if (words.length === 1) {
+      this._initSearchStatements()
+      const normalizedQuery = `%${trimmedQuery}%`
+      const exactQuery = trimmedQuery
+      const startsWithQuery = `${exactQuery}%`
+
+      return this._searchStatements.searchApplications.all(
+        normalizedQuery, // WHERE name LIKE
+        normalizedQuery, // WHERE displayName LIKE
+        normalizedQuery, // WHERE description LIKE
+        normalizedQuery, // WHERE keywords LIKE
+        exactQuery, // CASE exact name match
+        exactQuery, // CASE exact displayName match
+        startsWithQuery, // CASE name starts with
+        startsWithQuery, // CASE displayName starts with
+        normalizedQuery, // CASE description contains
+        normalizedQuery, // CASE keywords contain
+      )
+    }
+
+    // For multi-word queries, build dynamic SQL for fuzzy matching
+    const nameConditions = words.map(() => 'lower(name) LIKE ?').join(' AND ')
+    const displayNameConditions = words.map(() => 'lower(displayName) LIKE ?').join(' AND ')
+    const descConditions = words.map(() => 'lower(description) LIKE ?').join(' AND ')
+    const keywordConditions = words.map(() => 'lower(keywords) LIKE ?').join(' AND ')
+
+    const sql = `
+      SELECT 
+        *,
+        isFavorite,
+        favoriteAddedAt 
+      FROM applications 
+      WHERE 
+        (${nameConditions})
+        OR (${displayNameConditions})
+        OR (${descConditions})
+        OR (${keywordConditions})
+      ORDER BY 
+        isFavorite DESC,
+        CASE 
+          WHEN lower(name) = ? THEN 1
+          WHEN lower(displayName) = ? THEN 2
+          WHEN lower(name) LIKE ? THEN 3
+          WHEN lower(displayName) LIKE ? THEN 4
+          ELSE 5
+        END,
+        lastUpdated DESC
+      LIMIT ${QUERY_LIMITS.APPLICATION_SEARCH}
+    `
+
+    const wordParams = words.map(w => `%${w}%`)
+    const exactQuery = trimmedQuery
     const startsWithQuery = `${exactQuery}%`
 
-    return this._searchStatements.searchApplications.all(
-      normalizedQuery, // WHERE name LIKE
-      normalizedQuery, // WHERE displayName LIKE
-      normalizedQuery, // WHERE description LIKE
-      normalizedQuery, // WHERE keywords LIKE
-      exactQuery, // CASE exact name match
-      exactQuery, // CASE exact displayName match
+    return this.db.prepare(sql).all(
+      ...wordParams, // name conditions
+      ...wordParams, // displayName conditions
+      ...wordParams, // description conditions
+      ...wordParams, // keywords conditions
+      exactQuery, // CASE exact name
+      exactQuery, // CASE exact displayName
       startsWithQuery, // CASE name starts with
       startsWithQuery, // CASE displayName starts with
-      normalizedQuery, // CASE description contains
-      normalizedQuery, // CASE keywords contain
     )
   },
 }

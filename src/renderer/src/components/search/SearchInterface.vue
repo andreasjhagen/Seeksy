@@ -1,12 +1,14 @@
 <script setup>
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { IPC_CHANNELS } from '../../../../main/ipc/ipcChannels'
 import { useKeyboardNavigation } from '../../composables/useKeyboardNavigation'
 import { useSearchResultsStore } from '../../stores/search-results-store'
 import OpenSettingsButton from './OpenSettingsButton.vue'
 
 const emit = defineEmits(['toggle-search-mode'])
+const { t } = useI18n()
 const searchStore = useSearchResultsStore()
 const { filters, isLoading, isFilteredMode } = storeToRefs(searchStore)
 const { hasActiveFilters } = storeToRefs(searchStore)
@@ -22,11 +24,11 @@ const { hasAnyResults } = storeToRefs(searchStore)
 
 // File type filter configuration with icons
 const fileTypeFilters = [
-  { id: 'folder', label: 'Folders', icon: 'folder' },
-  { id: 'image', label: 'Images', icon: 'image' },
-  { id: 'document', label: 'Documents', icon: 'description' },
-  { id: 'audio', label: 'Audio', icon: 'music_note' },
-  { id: 'video', label: 'Video', icon: 'movie' },
+  { id: 'folder', labelKey: 'search.filters.folders', icon: 'folder' },
+  { id: 'image', labelKey: 'search.filters.images', icon: 'image' },
+  { id: 'document', labelKey: 'search.filters.documents', icon: 'description' },
+  { id: 'audio', labelKey: 'search.filters.audio', icon: 'music_note' },
+  { id: 'video', labelKey: 'search.filters.video', icon: 'movie' },
 ]
 
 onMounted(() => {
@@ -87,7 +89,7 @@ defineExpose({
           <input
             ref="searchInput"
             v-model="searchQuery"
-            placeholder="Search files, folders, apps..."
+            :placeholder="t('search.placeholder')"
             class="flex-1 p-2 text-gray-800 placeholder-gray-400 bg-transparent border-none outline-hidden dark:text-gray-100 dark:placeholder-gray-500"
             @input="searchStore.debouncedSearch"
             @keydown.down.prevent="handleFocusResults"
@@ -95,7 +97,7 @@ defineExpose({
           >
           <div class="flex items-center gap-1">
             <button
-              title="Toggle Filtered Search"
+              :title="t('tooltips.toggleFilteredSearch')"
               type="button"
               class="flex items-center justify-center p-2 transition-colors rounded-lg cursor-pointer"
               :class="isFilteredMode
@@ -117,7 +119,7 @@ defineExpose({
       >
         <!-- File Type Filter -->
         <div class="flex flex-wrap gap-2">
-          <label class="text-sm font-medium text-gray-700 dark:text-gray-300">File Types:</label>
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('search.fileTypes') }}</label>
           <div class="flex flex-wrap gap-2">
             <button
               v-for="filterType in fileTypeFilters"
@@ -131,7 +133,7 @@ defineExpose({
               @click="toggleFilter('type', filterType.id)"
             >
               <span class="material-symbols-outlined" style="font-size:14px">{{ filterType.icon }}</span>
-              {{ filterType.label }}
+              {{ t(filterType.labelKey) }}
             </button>
           </div>
         </div>
@@ -139,7 +141,7 @@ defineExpose({
         <!-- Date Range -->
         <div class="flex gap-4">
           <div class="flex-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">From:</label>
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('search.filters.from') }}</label>
             <input
               v-model="filters.dateRange.from"
               type="date"
@@ -147,7 +149,7 @@ defineExpose({
             >
           </div>
           <div class="flex-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">To:</label>
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('search.filters.to') }}</label>
             <input
               v-model="filters.dateRange.to"
               type="date"
@@ -162,7 +164,7 @@ defineExpose({
           class="px-4 py-2 text-sm font-medium text-red-600 transition-colors duration-200 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800"
           @click="resetFilters"
         >
-          Reset Filters
+          {{ t('search.filters.resetFilters') }}
         </button>
       </div>
     </form>

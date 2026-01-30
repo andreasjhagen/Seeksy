@@ -9,29 +9,37 @@ import { app, BrowserWindow, Menu, nativeImage, Tray } from 'electron'
 
 // Utils
 import installExtension, { VUEJS_DEVTOOLS } from 'electron-devtools-installer'
+// i18n for main process
+import { setLanguage as setMainLanguage, t } from './i18n/translations.js'
 // IPC Handlers
 import setupDatabaseItemHandlers from './ipc/handlers/databaseItemHandlers.js'
 import setupDiskReaderHandlers from './ipc/handlers/diskReaderHandlers'
 import setupFileIndexerHandlers from './ipc/handlers/indexHandlers.js'
 import setupAppIndexerHandlers from './ipc/handlers/installedAppsHandlers.js'
+
 import setupSettingsHandlers from './ipc/handlers/settingsHandlers.js'
 
 import setupSystemHandlers from './ipc/handlers/systemHandlers.js'
-
 import setupUpdateHandlers from './ipc/handlers/updateHandlers.js'
 import setupWindowHandlers from './ipc/handlers/windowHandlers.js'
+
 // Project imports
 import { IPC } from './ipc/ipcChannels.js'
 
 // Services
 import { applicationLauncher } from './services/application-indexer/ApplicationLauncher.js'
 import { autoUpdaterService } from './services/auto-updater/AutoUpdaterService.js'
+import { crashReporterService } from './services/crash-reporter/CrashReporter.js'
 import { fileDB } from './services/database/database'
+import { appSettings } from './services/electron-store/AppSettingsStore.js'
 import { IndexController } from './services/folder-indexer/IndexController.js'
 import { registerFileProtocol } from './services/registerFileProtocol'
 
 // Define module path for ES modules
 const __dirnamePath = dirname(fileURLToPath(import.meta.url))
+
+// Initialize crash reporter early
+crashReporterService.initialize()
 
 // Disable hardware acceleration if causing issues
 // app.disableHardwareAcceleration()
@@ -40,6 +48,8 @@ const __dirnamePath = dirname(fileURLToPath(import.meta.url))
 let mainWindow = null
 let settingsWindow = null
 let tray = null
+let indexerInstance = null
+let isIndexingPaused = false
 
 // Get icon path based on platform
 function getIconPath() {
@@ -78,7 +88,7 @@ function createMainWindow() {
     alwaysOnTop: true,
     skipTaskbar: true,
     hasShadow: false,
-    title: 'Seeksy',
+    title: t('window.search'),
     icon: getIconPath(),
     // Keep rounded corners but avoid setting a background color so the
     // transparent main window remains transparent on Windows desktop
@@ -90,10 +100,12 @@ function createMainWindow() {
       sandbox: false,
       nodeIntegration: true,
       contextIsolation: true,
+      devTools: is.dev,
     },
   })
 
   setupMainWindowEventHandlers()
+  crashReporterService.setupRendererHandlers(mainWindow, 'main')
   loadWindowContent(mainWindow)
 }
 
@@ -120,7 +132,7 @@ function createSettingsWindow() {
     show: false,
     autoHideMenuBar: true,
     frame: true,
-    title: 'Seeksy Settings',
+    title: t('window.settings'),
     transparent: false,
     skipTaskbar: false, // Explicitly show in taskbar for Windows
     icon: getIconPath(),
@@ -133,10 +145,12 @@ function createSettingsWindow() {
       sandbox: false,
       nodeIntegration: true,
       contextIsolation: true,
+      devTools: is.dev,
     },
   })
 
   setupSettingsWindowEventHandlers()
+  crashReporterService.setupRendererHandlers(settingsWindow, 'settings')
   loadWindowContent(settingsWindow)
 
   // When settings window is loaded, send message to show settings page
@@ -162,6 +176,14 @@ function loadWindowContent(window) {
   else {
     window.loadFile(join(__dirnamePath, '../renderer/index.html'))
   }
+}
+
+/**
+ * Check if developer tools should be enabled
+ * @returns {boolean} True if dev tools should be enabled
+ */
+function shouldEnableDevTools() {
+  return is.dev
 }
 
 // === System Tray Management ===
@@ -203,7 +225,7 @@ function createTray() {
 function updateTrayMenu() {
   const menuTemplate = [
     {
-      label: 'Open Search',
+      label: t('tray.openSearch'),
       click: () => {
         settingsWindow.hide()
         mainWindow.webContents.send(IPC.WINDOW.SEARCH_KEYCOMBO_DOWN)
@@ -212,11 +234,29 @@ function updateTrayMenu() {
       },
     },
     {
-      label: 'Settings',
+      label: t('tray.settings'),
       click: () => {
         mainWindow.hide()
         settingsWindow.show()
         settingsWindow.focus()
+      },
+    },
+    { type: 'separator' },
+    // Pause/Resume indexing option
+    {
+      label: isIndexingPaused ? t('tray.resumeIndexing') : t('tray.pauseIndexing'),
+      click: () => {
+        if (indexerInstance) {
+          if (isIndexingPaused) {
+            indexerInstance.resumeAll()
+            isIndexingPaused = false
+          }
+          else {
+            indexerInstance.pauseAll()
+            isIndexingPaused = true
+          }
+          updateTrayMenu() // Refresh menu to show updated state
+        }
       },
     },
     { type: 'separator' },
@@ -225,7 +265,7 @@ function updateTrayMenu() {
   // Add update-related menu items
   if (updateDownloaded) {
     menuTemplate.push({
-      label: `🔄 Install Update (v${updateInfo?.version || 'new'})`,
+      label: `🔄 ${t('tray.installUpdate', { version: updateInfo?.version || 'new' })}`,
       click: () => {
         autoUpdaterService.installUpdate()
       },
@@ -234,7 +274,7 @@ function updateTrayMenu() {
   }
   else if (updateAvailable) {
     menuTemplate.push({
-      label: `⬇️ Update Available (v${updateInfo?.version || 'new'})`,
+      label: `⬇️ ${t('tray.updateAvailable', { version: updateInfo?.version || 'new' })}`,
       click: () => {
         mainWindow.hide()
         settingsWindow.show()
@@ -247,7 +287,7 @@ function updateTrayMenu() {
   }
 
   menuTemplate.push({
-    label: 'Quit',
+    label: t('tray.quit'),
     click: () => {
       cleanup()
       app.quit()
@@ -256,15 +296,18 @@ function updateTrayMenu() {
 
   const contextMenu = Menu.buildFromTemplate(menuTemplate)
 
-  // Update tooltip to show update status
+  // Update tooltip to show status
   if (updateAvailable && !updateDownloaded) {
-    tray.setToolTip(`Seeksy - Update available (v${updateInfo?.version || 'new'})`)
+    tray.setToolTip(t('tooltip.updateAvailable', { version: updateInfo?.version || 'new' }))
   }
   else if (updateDownloaded) {
-    tray.setToolTip(`Seeksy - Update ready to install (v${updateInfo?.version || 'new'})`)
+    tray.setToolTip(t('tooltip.updateReady', { version: updateInfo?.version || 'new' }))
+  }
+  else if (isIndexingPaused) {
+    tray.setToolTip(t('tooltip.paused'))
   }
   else {
-    tray.setToolTip('Seeksy')
+    tray.setToolTip(t('tooltip.default'))
   }
 
   tray.setContextMenu(contextMenu)
@@ -292,6 +335,33 @@ function installVueDevTools() {
 function registerProtocols() {
   const userData = app.getPath('userData')
   registerFileProtocol('app-icon', path.join(userData, 'app-icons'))
+}
+
+/**
+ * Initialize the main process language from settings
+ * This handles tray menu and other native UI translations
+ */
+function initializeMainProcessLanguage() {
+  // Get saved language or auto-detect from OS
+  const savedLanguage = appSettings.getSetting('language')
+  const osLanguage = app.getLocale().split('-')[0] // Get base language code (e.g., 'en' from 'en-US')
+  const language = savedLanguage || osLanguage || 'en'
+
+  // Set the language for main process translations
+  setMainLanguage(language)
+
+  // Listen for language changes from renderer
+  appSettings.on('setting-changed', ({ key, value }) => {
+    if (key === 'language') {
+      // If null, revert to OS language
+      const newLang = value || app.getLocale().split('-')[0] || 'en'
+      setMainLanguage(newLang)
+      // Update tray menu with new language
+      if (tray) {
+        updateTrayMenu()
+      }
+    }
+  })
 }
 
 function initializeAppIndexing() {
@@ -347,18 +417,32 @@ function initializeHandlers(indexer) {
 
 // === App Initialization ===
 app.whenReady().then(() => {
-  // Set up error handling
-  process.on('uncaughtException', (error) => {
-    console.error('Uncaught exception:', error)
-    cleanup()
-    process.exit(1)
-  })
+  // Set up error handlers using the crash reporter service
+  crashReporterService.setupMainProcessHandlers(cleanup)
 
   // Set the app user model ID for Windows taskbar grouping
   electronApp.setAppUserModelId('com.andreashagen.seeksy')
 
+  // Clean up old crash logs (older than 30 days)
+  crashReporterService.clearOldLogs(30)
+
+  // Initialize language for main process (tray menu, etc.)
+  initializeMainProcessLanguage()
+
   // Initialize services
   const indexer = new IndexController(fileDB)
+  indexerInstance = indexer // Store reference globally for tray menu access
+
+  // Listen for indexer status changes to sync tray menu
+  indexer.on('status-update', (status) => {
+    const shouldBePaused = status.isPaused
+    if (shouldBePaused !== isIndexingPaused) {
+      isIndexingPaused = shouldBePaused
+      if (tray) {
+        updateTrayMenu() // Refresh tray to reflect indexer state
+      }
+    }
+  })
 
   // Create windows
   createMainWindow()

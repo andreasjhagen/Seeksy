@@ -167,6 +167,16 @@ export function provideContextMenuService() {
    */
   function getIconForAction(actionName) {
     const iconMap = {
+      'contextMenu.open': 'open_in_new',
+      'contextMenu.launch': 'open_in_new',
+      'contextMenu.showInFolder': 'folder',
+      'contextMenu.copy': 'content_copy',
+      'contextMenu.copyPath': 'content_copy',
+      'contextMenu.editNote': 'edit_note',
+      'contextMenu.toggleFavorite': 'star',
+      'contextMenu.addToFavorites': 'star',
+      'contextMenu.removeFromFavorites': 'star_border',
+      // Legacy support for non-translated keys
       'Open': 'open_in_new',
       'Launch': 'open_in_new',
       'Show in Folder': 'folder',

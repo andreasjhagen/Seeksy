@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   currentVersion: {
@@ -8,6 +9,7 @@ const props = defineProps({
   },
 })
 
+const { t } = useI18n()
 const updateStatus = ref('checking') // 'checking', 'up-to-date', 'available', 'error'
 const latestVersion = ref(null)
 
@@ -57,11 +59,11 @@ onMounted(async () => {
   <div class="flex items-center gap-2">
     <!-- Update status indicator -->
     <span v-if="updateStatus === 'checking'" class="px-2 py-1 text-xs font-medium text-gray-600 bg-gray-200 rounded-full dark:bg-gray-700 dark:text-gray-300">
-      Checking for updates...
+      {{ t('settings.info.checkingStatus') }}
     </span>
 
     <span v-else-if="updateStatus === 'up-to-date'" class="px-2 py-1 text-xs font-medium text-green-600 bg-green-100 rounded-full dark:bg-green-900/20 dark:text-green-400">
-      Up to date
+      {{ t('settings.info.upToDateStatus') }}
     </span>
 
     <span
@@ -69,7 +71,7 @@ onMounted(async () => {
       class="px-2 py-1 text-xs font-medium text-white rounded-full cursor-pointer bg-accent hover:bg-accent-700"
       @click="openLatestRelease"
     >
-      Update available ({{ latestVersion }})
+      {{ t('settings.info.updateAvailableStatus', { version: latestVersion }) }}
     </span>
 
     <span
@@ -77,12 +79,12 @@ onMounted(async () => {
       class="px-2 py-1 text-xs font-medium text-orange-600 bg-orange-100 rounded-full cursor-pointer dark:bg-orange-900/20 dark:text-orange-400"
       @click="checkForUpdates"
     >
-      Retry check
+      {{ t('settings.info.retryCheck') }}
     </span>
 
     <button
       class="ml-1 text-xs text-gray-500 cursor-pointer dark:text-gray-400 hover:text-accent dark:hover:text-accent-300"
-      title="Check for updates again"
+      :title="t('settings.info.checkAgainTooltip')"
       @click="checkForUpdates"
     >
       ↻

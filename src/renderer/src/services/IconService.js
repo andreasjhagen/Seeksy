@@ -295,18 +295,18 @@ class IconService {
   }
 
   /**
-   * Preload thumbnails for a list of files
+   * Preload thumbnails for a list of files (images and videos)
    * Useful when displaying search results
    * @param {Array<{path: string, name: string}>} files - Files to preload
    */
   preloadThumbnails(files) {
-    const imagePaths = files
-      .filter(file => this._isImageFile(file.name))
+    const thumbnailPaths = files
+      .filter(file => this._supportsThumbnail(file.name))
       .map(file => file.path)
       .filter(path => !this.thumbnailCache.has(path))
 
     // Trigger loading without waiting
-    imagePaths.forEach(path => this.getThumbnail(path))
+    thumbnailPaths.forEach(path => this.getThumbnail(path))
   }
 
   /**
@@ -335,6 +335,44 @@ class IconService {
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico', '.tiff', '.tif']
     const ext = filename.toLowerCase().substring(filename.lastIndexOf('.'))
     return imageExtensions.includes(ext)
+  }
+
+  /**
+   * Check if a file is a video based on extension
+   * @param {string} filename - Filename to check
+   * @returns {boolean} True if the file is a video
+   * @private
+   */
+  _isVideoFile(filename) {
+    if (!filename)
+      return false
+    const videoExtensions = ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.mpeg', '.mpg', '.m4v', '.3gp']
+    const ext = filename.toLowerCase().substring(filename.lastIndexOf('.'))
+    return videoExtensions.includes(ext)
+  }
+
+  /**
+   * Check if a file is an audio file based on extension
+   * @param {string} filename - Filename to check
+   * @returns {boolean} True if the file is an audio file
+   * @private
+   */
+  _isAudioFile(filename) {
+    if (!filename)
+      return false
+    const audioExtensions = ['.mp3', '.m4a', '.aac', '.ogg', '.flac', '.wma', '.wav', '.aiff', '.ape', '.opus']
+    const ext = filename.toLowerCase().substring(filename.lastIndexOf('.'))
+    return audioExtensions.includes(ext)
+  }
+
+  /**
+   * Check if a file supports thumbnail generation (images, videos, and audio with cover art)
+   * @param {string} filename - Filename to check
+   * @returns {boolean} True if the file supports thumbnails
+   * @private
+   */
+  _supportsThumbnail(filename) {
+    return this._isImageFile(filename) || this._isVideoFile(filename) || this._isAudioFile(filename)
   }
 
   /**

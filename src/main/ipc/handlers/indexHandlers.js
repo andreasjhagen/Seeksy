@@ -24,6 +24,8 @@ export class IndexHandler extends BaseHandler {
       [IPC.BACKEND.INDEXER_GET_PERFORMANCE_SETTINGS]: this.handleGetPerformanceSettings.bind(this),
       [IPC.BACKEND.INDEXER_SET_BATCH_SIZE]: this.handleSetBatchSize.bind(this),
       [IPC.BACKEND.INDEXER_SET_ENABLE_BATCHING]: this.handleSetEnableBatching.bind(this),
+      [IPC.BACKEND.INDEXER_GET_REMOVED_FOLDERS]: this.handleGetRemovedFolders.bind(this),
+      [IPC.BACKEND.INDEXER_CLEAR_REMOVED_FOLDERS]: this.handleClearRemovedFolders.bind(this),
     })
   }
 
@@ -64,9 +66,28 @@ export class IndexHandler extends BaseHandler {
   }
 
   async handleAddPath(_, path, options = { depth: Infinity }) {
+    // Add to database FIRST to ensure the foreign key constraint can be satisfied
+    // when files are indexed. This prevents race conditions where files are
+    // processed before the watched_folders entry exists.
     await fileDB.addWatchFolder(path, options.depth)
-    await this.indexer.addWatchPath(path, options)
-    return this.indexer.getWatcherStatus(path)
+
+    // Now check if the path can be added and start the watcher
+    const result = await this.indexer.addWatchPath(path, options)
+
+    if (!result.success) {
+      // Remove the database entry since watcher creation failed
+      fileDB.removeWatchFolderFromDb(path)
+      return {
+        success: false,
+        error: result.error,
+        overlappingFolder: result.overlappingFolder,
+      }
+    }
+
+    return {
+      success: true,
+      status: this.indexer.getWatcherStatus(path),
+    }
   }
 
   async handleRemovePath(_, path) {
@@ -107,6 +128,15 @@ export class IndexHandler extends BaseHandler {
 
   async handleSetEnableBatching(_, enabled) {
     return this.indexer.setEnableBatching(enabled)
+  }
+
+  async handleGetRemovedFolders() {
+    return this.indexer.getRemovedWatchedFolders()
+  }
+
+  async handleClearRemovedFolders() {
+    this.indexer.clearRemovedWatchedFolders()
+    return { success: true }
   }
 }
 

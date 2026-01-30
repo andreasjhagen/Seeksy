@@ -3,6 +3,15 @@ import { performanceConfig } from '../config/performanceConfig.js'
 
 /**
  * Manages performance settings for the indexer, including auto-adjustment of processing delay.
+ *
+ * Auto Mode:
+ * - Single folder indexing: Uses aggressive settings (low delay, high batch size)
+ * - Multiple folders: Scales delay up and batch size down proportionally
+ * - Only watching: Uses minimal delay for responsiveness
+ *
+ * Manual Mode:
+ * - Uses user-defined settings until app restart
+ * - Provides override capability while preserving auto mode as default
  */
 export class PerformanceManager extends EventEmitter {
   constructor(defaultDelay = null) {
@@ -10,7 +19,7 @@ export class PerformanceManager extends EventEmitter {
     this.isAutoMode = true
     this.baseDelay = defaultDelay ?? performanceConfig.defaultDelay
     this.currentDelay = this.baseDelay
-    this.defaultBaseDelay = performanceConfig.defaultDelay // Always use the config value for default
+    this.defaultBaseDelay = performanceConfig.defaultDelay
     this.minDelay = performanceConfig.minDelay
     this.maxDelay = performanceConfig.maxDelay
     this.updateInterval = null
@@ -19,62 +28,45 @@ export class PerformanceManager extends EventEmitter {
     this.batchSize = performanceConfig.batching.defaultBatchSize
     this.enableBatching = performanceConfig.batching.enableByDefault
 
-    // Smoothing factors
+    // Smoothing factors for gradual transitions
     this.delayHistory = []
     this.batchSizeHistory = []
-    this.smoothingWindowSize = 3 // Number of previous values to consider
-    this.smoothingFactor = 0.3 // Weight given to new calculations vs history (0-1)
-
-    // Load factors - can be expanded with CPU usage, memory, etc.
-    this.loadFactor = 1.0
+    this.smoothingWindowSize = 3
+    this.smoothingFactor = 0.3
   }
 
   /**
-   * Calculate the optimal processing delay based on system load factors
+   * Calculate the optimal processing delay based on system state
+   * In auto mode, this provides intelligent scaling based on workload
    */
   calculateOptimalDelay(activeWatchers, watchingWatchers) {
     if (!this.isAutoMode)
       return this.baseDelay
 
-    // Calculate base load factor (can be extended with CPU/memory metrics)
-    this.updateLoadFactor(activeWatchers, watchingWatchers)
+    const autoConfig = performanceConfig.auto
 
-    let targetDelay = this.baseDelay
-
-    if (activeWatchers <= 0 && watchingWatchers > 0) {
-      // When only watching folders, use lower delay for responsiveness
-      targetDelay = Math.round(this.baseDelay * performanceConfig.watchingDelayFactor)
-    }
-    else {
-      // Continuous scaling based on load factor instead of discrete steps
-      // Sigmoid-like curve that grows more rapidly as load increases
-      const loadScalingFactor = this.loadFactor ** 1.5
-      targetDelay = this.baseDelay + (this.maxDelay - this.baseDelay)
-      * (1 - 1 / (1 + loadScalingFactor))
+    // Case 1: Only watching (all indexing complete)
+    if (activeWatchers === 0 && watchingWatchers > 0) {
+      return Math.round(this.minDelay * performanceConfig.watchingDelayFactor)
     }
 
-    // Apply smoothing with history
-    return this.smoothValue(targetDelay, this.delayHistory, this.minDelay, this.maxDelay)
-  }
+    // Case 2: Single folder indexing - use aggressive settings
+    if (activeWatchers === 1) {
+      return autoConfig.singleFolderDelay
+    }
 
-  /**
-   * Update the system load factor based on various metrics
-   */
-  updateLoadFactor(activeWatchers, watchingWatchers) {
-    // Base load factor from active watchers (can be extended with more metrics)
-    // Continuous scaling from 0 to ~1.0 for normal loads, can exceed 1.0 for heavy loads
-    const watcherLoadFactor = activeWatchers === 0
-      ? 0
-      : (Math.log(1 + activeWatchers) / Math.log(5))
+    // Case 3: Multiple folders - scale delay based on active count
+    // Each additional folder increases delay proportionally
+    const targetDelay = autoConfig.singleFolderDelay
+      * (autoConfig.multiFolderDelayMultiplier ** (activeWatchers - 1))
 
-    // Could incorporate CPU usage: cpuUsageFactor = cpuUsagePercent / 100
-    // Could incorporate memory usage: memoryFactor = memoryUsagePercent / 100
-    // Could incorporate queue size: queueFactor = pendingOperations / 1000
-
-    // For now, just using watcher count as our primary load indicator
-    this.loadFactor = watcherLoadFactor
-
-    return this.loadFactor
+    // Apply smoothing and constraints
+    return this.smoothValue(
+      Math.round(Math.min(targetDelay, this.maxDelay)),
+      this.delayHistory,
+      this.minDelay,
+      this.maxDelay,
+    )
   }
 
   /**
@@ -107,19 +99,35 @@ export class PerformanceManager extends EventEmitter {
 
   /**
    * Calculate the optimal batch size based on system load
+   * Auto mode uses larger batches when fewer watchers are active
    */
   calculateOptimalBatchSize(activeWatchers) {
-    // Start with the default batch size
+    if (!this.isAutoMode)
+      return this.batchSize
+
+    const autoConfig = performanceConfig.auto
     const maxBatchSize = performanceConfig.batching.maxBatchSize
     const minBatchSize = performanceConfig.batching.minBatchSize
 
-    // Continuous scaling based on load factor
-    const loadImpact = 1 - (1 / (1 + this.loadFactor))
-    const targetSize = maxBatchSize - (maxBatchSize - minBatchSize) * loadImpact
+    // No active watchers - return default
+    if (activeWatchers === 0) {
+      return performanceConfig.batching.defaultBatchSize
+    }
 
-    // Apply smoothing
+    // Single folder - use aggressive batch size
+    if (activeWatchers === 1) {
+      return autoConfig.singleFolderBatchSize
+    }
+
+    // Multiple folders - reduce batch size proportionally
+    // Each additional folder divides batch size
+    const targetSize = Math.round(
+      autoConfig.singleFolderBatchSize / autoConfig.multiFolderBatchDivisor ** (activeWatchers - 1),
+    )
+
+    // Apply smoothing and constraints
     return this.smoothValue(
-      Math.round(targetSize),
+      Math.max(minBatchSize, Math.min(maxBatchSize, targetSize)),
       this.batchSizeHistory,
       minBatchSize,
       maxBatchSize,
@@ -139,9 +147,6 @@ export class PerformanceManager extends EventEmitter {
 
     const activeWatchers = stats.activeIndexingWatchers || 0
     const watchingWatchers = stats.watchingWatchers || 0
-
-    // Update load factor first
-    this.updateLoadFactor(activeWatchers, watchingWatchers)
 
     const newDelay = this.calculateOptimalDelay(activeWatchers, watchingWatchers)
     const newBatchSize = this.calculateOptimalBatchSize(activeWatchers)
@@ -183,9 +188,6 @@ export class PerformanceManager extends EventEmitter {
 
     const activeWatchers = stats.activeIndexingWatchers || 0
     const watchingWatchers = stats.watchingWatchers || 0
-
-    // Update load factor first
-    this.updateLoadFactor(activeWatchers, watchingWatchers)
 
     const newDelay = this.calculateOptimalDelay(activeWatchers, watchingWatchers)
 

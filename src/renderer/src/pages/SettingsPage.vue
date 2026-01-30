@@ -1,11 +1,13 @@
 <script setup>
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/vue'
 import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import InfoTab from '../components/settings/tabs/info/InfoTab.vue'
 import PreferencesTab from '../components/settings/tabs/preferences/PreferencesTab.vue'
 import WatchedFoldersTab from '../components/settings/tabs/watched-folders/WatchedFoldersTab.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 const selectedTab = ref(0)
 
@@ -33,7 +35,7 @@ watch(
   >
     <div class="max-w-4xl mx-auto">
       <h1 class="mb-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
-        Settings
+        {{ t('settings.title') }}
       </h1>
 
       <TabGroup :selected-index="selectedTab" @change="selectedTab = $event">
@@ -46,7 +48,7 @@ watch(
                   : 'text-gray-700 dark:text-gray-300 hover:bg-white/[0.12] hover:text-accent-600',
               ]"
             >
-              Watched Folders
+              {{ t('settings.tabs.watchedFolders') }}
             </button>
           </Tab>
           <Tab v-slot="{ selected }" as="template">
@@ -57,7 +59,7 @@ watch(
                   : 'text-gray-700 dark:text-gray-300 hover:bg-white/[0.12] hover:text-accent-600',
               ]"
             >
-              Preferences
+              {{ t('settings.tabs.preferences') }}
             </button>
           </Tab>
           <Tab v-slot="{ selected }" as="template">
@@ -68,7 +70,7 @@ watch(
                   : 'text-gray-700 dark:text-gray-300 hover:bg-white/[0.12] hover:text-accent-600',
               ]"
             >
-              Info
+              {{ t('settings.tabs.info') }}
             </button>
           </Tab>
         </TabList>

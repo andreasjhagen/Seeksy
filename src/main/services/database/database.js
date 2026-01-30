@@ -41,8 +41,10 @@ class FileDatabase {
   _initializeDb() {
     try {
       if (is.dev) {
-        // Debug DB in development environment
-        this.db = new Database('file-index.db', { verbose: logger.debug.bind(logger) })
+        // In dev mode, only enable verbose logging if explicitly requested
+        // Set VERBOSE_SQL=1 in env to see all SQL queries
+        const verboseLogger = process.env.VERBOSE_SQL ? logger.debug.bind(logger) : null
+        this.db = new Database('file-index.db', { verbose: verboseLogger })
         logger.debug('Development database loaded at file-index.db')
       }
       else {

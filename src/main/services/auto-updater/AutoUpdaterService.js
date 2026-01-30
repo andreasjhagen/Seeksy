@@ -43,13 +43,14 @@ class AutoUpdaterService {
     this.settingsWindow = settingsWindow
     this.tray = tray
     this.onTrayUpdateCallback = onTrayUpdateCallback
+    this.hasCheckedOnStartup = false
 
-    // Check for updates on startup (after a short delay) - only in production
-    if (!this.isDev) {
-      setTimeout(() => {
-        this.checkForUpdates(true) // silent check
-      }, 5000)
-    }
+    // Check for updates on startup after 10 seconds
+    setTimeout(() => {
+      logger.info('[AutoUpdater] Running automatic startup check...')
+      this.checkForUpdates(true) // silent check
+      this.hasCheckedOnStartup = true
+    }, 10000)
   }
 
   /**

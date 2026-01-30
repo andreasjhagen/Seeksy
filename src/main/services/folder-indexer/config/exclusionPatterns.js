@@ -32,20 +32,24 @@ export const EXCLUDED_PATTERNS = {
     '.backup',
     'logs',
     'log',
+    // App-specific folders to prevent infinite loops
+    'thumbnail-cache',
+    'app-icons',
   ],
   FILES: [
-    '*.iso',
+    // Large disk images and virtual machine files
     '*.vmdk',
     '*.vdi',
+    // Temporary and backup files
     '*.bak',
     '*.tmp',
     '*.temp',
     '*.lock',
     '*.log',
-    '*.mp4',
-    '*.mov',
-    '*.avi',
-    '*.mkv',
+    // Seeksy database files - prevent infinite loops when indexing userData folder
+    'file-index.db',
+    'file-index.db-wal',
+    'file-index.db-shm',
   ],
 }
 
@@ -70,18 +74,34 @@ export function isExcludedPath(path) {
 
 /**
  * Create a chokidar-compatible ignore patterns array
+ * NOTE: chokidar 4.x's internal anymatch does NOT support glob patterns as strings
+ * (it only does exact string matching). We must use RegExp or functions.
  */
 export function createIgnorePatterns() {
-  const folderPatterns = EXCLUDED_PATTERNS.FOLDERS.map(folder => [
-    `**/${folder}/**`,
-    `**/${folder}`,
-    `${folder}/**`,
-    `${folder}`,
-  ]).flat()
+  // Build folder exclusion patterns
+  const folderPatterns = EXCLUDED_PATTERNS.FOLDERS.map((folder) => {
+    // Create regex that matches:
+    // - /folder/ anywhere in path
+    // - /folder at end of path (the folder itself)
+    // - folder/ at start (relative path)
+    const escaped = _escapeRegex(folder)
+    return new RegExp(`(?:[/\\\\]${escaped}(?:[/\\\\]|$))|(?:^${escaped}(?:[/\\\\]|$))`, 'i')
+  })
+
+  // Build file exclusion patterns
+  const filePatterns = EXCLUDED_PATTERNS.FILES.map((pattern) => {
+    // Convert glob pattern to regex
+    // *.ext -> matches any file ending with .ext
+    const escaped = pattern
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape regex special chars except * and ?
+      .replace(/\*/g, '.*') // * -> .*
+      .replace(/\?/g, '.') // ? -> .
+    return new RegExp(`(?:[/\\\\]|^)${escaped}$`, 'i')
+  })
 
   return [
-    /(^|[/\\])\../, // dot files and folders
+    /(^|[/\\])\./, // dot files and folders (hidden files)
     ...folderPatterns,
-    ...EXCLUDED_PATTERNS.FILES,
+    ...filePatterns,
   ]
 }

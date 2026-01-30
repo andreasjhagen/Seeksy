@@ -1,5 +1,7 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { marked } from 'marked'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { IPC_CHANNELS } from '../../../../../../main/ipc/ipcChannels'
 
 defineProps({
@@ -9,11 +11,44 @@ defineProps({
   },
 })
 
+const { t } = useI18n()
+
+// Configure marked for safe rendering
+marked.setOptions({
+  breaks: true, // Convert line breaks to <br>
+  gfm: true, // GitHub Flavored Markdown
+})
+
 // Update state
 const updateStatus = ref('idle') // 'idle', 'checking', 'available', 'downloading', 'ready', 'error'
 const updateInfo = ref(null)
 const downloadProgress = ref(null)
 const errorMessage = ref('')
+const showChangelog = ref(false)
+
+// Computed property to format release notes (for update available/ready states)
+const formattedChangelog = computed(() => {
+  if (!updateInfo.value?.releaseNotes) {
+    return null
+  }
+
+  const notes = updateInfo.value.releaseNotes
+
+  // Handle array format (when fullChangelog is true)
+  if (Array.isArray(notes)) {
+    return notes.map(note => ({
+      version: note.version,
+      note: marked.parse(note.note || ''),
+    }))
+  }
+
+  // Handle string format
+  if (typeof notes === 'string') {
+    return [{ version: updateInfo.value.version, note: marked.parse(notes) }]
+  }
+
+  return null
+})
 
 // Format bytes to human readable
 function formatBytes(bytes, decimals = 2) {
@@ -42,13 +77,13 @@ async function checkForUpdates() {
 
     if (!result.success) {
       updateStatus.value = 'error'
-      errorMessage.value = result.error || 'Failed to check for updates'
+      errorMessage.value = result.error || t('errors.checkUpdateFailed')
     }
     // Status will be updated by IPC listeners
   }
   catch (error) {
     updateStatus.value = 'error'
-    errorMessage.value = error.message || 'Failed to check for updates'
+    errorMessage.value = error.message || t('errors.checkUpdateFailed')
   }
 }
 
@@ -62,13 +97,13 @@ async function downloadUpdate() {
 
     if (!result.success) {
       updateStatus.value = 'error'
-      errorMessage.value = result.error || 'Failed to download update'
+      errorMessage.value = result.error || t('errors.downloadUpdateFailed')
     }
     // Progress will be updated by IPC listeners
   }
   catch (error) {
     updateStatus.value = 'error'
-    errorMessage.value = error.message || 'Failed to download update'
+    errorMessage.value = error.message || t('errors.downloadUpdateFailed')
   }
 }
 
@@ -79,7 +114,7 @@ function installUpdate() {
   }
   catch (error) {
     updateStatus.value = 'error'
-    errorMessage.value = error.message || 'Failed to install update'
+    errorMessage.value = error.message || t('errors.installUpdateFailed')
   }
 }
 
@@ -158,10 +193,10 @@ onUnmounted(() => {
   <div class="space-y-4">
     <div class="flex items-center justify-between">
       <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-        Updates
+        {{ t('settings.info.updates') }}
       </h3>
       <span class="text-sm text-gray-500 dark:text-gray-400">
-        Current version: {{ currentVersion }}
+        {{ t('settings.info.currentVersion', { version: currentVersion }) }}
       </span>
     </div>
 
@@ -175,10 +210,10 @@ onUnmounted(() => {
           </span>
           <div>
             <p class="font-medium text-gray-900 dark:text-gray-100">
-              You're up to date
+              {{ t('settings.info.upToDate') }}
             </p>
             <p class="text-sm text-gray-500 dark:text-gray-400">
-              Seeksy v{{ currentVersion }} is the latest version
+              {{ t('settings.info.upToDateMessage', { version: currentVersion }) }}
             </p>
           </div>
         </div>
@@ -186,7 +221,7 @@ onUnmounted(() => {
           class="px-4 py-2 text-sm font-medium text-white rounded-lg cursor-pointer bg-accent-600 hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
           @click="checkForUpdates"
         >
-          Check for updates
+          {{ t('settings.info.checkForUpdates') }}
         </button>
       </div>
 
@@ -197,10 +232,10 @@ onUnmounted(() => {
         </span>
         <div>
           <p class="font-medium text-gray-900 dark:text-gray-100">
-            Checking for updates...
+            {{ t('settings.info.checkingForUpdates') }}
           </p>
           <p class="text-sm text-gray-500 dark:text-gray-400">
-            Please wait
+            {{ t('settings.info.pleaseWait') }}
           </p>
         </div>
       </div>
@@ -213,25 +248,67 @@ onUnmounted(() => {
           </span>
           <div>
             <p class="font-medium text-gray-900 dark:text-gray-100">
-              Update available!
+              {{ t('settings.info.updateAvailable') }}
             </p>
             <p class="text-sm text-gray-500 dark:text-gray-400">
-              Version {{ updateInfo?.version }} is ready to download
+              {{ t('settings.info.versionReady', { version: updateInfo?.version }) }}
             </p>
           </div>
         </div>
-        <div class="flex gap-3">
+
+        <!-- Collapsible Changelog -->
+        <div v-if="formattedChangelog" class="border border-gray-200 rounded-lg dark:border-gray-600">
+          <button
+            class="flex items-center justify-between w-full px-4 py-3 text-left transition-colors cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50"
+            @click="showChangelog = !showChangelog"
+          >
+            <span class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+              <span class="material-symbols-rounded text-base">description</span>
+              {{ t('settings.info.whatsNew', { version: updateInfo?.version }) }}
+            </span>
+            <span
+              class="transition-transform duration-200 material-symbols-rounded text-gray-500"
+              :class="{ 'rotate-180': showChangelog }"
+            >
+              expand_more
+            </span>
+          </button>
+          <div
+            v-show="showChangelog"
+            class="px-4 pb-4 border-t border-gray-200 dark:border-gray-600"
+          >
+            <div
+              v-for="(entry, index) in formattedChangelog"
+              :key="index"
+              class="pt-3"
+            >
+              <div
+                class="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-300"
+                v-html="entry.note"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
           <button
             class="px-4 py-2 text-sm font-medium text-white rounded-lg cursor-pointer bg-accent-600 hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
             @click="downloadUpdate"
           >
-            Download update
+            {{ t('settings.info.downloadUpdate') }}
           </button>
           <button
             class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg cursor-pointer hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
             @click="openReleasesPage"
           >
-            View release notes
+            {{ t('settings.info.viewOnGithub') }}
+          </button>
+          <button
+            class="inline-flex items-center justify-center w-9 h-9 text-gray-600 bg-gray-200 rounded-lg cursor-pointer hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
+            :title="t('settings.info.checkForUpdates')"
+            @click="checkForUpdates"
+          >
+            <span class="material-symbols-rounded text-xl">refresh</span>
           </button>
         </div>
       </div>
@@ -244,10 +321,10 @@ onUnmounted(() => {
           </span>
           <div class="flex-1">
             <p class="font-medium text-gray-900 dark:text-gray-100">
-              Downloading update...
+              {{ t('settings.info.downloading') }}
             </p>
             <p class="text-sm text-gray-500 dark:text-gray-400">
-              {{ downloadProgress ? `${formatBytes(downloadProgress.transferred)} / ${formatBytes(downloadProgress.total)}` : 'Starting...' }}
+              {{ downloadProgress ? `${formatBytes(downloadProgress.transferred)} / ${formatBytes(downloadProgress.total)}` : t('settings.info.downloadStarting') }}
               <span v-if="downloadProgress?.bytesPerSecond" class="ml-2">
                 ({{ formatSpeed(downloadProgress.bytesPerSecond) }})
               </span>
@@ -262,7 +339,7 @@ onUnmounted(() => {
           />
         </div>
         <p class="text-sm text-center text-gray-500 dark:text-gray-400">
-          {{ Math.round(downloadProgress?.percent || 0) }}% complete
+          {{ t('settings.info.downloadProgress', { percent: Math.round(downloadProgress?.percent || 0) }) }}
         </p>
       </div>
 
@@ -274,29 +351,64 @@ onUnmounted(() => {
           </span>
           <div>
             <p class="font-medium text-gray-900 dark:text-gray-100">
-              Update ready to install!
+              {{ t('settings.info.updateReady') }}
             </p>
             <p class="text-sm text-gray-500 dark:text-gray-400">
-              Version {{ updateInfo?.version }} has been downloaded
+              {{ t('settings.info.versionDownloaded', { version: updateInfo?.version }) }}
             </p>
           </div>
         </div>
+
+        <!-- Collapsible Changelog -->
+        <div v-if="formattedChangelog" class="border border-gray-200 rounded-lg dark:border-gray-600">
+          <button
+            class="flex items-center justify-between w-full px-4 py-3 text-left transition-colors cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50"
+            @click="showChangelog = !showChangelog"
+          >
+            <span class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+              <span class="material-symbols-rounded text-base">description</span>
+              {{ t('settings.info.whatsNew', { version: updateInfo?.version }) }}
+            </span>
+            <span
+              class="transition-transform duration-200 material-symbols-rounded text-gray-500"
+              :class="{ 'rotate-180': showChangelog }"
+            >
+              expand_more
+            </span>
+          </button>
+          <div
+            v-show="showChangelog"
+            class="px-4 pb-4 border-t border-gray-200 dark:border-gray-600"
+          >
+            <div
+              v-for="(entry, index) in formattedChangelog"
+              :key="index"
+              class="pt-3"
+            >
+              <div
+                class="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-300"
+                v-html="entry.note"
+              />
+            </div>
+          </div>
+        </div>
+
         <div class="flex gap-3">
           <button
             class="px-4 py-2 text-sm font-medium text-white rounded-lg cursor-pointer bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
             @click="installUpdate"
           >
-            Install and restart
+            {{ t('settings.info.installAndRestart') }}
           </button>
           <button
             class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg cursor-pointer hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
             @click="openReleasesPage"
           >
-            View release notes
+            {{ t('settings.info.viewOnGithub') }}
           </button>
         </div>
         <p class="text-xs text-gray-500 dark:text-gray-400">
-          The update will also be installed automatically when you quit the app.
+          {{ t('settings.info.autoInstallNote') }}
         </p>
       </div>
 
@@ -308,7 +420,7 @@ onUnmounted(() => {
           </span>
           <div>
             <p class="font-medium text-gray-900 dark:text-gray-100">
-              Update check failed
+              {{ t('settings.info.updateCheckFailed') }}
             </p>
             <p class="text-sm text-red-500 dark:text-red-400">
               {{ errorMessage }}
@@ -320,13 +432,13 @@ onUnmounted(() => {
             class="px-4 py-2 text-sm font-medium text-white rounded-lg cursor-pointer bg-accent-600 hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
             @click="checkForUpdates"
           >
-            Try again
+            {{ t('settings.info.tryAgain') }}
           </button>
           <button
             class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg cursor-pointer hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
             @click="openReleasesPage"
           >
-            Download manually
+            {{ t('settings.info.downloadManually') }}
           </button>
         </div>
       </div>

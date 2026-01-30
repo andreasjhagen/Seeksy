@@ -139,15 +139,52 @@ class LinuxAppIndexing {
         if (!appId || !name)
           continue
 
+        // Check if we already have this app (from desktop files)
+        const existingApp = this.applications.find(a =>
+          a.path.includes(appId) || a.name.toLowerCase() === name.toLowerCase(),
+        )
+        if (existingApp) {
+          // Update existing app to ensure it has correct applicationType
+          existingApp.applicationType = 'flatpak'
+          existingApp.flatpakId = appId
+          continue
+        }
+
         // Get additional metadata
         try {
-          const { stdout: infoOutput } = await execPromise(`flatpak info ${appId}`)
-          const iconName = this.extractFlatpakIcon(infoOutput)
-
-          // Try to find the icon
+          // Try to find the icon using the appId as the icon name (common convention)
           let icon = ''
-          if (iconName) {
-            const iconPath = await this.resolveFlatpakIcon(appId, iconName)
+
+          // First try standard Flatpak export locations
+          const flatpakIconPaths = [
+            `/var/lib/flatpak/exports/share/icons/hicolor`,
+            path.join(process.env.HOME, '.local/share/flatpak/exports/share/icons/hicolor'),
+          ]
+
+          for (const iconBasePath of flatpakIconPaths) {
+            if (icon)
+              break
+            for (const size of this.iconSizes) {
+              if (icon)
+                break
+              for (const format of this.iconFormats) {
+                const iconPath = path.join(iconBasePath, size, 'apps', `${appId}${format}`)
+                try {
+                  await accessAsync(iconPath, fs.constants.R_OK)
+                  icon = await this.iconExtractor.extractIcon(iconPath)
+                  if (icon)
+                    break
+                }
+                catch {
+                  continue
+                }
+              }
+            }
+          }
+
+          // Fallback to standard icon resolution using appId as icon name
+          if (!icon) {
+            const iconPath = await this.resolveLinuxIcon(appId)
             if (iconPath) {
               icon = await this.iconExtractor.extractIcon(iconPath)
             }

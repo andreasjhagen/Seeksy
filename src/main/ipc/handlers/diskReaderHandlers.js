@@ -26,6 +26,8 @@ export class DiskReaderHandler extends BaseHandler {
       [IPC.FRONTEND.GET_FILE_ICON]: this.handleGetFileIcon.bind(this),
       [IPC.FRONTEND.COUNT_FOLDER_FILES]: this.handleCountFolderFiles.bind(this),
       [IPC.FRONTEND.GET_FILE_CONTENT]: this.handleGetFileContent.bind(this),
+      [IPC.FRONTEND.CLEAR_THUMBNAIL_CACHE]: this.handleClearThumbnailCache.bind(this),
+      [IPC.FRONTEND.GET_THUMBNAIL_CACHE_STATS]: this.handleGetThumbnailCacheStats.bind(this),
     })
   }
 
@@ -98,8 +100,8 @@ export class DiskReaderHandler extends BaseHandler {
       if (!existsSync(path))
         return { error: 'Folder does not exist' }
 
-      const fileCount = await countFolderContent(path, depth)
-      return { fileCount }
+      const { fileCount, folderCount } = await countFolderContent(path, depth)
+      return { fileCount, folderCount }
     }
     catch (error) {
       console.error('Error counting files in folder:', error)
@@ -156,13 +158,55 @@ export class DiskReaderHandler extends BaseHandler {
         }
       }
 
-      // Handle images, videos, audio files, and PDFs
-      else if (['image', 'video', 'audio'].includes(contentType)) {
+      // Handle images - load full image
+      else if (contentType === 'image') {
         const buffer = await fs.readFile(filePath)
         const base64Data = buffer.toString('base64')
         return {
-          type: contentType,
+          type: 'image',
           content: `data:${mimeType};base64,${base64Data}`,
+        }
+      }
+
+      // Handle videos - return thumbnail instead of full video
+      else if (contentType === 'video') {
+        const thumbnail = await thumbnailCache.generateThumbnail(filePath)
+        if (thumbnail) {
+          return {
+            type: 'image', // Treat as image for preview
+            content: thumbnail,
+            originalType: 'video', // Keep track of original type
+          }
+        }
+        // Fallback if thumbnail generation fails
+        return {
+          type: 'video',
+          fileType: path.extname(filePath).substring(1).toUpperCase(),
+          fileSize: stats.size,
+          name: path.basename(filePath),
+          path: filePath,
+        }
+      }
+
+      // Handle audio files
+      else if (contentType === 'audio') {
+        const buffer = await fs.readFile(filePath)
+        const base64Data = buffer.toString('base64')
+
+        // Try to extract cover art
+        let coverArt = null
+        try {
+          coverArt = await thumbnailCache.generateThumbnail(filePath)
+        }
+        catch (error) {
+          // Cover art extraction failed, continue without it
+          console.debug('No cover art found for audio file:', filePath)
+        }
+
+        return {
+          type: 'audio',
+          content: `data:${mimeType};base64,${base64Data}`,
+          coverArt,
         }
       }
 
@@ -194,6 +238,28 @@ export class DiskReaderHandler extends BaseHandler {
         type: 'error',
         error: error.message,
       }
+    }
+  }
+
+  async handleClearThumbnailCache() {
+    try {
+      const result = await thumbnailCache.clearCache()
+      return { success: result }
+    }
+    catch (error) {
+      console.error('Error clearing thumbnail cache:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  async handleGetThumbnailCacheStats() {
+    try {
+      const stats = await thumbnailCache.getCacheStats()
+      return { success: true, stats }
+    }
+    catch (error) {
+      console.error('Error getting thumbnail cache stats:', error)
+      return { success: false, error: error.message }
     }
   }
 }

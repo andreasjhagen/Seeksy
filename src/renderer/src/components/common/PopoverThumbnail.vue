@@ -6,7 +6,6 @@ import AudioPreview from './previews/AudioPreview.vue'
 import GenericFilePreview from './previews/GenericFilePreview.vue'
 import ImagePreview from './previews/ImagePreview.vue'
 import TextPreview from './previews/TextPreview.vue'
-import VideoPreview from './previews/VideoPreview.vue'
 
 const props = defineProps({
   src: {
@@ -168,12 +167,15 @@ onBeforeUnmount(() => {
         <!-- Preview content based on file type -->
         <div class="preview-container">
           <!-- Dynamically load the appropriate preview component based on content type -->
+          <!-- Note: Videos now return their thumbnail as 'image' type from backend -->
           <component
             :is="(() => {
-              switch (fileContent?.type || contentType) {
+              // Use fileContent.type if available, otherwise fall back to contentType from mimeType
+              const type = fileContent?.type || contentType
+              switch (type) {
               case 'image': return ImagePreview
+              case 'video': return ImagePreview // Videos show their thumbnail
               case 'text': return TextPreview
-              case 'video': return VideoPreview
               case 'audio': return AudioPreview
               case 'document':
               case 'spreadsheet':

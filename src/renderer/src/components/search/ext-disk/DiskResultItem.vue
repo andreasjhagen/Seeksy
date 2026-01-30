@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { getFileType as getFileTypeUtil } from '../../../../../utils/mimeTypeUtils'
 import { useFileIconHandler } from '../../../composables/useFileIconHandler'
 import { useMimeTypeIcons } from '../../../composables/useMimeTypeIcons'
@@ -18,11 +19,13 @@ const props = defineProps({
 
 const emit = defineEmits(['open-file', 'show-in-directory'])
 
+const { t } = useI18n()
+
 // Use the file icon handler composable for icon and thumbnail management
 const {
   thumbnail,
   fileIcon,
-  isImageFile,
+  supportsThumbnail,
 } = useFileIconHandler(props.file)
 
 // Use the MIME type icons composable for file type icons
@@ -50,7 +53,7 @@ const iconSource = computed(() => {
   if (getFileType(props.file) === 'directory') {
     return null // Will use the fallback folder icon
   }
-  if (isImageFile(props.file.name)) {
+  if (supportsThumbnail(props.file.name)) {
     return thumbnail.value
   }
   return fileIcon.value || props.file.icon || null
@@ -139,14 +142,14 @@ function capitalizeFirstLetter(string) {
           <span
             v-if="file.isFavorite"
             class="text-sm material-symbols-outlined text-amber-500"
-            title="Favorite"
+            :title="t('tooltips.favorite')"
           >
             star
           </span>
           <span
             v-if="file.notes"
             class="text-sm text-gray-400 dark:text-gray-500 material-symbols-outlined"
-            title="Has Note"
+            :title="t('tooltips.hasNotes')"
           >
             sticky_note_2
           </span>
@@ -161,14 +164,14 @@ function capitalizeFirstLetter(string) {
         <button
           v-if="getFileType(file) !== 'directory'"
           class="p-1.5 cursor-pointer text-gray-900 flex items-center justify-center transition-colors rounded-lg bg-gray-200 hover:bg-gray-600 hover:text-white dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-accent shadow-xs"
-          title="Show in folder"
+          :title="t('tooltips.showInFolder')"
           @click.stop="showInDirectory(file.path)"
         >
           <span class="material-symbols-outlined">folder</span>
         </button>
         <button
           class="p-1.5 cursor-pointer text-gray-900 flex items-center justify-center transition-colors rounded-lg bg-gray-200 hover:bg-gray-600 hover:text-white dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-accent shadow-xs"
-          :title="getFileType(file) === 'directory' ? 'Open folder' : 'Open file'"
+          :title="getFileType(file) === 'directory' ? t('tooltips.openFolder') : t('tooltips.openFile')"
           @click.stop="getFileType(file) === 'directory' ? showInDirectory(file.path) : openFile(file)"
         >
           <span class="material-symbols-outlined">

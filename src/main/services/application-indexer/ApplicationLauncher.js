@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process'
+import { exec, spawn } from 'node:child_process'
 import path from 'node:path'
 import util from 'node:util'
 import { shell } from 'electron'
@@ -8,6 +8,19 @@ import { LinuxAppIndexing } from './platforms/LinuxAppIndexing.js'
 import { WindowsAppIndexing } from './platforms/WindowsAppIndexing.js'
 
 const execPromise = util.promisify(exec)
+
+/**
+ * Spawn a detached process for launching GUI applications
+ * @param {string} command - The command to run
+ * @param {string[]} args - Arguments for the command
+ */
+function spawnDetached(command, args = []) {
+  const child = spawn(command, args, {
+    detached: true,
+    stdio: 'ignore',
+  })
+  child.unref()
+}
 
 class ApplicationLauncher {
   constructor() {
@@ -94,22 +107,31 @@ class ApplicationLauncher {
     try {
       if (this.platform === 'linux') {
         if (appInfo.applicationType === 'desktop') {
-          await execPromise(`gtk-launch ${path.basename(appInfo.path, '.desktop')}`)
+          const baseName = path.basename(appInfo.path, '.desktop')
+          spawnDetached('gtk-launch', [baseName])
         }
         else if (appInfo.applicationType === 'flatpak') {
-          await execPromise(`flatpak run ${appInfo.path}`)
+          // Flatpak app IDs are stored directly (e.g., com.discordapp.Discord)
+          spawnDetached('flatpak', ['run', appInfo.path])
         }
         else if (appInfo.applicationType === 'snap') {
           // Extract snap name from path (snap://name)
           const snapName = appInfo.path.replace('snap://', '')
-          await execPromise(`snap run ${snapName}`)
+          spawnDetached('snap', ['run', snapName])
         }
         else if (appInfo.applicationType === 'appimage') {
           // AppImages are directly executable
-          await execPromise(`"${appInfo.path}"`)
+          spawnDetached(appInfo.path, [])
         }
         else {
-          await shell.openPath(appInfo.path)
+          // Fallback: Check if the path looks like a Flatpak app ID (com.example.app format)
+          const flatpakIdPattern = /^[\w-]+\.[\w-]+\.[\w-]+$/
+          if (flatpakIdPattern.test(appInfo.path)) {
+            spawnDetached('flatpak', ['run', appInfo.path])
+          }
+          else {
+            await shell.openPath(appInfo.path)
+          }
         }
       }
       else if (this.platform === 'win32') {

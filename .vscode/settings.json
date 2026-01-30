@@ -56,5 +56,10 @@
     "scss",
     "pcss",
     "postcss"
-  ]
+  ],
+  "i18n-ally.localesPaths": [
+    "src/main/i18n",
+    "src/renderer/src/locales"
+  ],
+  "i18n-ally.keystyle": "nested"
 }

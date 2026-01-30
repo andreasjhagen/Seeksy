@@ -35,7 +35,7 @@ export function createContextMenuAction({ name, group, order, actionCall, keepMe
  */
 export function createFavoriteToggleAction(type) {
   return createContextMenuAction({
-    name: 'Toggle Favorite',
+    name: 'contextMenu.toggleFavorite',
     group: 'favorite',
     order: 10, // Favorites come after core actions
     actionCall: (item) => {
@@ -53,7 +53,7 @@ export function createFavoriteToggleAction(type) {
  */
 export function createEditNoteAction() {
   return createContextMenuAction({
-    name: 'Edit Note',
+    name: 'contextMenu.editNote',
     group: 'edit',
     order: 20, // Edit note comes last
     keepMenuOpen: true,
@@ -65,7 +65,7 @@ export function createEditNoteAction() {
 const defaultResultTypes = [
   {
     name: RESULT_TYPES.DISK,
-    displayName: 'Files & Folders',
+    displayNameKey: 'search.sections.files',
     searchCall: async (query, filters, isFiltered) => {
       if (!query.trim() && !isFiltered)
         return []
@@ -79,20 +79,20 @@ const defaultResultTypes = [
     supportedActions: ['open-file', 'show-in-directory', 'edit-note', 'favorite'],
     contextMenuActions: [
       createContextMenuAction({
-        name: 'Open',
+        name: 'contextMenu.open',
         group: 'actions',
         order: 1, // Core action - first
         actionCall: item => window.api.invoke(IPC_CHANNELS.OPEN_FILE, item.path),
       }),
       createContextMenuAction({
-        name: 'Show in Folder',
+        name: 'contextMenu.showInFolder',
         group: 'actions',
         order: 2, // Core action - second
         actionCall: item => window.api.invoke(IPC_CHANNELS.SHOW_IN_EXPLORER, item.path),
       }),
       // Use dynamic type detection for file/folder
       createContextMenuAction({
-        name: 'Toggle Favorite',
+        name: 'contextMenu.toggleFavorite',
         group: 'favorite',
         order: 10, // Favorites come after core actions
         actionCall: (item) => {
@@ -109,7 +109,7 @@ const defaultResultTypes = [
   },
   {
     name: RESULT_TYPES.APPLICATION,
-    displayName: 'Applications',
+    displayNameKey: 'search.sections.apps',
     searchCall: async (query, filters, isFiltered) => {
       if (!query.trim())
         return []
@@ -121,7 +121,7 @@ const defaultResultTypes = [
     supportedActions: ['launch', 'edit-note', 'favorite'],
     contextMenuActions: [
       createContextMenuAction({
-        name: 'Launch',
+        name: 'contextMenu.launch',
         group: 'actions',
         order: 1, // Core action - first
         actionCall: item => window.api.invoke(IPC_CHANNELS.OPEN_FILE, item.path),
@@ -132,7 +132,7 @@ const defaultResultTypes = [
   },
   {
     name: RESULT_TYPES.EMOJI,
-    displayName: 'Emojis',
+    displayNameKey: 'search.sections.emoji',
     searchCall: (query, filters, isFiltered) => {
       if (!query.trim())
         return []
@@ -162,7 +162,7 @@ const defaultResultTypes = [
     supportedActions: ['copy', 'edit-note', 'favorite'],
     contextMenuActions: [
       createContextMenuAction({
-        name: 'Copy',
+        name: 'contextMenu.copy',
         group: 'actions',
         order: 1, // Core action - first
         actionCall: item => navigator.clipboard.writeText(item.char),

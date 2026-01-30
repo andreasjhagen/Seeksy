@@ -1,6 +1,7 @@
 <script setup>
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/vue'
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   title: {
@@ -13,11 +14,13 @@ const props = defineProps({
   },
   confirmButtonText: {
     type: String,
-    default: 'Save',
+    default: null,
   },
 })
 
 const emit = defineEmits(['close', 'confirm', 'error'])
+
+const { t } = useI18n()
 
 const error = ref('')
 
@@ -71,13 +74,13 @@ defineExpose({ setError })
               class="px-4 py-2 text-gray-600 border rounded-sm dark:text-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
               @click="onClose"
             >
-              Cancel
+              {{ t('common.cancel') }}
             </button>
             <button
               class="px-4 py-2 text-white rounded-sm bg-accent-500 disabled:opacity-50 hover:bg-accent dark:bg-accent dark:hover:bg-accent-700"
               @click="onConfirm"
             >
-              {{ confirmButtonText }}
+              {{ confirmButtonText || t('common.save') }}
             </button>
           </div>
         </DialogPanel>

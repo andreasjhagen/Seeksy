@@ -1,5 +1,6 @@
 <script setup>
 import { computed, inject, provide, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useSearchResultsStore } from '../../stores/search-results-store'
 
 const props = defineProps({
@@ -31,6 +32,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['toggleCollapse', 'sectionReorder'])
+
+const { t } = useI18n()
 
 const searchStore = useSearchResultsStore()
 const isDragging = ref(false)
@@ -66,7 +69,13 @@ const resultTypeConfig = computed(() => {
 })
 
 const title = computed(() => {
-  return props.customTitle || resultTypeConfig.value.displayName || props.resultType
+  if (props.customTitle)
+    return props.customTitle
+  // Use translation key if available, otherwise fall back to result type name
+  const displayNameKey = resultTypeConfig.value.displayNameKey
+  if (displayNameKey)
+    return t(displayNameKey)
+  return resultTypeConfig.value.displayName || props.resultType
 })
 
 const gridCols = computed(() => {
@@ -212,7 +221,7 @@ function onDrop(event) {
       <button
         class="flex items-center justify-center w-6 h-6 p-1 text-gray-600 transition-colors transition-opacity duration-200 opacity-0 cursor-pointer collapse-toggle hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
         :class="{ 'opacity-100': collapsed }"
-        :title="collapsed ? 'Expand section' : 'Collapse section'"
+        :title="collapsed ? t('tooltips.expandSection') : t('tooltips.collapseSection')"
         @click="toggleCollapse"
       >
         <span v-if="collapsed" class="text-base leading-none material-symbols-outlined">expand_more</span>

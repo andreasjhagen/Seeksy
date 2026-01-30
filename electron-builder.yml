@@ -12,15 +12,18 @@ asarUnpack:
   - resources/**
   - '**/node_modules/sharp/**/*'
   - '**/node_modules/@img/**/*'
+  - '**/node_modules/ffmpeg-static/**/*'
 extraResources:
   - from: node_modules/sharp
     to: node_modules/sharp
   - from: node_modules/@img
     to: node_modules/@img
+  - from: node_modules/ffmpeg-static
+    to: node_modules/ffmpeg-static
   - from: resources/
     to: .
 win:
-  executableName: seeksy
+  executableName: Seeksy
   target:
     - nsis
     - portable
