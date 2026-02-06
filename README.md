@@ -6,7 +6,7 @@
 [![Build App for Win/Mac/Linux](https://github.com/andreasjhagen/seeksy/actions/workflows/release.yml/badge.svg)](https://github.com/andreasjhagen/seeksy/actions/workflows/release.yml)
 
 <p align="center">
-  <img src="./resources/trayIcon@5x.png" alt="Logo">
+  <img src="./resources/icon.png" alt="Logo" width="150">
 </p>
 
 A desktop search application, inspired by the macOS Spotlight, built with Electron and Vue. It offers fast file search, an application launcher and can also function as an emoji picker.
@@ -17,17 +17,17 @@ Runs seamlessly in the background, ready to open with **Ctrl + Space** (default 
 
 ---
 
-## ✨ Features
+## Features
 
-- 🔎 **Universal Search** - Search files, folders, applications and emoji from a single, invokable search interface
-- 🖥️ **Multi-Platform Support** - Works on Windows and Linux
-- ⌨️ **Keyboard Navigation** - Navigate search results with arrow keys
-- 🎮 **App Launcher** - Auto-detects all applications and installed games (initial indexing may take a few minutes)
-- 🚀 **Intelligent Indexing** - Fast background content indexing with adaptive performance optimization
-- ⭐ **Favorites System** - Mark frequently used items as favorites for quick access
-- 🎨 **Customizable Settings** - Choose between dark/light mode, accent colors, and configurable search shortcut (default: Ctrl + Space)
+- **Universal Search** - Search files, folders, applications and emoji from a single, invokable search interface
+- **Multi-Platform Support** - Works on Windows and Linux
+- **Keyboard Navigation** - Navigate search results with arrow keys
+- **App Launcher** - Auto-detects all applications and installed games (initial indexing may take a few minutes)
+- **Intelligent Indexing** - Fast background content indexing with adaptive performance optimization
+- **Favorites System** - Mark frequently used items as favorites for quick access
+- **Customizable Settings** - Choose between dark/light mode, accent colors, and configurable search shortcut (default: Ctrl + Space)
 
-## 🖼️ Screenshots
+## Screenshots
 
 |                                       Custom Themes and Settings                                        |                  Smart Folder Management                  |
 | :-----------------------------------------------------------------------------------------------------: | :-------------------------------------------------------: |
@@ -39,7 +39,7 @@ Runs seamlessly in the background, ready to open with **Ctrl + Space** (default 
 | ![Customization Options](./docs/img/app_search.png) | ![File Management](./docs/img/emoji_search.png) |
 |     Find and launch all installed applications      |    Copies emoji directly into your clipboard    |
 
-## 🛠️ Technical Stack
+## Technical Stack
 
 | Category | Technologies                |
 | -------- | --------------------------- |
@@ -48,7 +48,7 @@ Runs seamlessly in the background, ready to open with **Ctrl + Space** (default 
 | Backend  | Electron                    |
 | Storage  | SQLite, electron-store      |
 
-## 💻️ Development Setup
+## Development Setup
 
 ### Prerequisites
 
@@ -78,7 +78,7 @@ npm run build:win
 npm run build:linux
 ```
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
@@ -86,7 +86,7 @@ npm run build:linux
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is licensed under the GNU General Public License v3.0 (GPL-3.0).
 

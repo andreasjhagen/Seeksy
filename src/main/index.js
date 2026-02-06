@@ -289,7 +289,7 @@ function updateTrayMenu() {
   menuTemplate.push({
     label: t('tray.quit'),
     click: () => {
-      cleanup()
+      // app.quit() will trigger before-quit which handles cleanup
       app.quit()
     },
   })
@@ -372,9 +372,32 @@ function initializeAppIndexing() {
     .catch(err => console.error('Error in initial app indexing:', err))
 }
 
-function cleanup() {
+let isCleaningUp = false
+
+async function cleanup() {
+  // Prevent multiple cleanup calls
+  if (isCleaningUp)
+    return
+  isCleaningUp = true
+
   // Clean up auto-updater
   autoUpdaterService.cleanup()
+
+  // Clean up indexer (file watchers) - must happen before closing database
+  if (indexerInstance) {
+    try {
+      await indexerInstance.cleanup()
+    }
+    catch (error) {
+      console.error('Error cleaning up indexer:', error)
+    }
+    indexerInstance = null
+  }
+
+  // Close database connection
+  if (fileDB) {
+    fileDB.close()
+  }
 
   // Destroy windows first
   if (mainWindow) {
@@ -468,13 +491,22 @@ app.whenReady().then(() => {
     }
   })
 
+  // Handle app quit - use before-quit to properly cleanup async resources
+  app.on('before-quit', async (event) => {
+    if (!isCleaningUp) {
+      event.preventDefault()
+      await cleanup()
+      app.quit()
+    }
+  })
+
   app.on('will-quit', () => {
-    cleanup()
+    // Synchronous cleanup already handled by before-quit
+    // This is a fallback for any remaining cleanup
   })
 
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
-      cleanup()
       app.quit()
     }
   })

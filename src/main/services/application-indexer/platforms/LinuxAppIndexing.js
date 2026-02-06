@@ -26,6 +26,9 @@ class LinuxAppIndexing {
       '/usr/share/applications',
       path.join(process.env.HOME, '.local/share/applications'),
       '/var/lib/snapd/desktop/applications',
+      // Flatpak desktop file export locations
+      '/var/lib/flatpak/exports/share/applications',
+      path.join(process.env.HOME, '.local/share/flatpak/exports/share/applications'),
     ]
 
     // Index desktop files in parallel

@@ -110,7 +110,7 @@ const defaultResultTypes = [
   {
     name: RESULT_TYPES.APPLICATION,
     displayNameKey: 'search.sections.apps',
-    searchCall: async (query, filters, isFiltered) => {
+    searchCall: async (query, _filters, _isFiltered) => {
       if (!query.trim())
         return []
       return window.api.invoke(IPC_CHANNELS.APP_SEARCH, query)
@@ -133,13 +133,13 @@ const defaultResultTypes = [
   {
     name: RESULT_TYPES.EMOJI,
     displayNameKey: 'search.sections.emoji',
-    searchCall: (query, filters, isFiltered) => {
+    searchCall: async (query, _filters, _isFiltered) => {
       if (!query.trim())
         return []
 
       const searchTerms = query.toLowerCase().split(' ')
-      return Object.entries(emoji)
-        .filter(([char, keywords]) =>
+      const baseResults = Object.entries(emoji)
+        .filter(([_char, keywords]) =>
           searchTerms.some(term =>
             keywords.some(keyword => keyword.toLowerCase().includes(term)),
           ),
@@ -151,10 +151,42 @@ const defaultResultTypes = [
             name: keywords[0].replace(/_/g, ' '),
             path: `emoji:/${char}`,
             type: 'emoji',
-            isFavorite: false, // Default state, will be updated by UI components
+            isFavorite: false, // Will be enriched below
+            hasNotes: false, // Will be enriched below
           }
         })
         .slice(0, 24)
+
+      // No results, skip enrichment
+      if (baseResults.length === 0) {
+        return []
+      }
+
+      // Batch check favorites and notes status (single IPC call each instead of 2 per emoji)
+      try {
+        const paths = baseResults.map(e => e.path)
+        const [favResponse, notesResponse] = await Promise.all([
+          window.api.invoke(IPC_CHANNELS.FAVORITES_BATCH_CHECK, paths),
+          window.api.invoke(IPC_CHANNELS.NOTES_BATCH_CHECK, paths),
+        ])
+
+        // Enrich results with status
+        if (favResponse?.success) {
+          baseResults.forEach((e) => {
+            e.isFavorite = favResponse.favorites[e.path] || false
+          })
+        }
+        if (notesResponse?.success) {
+          baseResults.forEach((e) => {
+            e.hasNotes = notesResponse.notes[e.path] || false
+          })
+        }
+      }
+      catch (error) {
+        console.warn('Failed to enrich emoji with favorite/notes status:', error)
+      }
+
+      return baseResults
     },
     content: [],
     gridCols: 8,

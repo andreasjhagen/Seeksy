@@ -34,7 +34,9 @@ export const favoritesOperations = {
       getAll: {},
       add: {},
       remove: {},
+      updateSortOrder: {},
       findPath: null,
+      getMaxSortOrder: null,
     }
 
     // Create table-specific statements
@@ -45,25 +47,45 @@ export const favoritesOperations = {
         `SELECT path, isFavorite FROM ${table} WHERE path = ?`,
       )
 
+      // Order by favoriteSortOrder first (if set), then by favoriteAddedAt as fallback
       this._statements.getAll[table] = this.db.prepare(`
         SELECT *, '${type}' as type 
         FROM ${table} 
         WHERE isFavorite = 1 
-        ORDER BY favoriteAddedAt DESC
+        ORDER BY COALESCE(favoriteSortOrder, 999999999), favoriteAddedAt DESC
       `)
 
       this._statements.add[table] = this.db.prepare(`
         UPDATE ${table} 
-        SET isFavorite = 1, favoriteAddedAt = ?
+        SET isFavorite = 1, favoriteAddedAt = ?, favoriteSortOrder = ?
         WHERE path = ?
       `)
 
       this._statements.remove[table] = this.db.prepare(`
         UPDATE ${table}
-        SET isFavorite = 0, favoriteAddedAt = NULL
+        SET isFavorite = 0, favoriteAddedAt = NULL, favoriteSortOrder = NULL
+        WHERE path = ?
+      `)
+
+      this._statements.updateSortOrder[table] = this.db.prepare(`
+        UPDATE ${table}
+        SET favoriteSortOrder = ?
         WHERE path = ?
       `)
     }
+
+    // Get max sort order across all favorites tables
+    this._statements.getMaxSortOrder = this.db.prepare(`
+      SELECT MAX(maxOrder) as maxOrder FROM (
+        SELECT MAX(favoriteSortOrder) as maxOrder FROM files WHERE isFavorite = 1
+        UNION ALL
+        SELECT MAX(favoriteSortOrder) FROM folders WHERE isFavorite = 1
+        UNION ALL
+        SELECT MAX(favoriteSortOrder) FROM applications WHERE isFavorite = 1
+        UNION ALL
+        SELECT MAX(favoriteSortOrder) FROM emojis WHERE isFavorite = 1
+      )
+    `)
 
     // Combined query to find which table contains a path
     this._statements.findPath = this.db.prepare(`
@@ -174,14 +196,31 @@ export const favoritesOperations = {
         }
       })()
 
-      // Sort by favoriteAddedAt descending (most recent first)
-      favorites.sort((a, b) => (b.favoriteAddedAt || 0) - (a.favoriteAddedAt || 0))
+      // Sort by favoriteSortOrder first (lower = higher priority), then by favoriteAddedAt as fallback
+      favorites.sort((a, b) => {
+        const orderA = a.favoriteSortOrder ?? Number.MAX_SAFE_INTEGER
+        const orderB = b.favoriteSortOrder ?? Number.MAX_SAFE_INTEGER
+        if (orderA !== orderB)
+          return orderA - orderB
+        // Fallback to favoriteAddedAt descending (most recent first)
+        return (b.favoriteAddedAt || 0) - (a.favoriteAddedAt || 0)
+      })
 
       return { success: true, favorites }
     }
     catch (error) {
       return { success: false, error: error.message, favorites: [] }
     }
+  },
+
+  /**
+   * Get the next available sort order for a new favorite
+   * @private
+   * @returns {number} The next sort order value
+   */
+  _getNextSortOrder() {
+    const result = this._statements.getMaxSortOrder.get()
+    return (result?.maxOrder ?? -1) + 1
   },
 
   /**
@@ -194,15 +233,16 @@ export const favoritesOperations = {
     try {
       this._initStatements()
       const timestamp = Date.now()
+      const sortOrder = this._getNextSortOrder()
 
       // Handle emoji special case - may need to create the record first
       if (type === 'emoji' && path.startsWith('emoji:/')) {
-        return this._addEmojiToFavorites(path, timestamp)
+        return this._addEmojiToFavorites(path, timestamp, sortOrder)
       }
 
       // For all other types, just update the existing record
       const table = this._getTable(type)
-      const result = this._statements.add[table].run(timestamp, path)
+      const result = this._statements.add[table].run(timestamp, sortOrder, path)
 
       return {
         success: result.changes > 0,
@@ -220,7 +260,7 @@ export const favoritesOperations = {
    * Handle adding emoji to favorites with auto-creation
    * @private
    */
-  _addEmojiToFavorites(path, timestamp) {
+  _addEmojiToFavorites(path, timestamp, sortOrder) {
     const emoji = this.getEmoji(path)
     const char = path.replace('emoji:/', '')
 
@@ -232,12 +272,13 @@ export const favoritesOperations = {
         name: char,
         isFavorite: 1,
         favoriteAddedAt: timestamp,
+        favoriteSortOrder: sortOrder,
       })
       return { success: true, result: { changes: 1 }, isFavorite: true }
     }
 
     // Update existing emoji
-    const result = this._statements.add.emojis.run(timestamp, path)
+    const result = this._statements.add.emojis.run(timestamp, sortOrder, path)
     return { success: true, result, isFavorite: true }
   },
 
@@ -261,6 +302,31 @@ export const favoritesOperations = {
       return { success: true, isFavorite: false }
     }
     catch (error) {
+      return { success: false, error: error.message }
+    }
+  },
+
+  /**
+   * Reorder favorites by updating their sort order
+   * @param {Array<{path: string, type: string}>} orderedFavorites - Array of favorites in desired order
+   * @returns {object} Result of the operation
+   */
+  reorderFavorites(orderedFavorites) {
+    try {
+      this._initStatements()
+
+      this.db.transaction(() => {
+        for (let i = 0; i < orderedFavorites.length; i++) {
+          const { path, type } = orderedFavorites[i]
+          const table = this._getTable(type)
+          this._statements.updateSortOrder[table].run(i, path)
+        }
+      })()
+
+      return { success: true }
+    }
+    catch (error) {
+      console.error('Failed to reorder favorites:', error)
       return { success: false, error: error.message }
     }
   },

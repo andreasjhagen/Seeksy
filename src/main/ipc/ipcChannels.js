@@ -30,11 +30,14 @@ export const IPC = {
     FAVORITES_ADD: 'favorites:add',
     FAVORITES_REMOVE: 'favorites:remove',
     FAVORITES_CHECK: 'favorites:check',
+    FAVORITES_BATCH_CHECK: 'favorites:batch-check',
     FAVORITES_GET_ALL: 'favorites:get-all',
+    FAVORITES_REORDER: 'favorites:reorder',
 
     // Notes operations
     NOTES_SET: 'notes:set',
     NOTES_GET: 'notes:get',
+    NOTES_BATCH_CHECK: 'notes:batch-check',
 
     // Utils
     GET_FILE_ICON: 'file:get-icon',

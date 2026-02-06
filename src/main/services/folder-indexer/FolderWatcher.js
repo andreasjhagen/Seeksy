@@ -1,5 +1,5 @@
-import { stat } from 'node:fs/promises'
 import { EventEmitter } from 'node:events'
+import { stat } from 'node:fs/promises'
 import chokidar from 'chokidar'
 import { fileDB } from '../database/database.js'
 import { countFolderContent } from '../disk-reader/utils/countFiles.js'

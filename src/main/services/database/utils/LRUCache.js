@@ -29,7 +29,8 @@ export class LRUCache {
    * @private
    */
   _normalizeKey(key) {
-    if (!key) return key
+    if (!key)
+      return key
     // Normalize path separators and case for Windows compatibility
     let normalized = key.replace(/\\/g, '/')
     if (this.caseInsensitive) {

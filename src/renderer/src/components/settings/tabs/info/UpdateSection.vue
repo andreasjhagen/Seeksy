@@ -120,7 +120,7 @@ function installUpdate() {
 
 // Open GitHub releases page
 function openReleasesPage() {
-  window.open('https://github.com/andreasjhagen/Seeksy/releases')
+  window.open('https://github.com/andreasjhagen/Seeksy/releases', '_blank')
 }
 
 // Set up IPC listeners
@@ -297,12 +297,7 @@ onUnmounted(() => {
           >
             {{ t('settings.info.downloadUpdate') }}
           </button>
-          <button
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg cursor-pointer hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
-            @click="openReleasesPage"
-          >
-            {{ t('settings.info.viewOnGithub') }}
-          </button>
+
           <button
             class="inline-flex items-center justify-center w-9 h-9 text-gray-600 bg-gray-200 rounded-lg cursor-pointer hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
             :title="t('settings.info.checkForUpdates')"

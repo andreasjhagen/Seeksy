@@ -409,8 +409,10 @@ export class ThumbnailCache {
       ffmpeg(audioPath)
         .outputOptions([
           '-an', // Disable audio output
-          '-vcodec', 'mjpeg', // Use MJPEG codec for the image
-          '-vframes', '1', // Extract only one frame
+          '-vcodec',
+          'mjpeg', // Use MJPEG codec for the image
+          '-vframes',
+          '1', // Extract only one frame
         ])
         .output(outputPath)
         .on('end', resolve)

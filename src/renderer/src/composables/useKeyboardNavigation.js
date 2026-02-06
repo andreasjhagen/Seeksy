@@ -3,13 +3,26 @@ import { useSearchResultsStore } from '../stores/search-results-store'
 import { useSelectionStore } from '../stores/selection-store'
 import { useSettingsStore } from '../stores/settings-store'
 
+// Maximum cache size to prevent memory leaks
+const MAX_SELECTOR_CACHE_SIZE = 100
+
 export function useKeyboardNavigation() {
   const selectionStore = useSelectionStore()
   const searchStore = useSearchResultsStore()
   const settingsStore = useSettingsStore()
 
-  // Cache for DOM element selectors
+  // Cache for DOM element selectors with size limit
   const selectorCache = new Map()
+
+  /**
+   * Clear selector cache when it exceeds the maximum size
+   * This prevents memory leaks during extended application use
+   */
+  function trimSelectorCache() {
+    if (selectorCache.size > MAX_SELECTOR_CACHE_SIZE) {
+      selectorCache.clear()
+    }
+  }
 
   // Memoized computed property for visible sections to improve performance
   const visibleSections = computed(() => {
@@ -133,8 +146,9 @@ export function useKeyboardNavigation() {
       }
     }
 
-    // Cache the selector
+    // Cache the selector (with size limit to prevent memory leaks)
     if (selector) {
+      trimSelectorCache()
       selectorCache.set(cacheKey, selector)
     }
 

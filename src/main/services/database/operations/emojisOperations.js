@@ -23,8 +23,8 @@ export const emojisOperations = {
       )
 
       this._emojiStatements.upsertEmoji = this.db.prepare(
-        `INSERT INTO emojis (path, char, name, isFavorite, favoriteAddedAt)
-         VALUES (?, ?, ?, ?, ?)
+        `INSERT INTO emojis (path, char, name, isFavorite, favoriteAddedAt, favoriteSortOrder)
+         VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(path) DO UPDATE SET
          char = excluded.char,
          name = excluded.name`,
@@ -58,6 +58,7 @@ export const emojisOperations = {
         name: emoji.name || emoji.char,
         isFavorite: emoji.isFavorite || 0,
         favoriteAddedAt: emoji.isFavorite ? (emoji.favoriteAddedAt || Date.now()) : null,
+        favoriteSortOrder: emoji.favoriteSortOrder ?? null,
       }
 
       this._emojiStatements.upsertEmoji.run(
@@ -66,6 +67,7 @@ export const emojisOperations = {
         emojiData.name,
         emojiData.isFavorite,
         emojiData.favoriteAddedAt,
+        emojiData.favoriteSortOrder,
       )
 
       return {

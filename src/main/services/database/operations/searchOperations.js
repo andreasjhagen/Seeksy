@@ -143,7 +143,8 @@ export const searchOperations = {
         containsQuery,
         ...wordParams,
       )
-    } catch (error) {
+    }
+    catch (error) {
       console.error('quickSearch error:', error)
       // Return empty array instead of crashing
       return []

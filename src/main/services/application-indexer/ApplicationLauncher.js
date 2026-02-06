@@ -78,6 +78,9 @@ class ApplicationLauncher {
         }
       }
 
+      // Save favorite status before deleting applications
+      const savedFavorites = fileDB.getSystemAppFavorites()
+
       // Only delete non-custom applications
       await fileDB.resetSystemApplications()
 
@@ -88,6 +91,11 @@ class ApplicationLauncher {
         catch (error) {
           console.warn(`Failed to insert app ${app.path}:`, error.message)
         }
+      }
+
+      // Restore favorite status after re-indexing
+      if (savedFavorites && savedFavorites.length > 0) {
+        fileDB.restoreSystemAppFavorites(savedFavorites)
       }
 
       return this.applications

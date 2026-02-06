@@ -351,6 +351,17 @@ class FileDatabase {
       // Create index on description for faster search
       this.db.exec(`CREATE INDEX IF NOT EXISTS idx_applications_description ON applications(description)`)
 
+      // Migration: Add favoriteSortOrder column to all tables that support favorites
+      // This allows user-defined ordering of favorites via drag-and-drop
+      const tablesWithFavorites = ['files', 'folders', 'applications', 'emojis']
+      for (const table of tablesWithFavorites) {
+        const cols = this.db.pragma(`table_info(${table})`).map(col => col.name)
+        if (!cols.includes('favoriteSortOrder')) {
+          this.db.exec(`ALTER TABLE ${table} ADD COLUMN favoriteSortOrder INTEGER`)
+          logger.info(`Added column 'favoriteSortOrder' to ${table} table`)
+        }
+      }
+
       logger.debug('Database migrations completed')
     }
     catch (error) {

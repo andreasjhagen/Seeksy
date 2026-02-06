@@ -17,7 +17,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['refresh', 'contextmenu', 'copy', 'open-file', 'show-in-directory'])
+const emit = defineEmits(['refresh', 'contextmenu', 'copy', 'open-file', 'show-in-directory', 'launch-app'])
 
 const { t } = useI18n()
 
@@ -142,8 +142,9 @@ function handleClick() {
     emit('open-file', props.item)
   }
   else {
+    // This is an application - use launch-app event
     window.api.invoke(IPC_CHANNELS.HIDE_MAIN_WINDOW)
-    emit('open-file', props.item)
+    emit('launch-app', props.item)
   }
 }
 

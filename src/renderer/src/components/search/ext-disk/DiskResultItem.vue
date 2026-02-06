@@ -80,9 +80,9 @@ function capitalizeFirstLetter(string) {
   <div
     :title="itemTitle"
     class="group h-16 p-1.5 transition-all duration-300 border-2 cursor-pointer rounded-xl focus:outline-hidden relative z-10
-          hover:h-20 hover:z-20 hover:shadow-md
+          hover:z-20 hover:shadow-md
           bg-gray-50 dark:bg-gray-700 border-transparent
-          hover:bg-gray-100 dark:hover:bg-gray-700/80"
+          hover:bg-gray-100 dark:hover:bg-gray-700/80 hover:border-gray-300 dark:hover:border-gray-500"
     :class="{
       'bg-accent-200 border-accent-400 dark:bg-accent-700 dark:border-accent-400': isSelected,
       'bg-gray-50 dark:bg-gray-700 border-transparent': !isSelected,
@@ -93,7 +93,7 @@ function capitalizeFirstLetter(string) {
     <div class="flex items-start space-x-3">
       <!-- Left: Thumbnail/Icon -->
       <div
-        class="w-12 h-12 overflow-hidden transition-all duration-300 origin-top-left transform rounded-lg shadow shrink-0 group-hover:w-16 group-hover:h-16"
+        class="w-12 h-12 overflow-hidden transition-all duration-300 origin-center transform rounded-lg shadow shrink-0 group-hover:scale-105"
         :class="{ 'bg-amber-200 dark:bg-amber-800/30': getFileType(file) === 'directory' }"
       >
         <PopoverThumbnail
@@ -116,16 +116,17 @@ function capitalizeFirstLetter(string) {
           ]"
         >
           <template v-if="getFileType(file) === 'directory'">
-            <span class="absolute material-symbols-outlined text-amber-600 dark:text-amber-300/80 transition-all duration-300 group-hover:text-[40px]" style="font-size: 32px;">
+            <span class="absolute material-symbols-outlined text-amber-600 dark:text-amber-300/80" style="font-size: 32px;">
               folder
             </span>
-            <span class="relative z-10 text-xs font-semibold transition-all duration-300 text-amber-700 dark:text-amber-200 group-hover:text-sm" style="margin-top: 2px;">
+            <span class="relative z-10 text-xs font-semibold text-amber-700 dark:text-amber-200" style="margin-top: 2px;">
               {{ capitalizeFirstLetter(file.name.charAt(0)) }}
             </span>
           </template>
           <span
             v-else
-            class="text-gray-400 material-symbols-outlined transition-all duration-300 group-hover:text-[32px]"
+            class="text-gray-400 material-symbols-outlined"
+            style="font-size: 24px"
           >
             {{ getMimeIcon() }}
           </span>

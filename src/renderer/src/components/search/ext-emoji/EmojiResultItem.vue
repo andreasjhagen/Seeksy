@@ -1,7 +1,6 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { IPC_CHANNELS } from '../../../../../main/ipc/ipcChannels'
 
 const props = defineProps({
   emoji: {
@@ -18,49 +17,13 @@ const emit = defineEmits(['copy', 'contextmenu'])
 
 const { t } = useI18n()
 
-const isFavorite = ref(false)
-const hasNotes = ref(false)
+// Use data from enriched emoji props (batch-fetched during search)
+// This eliminates 2 IPC calls per emoji per render
+const isFavorite = computed(() => props.emoji.isFavorite || false)
+const hasNotes = computed(() => props.emoji.hasNotes || false)
 
 // Create a unique path identifier for the emoji to use with favorite system
-const emojiPath = computed(() => `emoji:/${props.emoji.char}`)
-
-// Check statuses when emoji changes
-watch(() => props.emoji, async () => {
-  await checkFavoriteStatus()
-  await checkNotesStatus()
-}, { immediate: true })
-
-// Check favorite status on mount
-onMounted(async () => {
-  await checkFavoriteStatus()
-  await checkNotesStatus()
-})
-
-async function checkFavoriteStatus() {
-  try {
-    const response = await window.api.invoke(
-      IPC_CHANNELS.FAVORITES_CHECK,
-      emojiPath.value,
-    )
-    isFavorite.value = response.isFavorite || false
-  }
-  catch (error) {
-    console.error('Failed to check favorite status:', error)
-  }
-}
-
-async function checkNotesStatus() {
-  try {
-    const response = await window.api.invoke(
-      IPC_CHANNELS.NOTES_GET,
-      emojiPath.value,
-    )
-    hasNotes.value = !!response?.notes
-  }
-  catch (error) {
-    console.error('Failed to check notes status:', error)
-  }
-}
+const emojiPath = computed(() => props.emoji.path || `emoji:/${props.emoji.char}`)
 
 function handleContextMenu(event) {
   event.preventDefault()
@@ -76,7 +39,7 @@ function handleContextMenu(event) {
 
 <template>
   <button
-    class="relative z-10 flex items-center justify-center p-2 text-2xl transition-all duration-300 bg-white border border-gray-200 rounded-lg cursor-pointer group hover:z-20 hover:scale-110 dark:bg-gray-700 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
+    class="relative z-10 flex items-center justify-center p-2 text-2xl transition-all duration-300 bg-white border border-gray-200 rounded-lg cursor-pointer group hover:z-20 hover:scale-105 dark:bg-gray-700 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
     :class="[
       isSelected
         ? 'bg-accent-50 border-accent-300 ring-2 ring-accent-400 dark:bg-accent-700 dark:border-accent-800'
@@ -109,6 +72,6 @@ function handleContextMenu(event) {
         sticky_note_2
       </span>
     </div>
-    <span class="text-2xl transition-transform duration-300 origin-center group-hover:scale-150" :title="emoji.name">{{ emoji.char }}</span>
+    <span class="text-2xl transition-transform duration-300 origin-center group-hover:scale-125" :title="emoji.name">{{ emoji.char }}</span>
   </button>
 </template>
