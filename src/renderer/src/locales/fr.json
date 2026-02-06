@@ -77,7 +77,8 @@
       "autostartDescription": "Lancer Seeksy au démarrage de l'ordinateur",
       "searchShortcut": "Raccourci de recherche",
       "searchShortcutDescription": "Raccourci clavier global pour ouvrir la recherche",
-      "searchShortcutPlaceholder": "Appuyez sur les touches...",
+      "searchShortcutPlaceholder": "Cliquez pour définir",
+      "pressKeys": "Appuyez sur les touches...",
       "language": "Langue",
       "languageDescription": "Sélectionner la langue d'affichage"
     },

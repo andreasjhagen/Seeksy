@@ -77,7 +77,8 @@
       "autostartDescription": "Avvia Seeksy all'avvio del computer",
       "searchShortcut": "Scorciatoia ricerca",
       "searchShortcutDescription": "Scorciatoia da tastiera globale per aprire la ricerca",
-      "searchShortcutPlaceholder": "Premi i tasti...",
+      "searchShortcutPlaceholder": "Clicca per impostare",
+      "pressKeys": "Premi i tasti...",
       "language": "Lingua",
       "languageDescription": "Seleziona la lingua dell'interfaccia"
     },

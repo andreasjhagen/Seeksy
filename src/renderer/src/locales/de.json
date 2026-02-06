@@ -77,7 +77,8 @@
       "autostartDescription": "Seeksy beim Hochfahren des Computers starten",
       "searchShortcut": "Such-Tastenkürzel",
       "searchShortcutDescription": "Globales Tastenkürzel zum Öffnen der Suche",
-      "searchShortcutPlaceholder": "Tasten drücken...",
+      "searchShortcutPlaceholder": "Zum Setzen klicken",
+      "pressKeys": "Tasten drücken...",
       "language": "Sprache",
       "languageDescription": "Wähle die Anzeigesprache für die Oberfläche"
     },

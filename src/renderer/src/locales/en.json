@@ -77,7 +77,8 @@
       "autostartDescription": "Launch Seeksy when your computer starts",
       "searchShortcut": "Search Shortcut",
       "searchShortcutDescription": "Global keyboard shortcut to open search",
-      "searchShortcutPlaceholder": "Press keys...",
+      "searchShortcutPlaceholder": "Click to set",
+      "pressKeys": "Press keys...",
       "language": "Language",
       "languageDescription": "Select the display language for the interface"
     },

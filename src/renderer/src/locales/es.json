@@ -77,7 +77,8 @@
       "autostartDescription": "Iniciar Seeksy cuando se enciende el ordenador",
       "searchShortcut": "Atajo de búsqueda",
       "searchShortcutDescription": "Atajo de teclado global para abrir la búsqueda",
-      "searchShortcutPlaceholder": "Presiona las teclas...",
+      "searchShortcutPlaceholder": "Clic para configurar",
+      "pressKeys": "Presiona las teclas...",
       "language": "Idioma",
       "languageDescription": "Seleccionar el idioma de la interfaz"
     },
