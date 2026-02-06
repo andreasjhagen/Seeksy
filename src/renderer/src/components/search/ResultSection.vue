@@ -197,36 +197,36 @@ function onDrop(event) {
 <template>
   <div
     ref="sectionRef"
-    class="space-y-2 transition-colors duration-200 result-section"
+    class="transition-colors duration-200 result-section "
     :class="{
       'opacity-70 bg-blue-50 dark:bg-blue-900/20': isDragging && props.resultType === draggedSectionType.value,
       'bg-blue-100/50 dark:bg-blue-800/30 ring-2 ring-blue-300 dark:ring-blue-700 rounded-lg p-2': isDropTarget,
     }"
     :data-section-type="resultType"
-    draggable="true"
-    @dragstart="onDragStart"
-    @dragend="onDragEnd"
     @dragover="onDragOver"
     @dragleave="onDragLeave"
     @drop="onDrop"
   >
-    <div class="flex items-center justify-between section-header">
-      <h3
-        class="flex items-center gap-1 text-sm font-medium text-gray-500 cursor-move dark:text-gray-400"
-        :class="{ 'opacity-60': isDragging }"
-      >
-        <span class="flex-shrink-0 text-base transition-opacity duration-200 opacity-0 drag-handle material-symbols-outlined">drag_indicator</span>
-        {{ title }}
-      </h3>
-      <button
-        class="flex items-center justify-center w-6 h-6 p-1 text-gray-600 transition-colors transition-opacity duration-200 opacity-0 cursor-pointer collapse-toggle hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
-        :class="{ 'opacity-100': collapsed }"
-        :title="collapsed ? t('tooltips.expandSection') : t('tooltips.collapseSection')"
-        @click="toggleCollapse"
-      >
+    <!-- Header row: fully clickable for collapse, fully draggable for reorder -->
+    <div
+      class="section-header"
+      :class="{ 'opacity-60': isDragging }"
+      :title="collapsed ? t('tooltips.expandSection') : t('tooltips.collapseSection')"
+      draggable="true"
+      @dragstart="onDragStart"
+      @dragend="onDragEnd"
+      @click="toggleCollapse"
+    >
+      <div class="header-content">
+        <span class="drag-handle material-symbols-outlined">drag_indicator</span>
+        <h3 class="section-title">
+          {{ title }}
+        </h3>
+      </div>
+      <div class="collapse-indicator" :class="{ 'is-collapsed': collapsed }">
         <span v-if="collapsed" class="text-base leading-none material-symbols-outlined">expand_more</span>
         <span v-else class="text-base leading-none material-symbols-outlined">expand_less</span>
-      </button>
+      </div>
     </div>
 
     <div v-if="!collapsed" class="grid" :class="[gridCols, gridRows, gridGap]">
@@ -249,15 +249,85 @@ function onDrop(event) {
   transition: all 0.2s ease-in-out;
 }
 
-/* Show drag handle and collapse toggle only on section hover */
-.result-section:hover .section-header .drag-handle,
-.result-section:hover .section-header .collapse-toggle {
+/* Section header - fully clickable and draggable */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.375rem 0.5rem;
+  margin-bottom: 0.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  user-select: none;
+}
+
+.section-header:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+:root.dark .section-header:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.section-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgb(107 114 128);
+}
+
+:root.dark .section-title {
+  color: rgb(156 163 175);
+}
+
+.drag-handle {
+  flex-shrink: 0;
+  font-size: 1rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  cursor: grab;
+  color: rgb(156 163 175);
+}
+
+:root.dark .drag-handle {
+  color: rgb(107 114 128);
+}
+
+.collapse-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  color: rgb(75 85 99);
+}
+
+:root.dark .collapse-indicator {
+  color: rgb(156 163 175);
+}
+
+/* Show drag handle and collapse toggle on hover */
+.section-header:hover .drag-handle,
+.section-header:hover .collapse-indicator {
   opacity: 1;
+}
+
+/* Always show collapse indicator when section is collapsed */
+.collapse-indicator.is-collapsed {
+  opacity: 0.7;
 }
 
 /* Keep them visible during drag operations */
 .result-section.dragging .drag-handle,
-.result-section.dragging .collapse-toggle {
+.result-section.dragging .collapse-indicator {
   opacity: 1;
 }
 </style>
