@@ -56,7 +56,7 @@ defineExpose({ virtualListRef })
         data-virtual-list
         class="max-h-[40vh] scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent hover:scrollbar-thumb-gray-500 dark:hover:scrollbar-thumb-gray-500"
       >
-        <div v-bind="wrapperProps" class="flex flex-col gap-2 hover:mb-4">
+        <div v-bind="wrapperProps" class="flex flex-col gap-2 px-0.5">
           <DiskResultItem
             v-for="{ index, data: item } in list"
             :id="`result-item-${item.path}`"

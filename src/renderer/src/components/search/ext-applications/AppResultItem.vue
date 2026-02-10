@@ -55,37 +55,27 @@ function handleContextMenu(event) {
 
 <template>
   <div
-    class="relative z-10 flex items-center p-2 transition-all duration-300 transform border rounded-lg cursor-pointer group focus:outline-hidden origin-left hover:z-20 hover:scale-105 hover:bg-gray-100 hover:border-gray-200 dark:hover:bg-gray-700/50 dark:hover:border-gray-600"
-    :class="[
-      isSelected
-        ? 'bg-accent-50 border-accent-300 ring-2 ring-accent-400 dark:bg-accent-700 dark:border-accent-800'
-        : 'border-transparent',
-    ]"
-    :title="`${displayName}\n${getDisplayPath(app)}`"
-    :tabindex="props.tabindex || '0'"
-    :app="JSON.stringify(app)"
-    :data-path="app.path"
-    data-result-type="application"
-    @click="handleClick"
-    @keydown.enter="handleClick"
+    class="relative z-10 flex items-center p-2 transition-all duration-300 border rounded-lg cursor-pointer group focus:outline-hidden bg-gray-50 dark:bg-gray-700 hover:z-20 hover:scale-105 hover:shadow-md hover:bg-gray-100 hover:border-gray-300
+           dark:hover:bg-gray-700/80 dark:hover:border-gray-600" :class="[
+            isSelected
+              ? 'bg-accent-50 border-accent-300 ring-2 ring-accent-400 dark:bg-accent-700 dark:border-accent-800'
+              : 'border-transparent',
+          ]" :title="`${displayName}\n${getDisplayPath(app)}`" :tabindex="props.tabindex || '0'" :app="JSON.stringify(app)"
+    :data-path="app.path" data-result-type="application" @click="handleClick" @keydown.enter="handleClick"
     @contextmenu="handleContextMenu"
   >
     <!-- Indicators -->
     <div class="absolute flex gap-1 right-1">
       <!-- Favorite indicator -->
       <span
-        v-if="app.isFavorite"
-        class="text-yellow-500 material-symbols-outlined"
-        style="font-size: 14px;"
+        v-if="app.isFavorite" class="text-yellow-500 material-symbols-outlined" style="font-size: 14px;"
         :title="t('tooltips.favorite')"
       >
         star
       </span>
       <!-- Notes indicator -->
       <span
-        v-if="app.notes"
-        class="text-gray-400 material-symbols-outlined"
-        style="font-size: 14px;"
+        v-if="app.notes" class="text-gray-400 material-symbols-outlined" style="font-size: 14px;"
         :title="t('tooltips.hasNotes')"
       >
         sticky_note_2
@@ -94,11 +84,9 @@ function handleContextMenu(event) {
 
     <div class="w-8 h-8 mr-3 shrink-0">
       <img
-        v-if="app.icon && !hasIconError"
-        :src="app.icon"
+        v-if="app.icon && !hasIconError" :src="app.icon"
         class="object-contain w-full h-full transition-transform duration-300 origin-center group-hover:scale-125"
-        :alt="displayName"
-        @error="handleIconError"
+        :alt="displayName" @error="handleIconError"
       >
       <div
         v-else
@@ -111,7 +99,10 @@ function handleContextMenu(event) {
       <span class="text-sm font-medium text-gray-900 truncate dark:text-white">
         {{ displayName }}
       </span>
-      <span class="text-xs text-gray-600 truncate dark:text-gray-400" :class="isSelected ? 'text-black dark:text-white' : ''">{{
+      <span
+        class="text-xs text-gray-600 truncate dark:text-gray-400"
+        :class="isSelected ? 'text-black dark:text-white' : ''"
+      >{{
         getDisplayPath(app)
       }}</span>
     </div>
