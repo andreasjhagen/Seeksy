@@ -201,6 +201,34 @@ export function useKeyboardNavigation() {
   }
 
   /**
+   * Compare items by their unique identifiers (path, id, or char)
+   * @param {object} item1 - First item to compare
+   * @param {object} item2 - Second item to compare
+   * @returns {boolean} - True if items match
+   */
+  function compareItems(item1, item2) {
+    if (item1 === item2) return true
+    if (!item1 || !item2) return false
+    
+    // Compare by path (for disk items and applications)
+    if (item1.path && item2.path) {
+      return item1.path === item2.path
+    }
+    
+    // Compare by char (for emojis)
+    if (item1.char && item2.char) {
+      return item1.char === item2.char
+    }
+    
+    // Compare by id (for other items)
+    if (item1.id && item2.id) {
+      return item1.id === item2.id
+    }
+    
+    return false
+  }
+
+  /**
    * Move selection up or down within the current section or to adjacent sections
    */
   function navigateVertical(direction) {
@@ -216,7 +244,7 @@ export function useKeyboardNavigation() {
     if (!items.length)
       return false
 
-    const currentIndex = items.findIndex(item => item === selectionStore.selectedItem)
+    const currentIndex = items.findIndex(item => compareItems(item, selectionStore.selectedItem))
     if (currentIndex === -1)
       return initializeSelection()
 
@@ -245,7 +273,7 @@ export function useKeyboardNavigation() {
               prevSectionItems[prevSectionItems.length - 1],
               prevSection,
             )
-            scrollItemIntoView(prevSectionItems[prevSectionItems.length - 1], true)
+            scrollItemIntoView(prevSectionItems[prevSectionItems.length - 1], false)
             return true
           }
         }
@@ -260,7 +288,7 @@ export function useKeyboardNavigation() {
               lastSectionItems[lastSectionItems.length - 1],
               lastSection,
             )
-            scrollItemIntoView(lastSectionItems[lastSectionItems.length - 1], true)
+            scrollItemIntoView(lastSectionItems[lastSectionItems.length - 1], false)
             return true
           }
         }
@@ -286,7 +314,7 @@ export function useKeyboardNavigation() {
           if (nextSectionItems.length > 0) {
             // Select the first item in the next section
             selectionStore.setSelectedItem(nextSectionItems[0], nextSection)
-            scrollItemIntoView(nextSectionItems[0], true)
+            scrollItemIntoView(nextSectionItems[0], false)
             return true
           }
         }
@@ -298,7 +326,7 @@ export function useKeyboardNavigation() {
           if (firstSectionItems.length > 0) {
             // Select the first item in the first section
             selectionStore.setSelectedItem(firstSectionItems[0], firstSection)
-            scrollItemIntoView(firstSectionItems[0], true)
+            scrollItemIntoView(firstSectionItems[0], false)
             return true
           }
         }
@@ -318,7 +346,7 @@ export function useKeyboardNavigation() {
     // Only update if changed
     if (newIndex !== currentIndex) {
       selectionStore.setSelectedItem(items[newIndex], selectionStore.selectedSection)
-      scrollItemIntoView(items[newIndex], true)
+      scrollItemIntoView(items[0], false)
       return true
     }
 
@@ -341,7 +369,7 @@ export function useKeyboardNavigation() {
     if (!items.length)
       return false
 
-    const currentIndex = items.findIndex(item => item === selectionStore.selectedItem)
+    const currentIndex = items.findIndex(item => compareItems(item, selectionStore.selectedItem))
     if (currentIndex === -1)
       return initializeSelection()
 
@@ -366,7 +394,7 @@ export function useKeyboardNavigation() {
               prevSectionItems[prevSectionItems.length - 1],
               prevSection,
             )
-            scrollItemIntoView(prevSectionItems[prevSectionItems.length - 1], true)
+            scrollItemIntoView(prevSectionItems[prevSectionItems.length - 1], false)
             return true
           }
         }
@@ -381,7 +409,7 @@ export function useKeyboardNavigation() {
               lastSectionItems[lastSectionItems.length - 1],
               lastSection,
             )
-            scrollItemIntoView(lastSectionItems[lastSectionItems.length - 1], true)
+            scrollItemIntoView(lastSectionItems[lastSectionItems.length - 1], false)
             return true
           }
         }
@@ -406,7 +434,7 @@ export function useKeyboardNavigation() {
           if (nextSectionItems.length > 0) {
             // Select the first item in the next section
             selectionStore.setSelectedItem(nextSectionItems[0], nextSection)
-            scrollItemIntoView(nextSectionItems[0], true)
+            scrollItemIntoView(nextSectionItems[0], false)
             return true
           }
         }
@@ -418,7 +446,7 @@ export function useKeyboardNavigation() {
           if (firstSectionItems.length > 0) {
             // Select the first item in the first section
             selectionStore.setSelectedItem(firstSectionItems[0], firstSection)
-            scrollItemIntoView(firstSectionItems[0], true)
+            scrollItemIntoView(firstSectionItems[0], false)
             return true
           }
         }
@@ -431,7 +459,7 @@ export function useKeyboardNavigation() {
     // Only update if changed
     if (newIndex !== currentIndex) {
       selectionStore.setSelectedItem(items[newIndex], selectionStore.selectedSection)
-      scrollItemIntoView(items[newIndex], true)
+      scrollItemIntoView(items[newIndex], false)
       return true
     }
 
@@ -465,7 +493,7 @@ export function useKeyboardNavigation() {
 
     if (items.length > 0) {
       selectionStore.setSelectedItem(items[0], newSection)
-      scrollItemIntoView(items[0], true)
+      scrollItemIntoView(items[0], false)
       return true
     }
 

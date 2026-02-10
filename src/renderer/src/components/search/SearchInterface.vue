@@ -4,7 +4,9 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { IPC_CHANNELS } from '../../../../main/ipc/ipcChannels'
 import { useKeyboardNavigation } from '../../composables/useKeyboardNavigation'
+import { useSearchActions } from '../../composables/useSearchActions'
 import { useSearchResultsStore } from '../../stores/search-results-store'
+import { useSelectionStore } from '../../stores/selection-store'
 import OpenSettingsButton from './OpenSettingsButton.vue'
 
 const emit = defineEmits(['toggle-search-mode'])
@@ -19,8 +21,10 @@ const searchQuery = computed({
   set: value => searchStore.setQuery(value),
 })
 
-const { focusResults, initializeSelection } = useKeyboardNavigation()
+const { focusResults, initializeSelection, activateSelectedItem } = useKeyboardNavigation()
 const { hasAnyResults } = storeToRefs(searchStore)
+const selectionStore = useSelectionStore()
+const { handleLaunch, handleOpenFile, handleCopyEmoji } = useSearchActions()
 
 // File type filter configuration with icons
 const fileTypeFilters = [
@@ -71,6 +75,42 @@ async function handleFocusResults(event) {
   }
 }
 
+// Handle Enter key in search input
+async function handleEnterKey(event) {
+  event.preventDefault()
+
+  // If we have results, focus them and activate first item
+  if (hasAnyResults.value) {
+    // Focus the results container
+    await focusResults()
+
+    // Ensure an item is selected
+    if (!selectionStore.selectedItem) {
+      initializeSelection()
+    }
+
+    // Activate the selected item
+    const selectedItem = activateSelectedItem()
+    if (selectedItem) {
+      // Determine action based on item type
+      const resultType = searchStore.getResultTypeByName(selectionStore.selectedSection)
+      if (resultType) {
+        switch (resultType.name) {
+          case 'disk':
+            handleOpenFile(selectedItem)
+            break
+          case 'application':
+            handleLaunch(selectedItem)
+            break
+          case 'emoji':
+            handleCopyEmoji(selectedItem.char)
+            break
+        }
+      }
+    }
+  }
+}
+
 defineExpose({
   search: searchStore.search,
 })
@@ -92,6 +132,7 @@ defineExpose({
             :placeholder="t('search.placeholder')"
             class="flex-1 p-2 text-gray-800 placeholder-gray-400 bg-transparent border-none outline-hidden dark:text-gray-100 dark:placeholder-gray-500"
             @input="searchStore.debouncedSearch"
+            @keydown.enter="handleEnterKey"
             @keydown.down.prevent="handleFocusResults"
             @keydown.tab.prevent="handleFocusResults"
           >

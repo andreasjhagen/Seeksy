@@ -84,7 +84,7 @@ function capitalizeFirstLetter(string) {
           bg-gray-50 dark:bg-gray-700 border-transparent
           hover:bg-gray-100 dark:hover:bg-gray-700/80 hover:border-gray-300 dark:hover:border-gray-500"
     :class="{
-      'bg-accent-200 border-accent-400 dark:bg-accent-700 dark:border-accent-400': isSelected,
+      'bg-accent-50 border-accent-300 ring-2 ring-accent-400 dark:bg-accent-700 dark:border-accent-800': isSelected,
       'bg-gray-50 dark:bg-gray-700 border-transparent': !isSelected,
     }"
     @click.stop="showInDirectory(file.path)"

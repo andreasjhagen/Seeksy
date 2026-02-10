@@ -191,10 +191,16 @@ function handleSectionReorder({ from, to }) {
 
 /**
  * Execute action for the currently selected item
+ * If no item is selected, select and activate the first item
  */
 function handleSelectedItem() {
-  if (!selectionStore.selectedItem)
-    return
+  // If no item is selected, initialize selection and activate the first item
+  if (!selectionStore.selectedItem) {
+    const initialized = initializeSelection()
+    if (!initialized || !selectionStore.selectedItem) {
+      return
+    }
+  }
 
   const resultType = searchStore.getResultTypeByName(selectionStore.selectedSection)
   if (!resultType)
