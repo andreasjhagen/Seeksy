@@ -81,7 +81,7 @@ function capitalizeFirstLetter(string) {
     :title="itemTitle"
     class="group h-16 p-1.5 transition-all duration-300 border rounded-lg cursor-pointer focus:outline-hidden relative z-10
           bg-gray-50 dark:bg-gray-700
-          hover:z-20 hover:shadow-md hover:bg-gray-100 hover:border-gray-300
+          hover:z-20 hover:scale-102 hover:shadow-md hover:bg-gray-100 hover:border-gray-300
           dark:hover:bg-gray-700/80 dark:hover:border-gray-600"
     :class="{
       'bg-accent-50 border-accent-300 ring-2 ring-accent-400 dark:bg-accent-700 dark:border-accent-800': isSelected,
