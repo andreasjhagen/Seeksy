@@ -207,24 +207,23 @@ export function useKeyboardNavigation() {
    * @returns {boolean} - True if items match
    */
   function compareItems(item1, item2) {
-    if (item1 === item2) return true
-    if (!item1 || !item2) return false
-    
+    if (item1 === item2)
+      return true
+    if (!item1 || !item2)
+      return false
+
     // Compare by path (for disk items and applications)
-    if (item1.path && item2.path) {
+    if (item1.path && item2.path)
       return item1.path === item2.path
-    }
-    
+
     // Compare by char (for emojis)
-    if (item1.char && item2.char) {
+    if (item1.char && item2.char)
       return item1.char === item2.char
-    }
-    
+
     // Compare by id (for other items)
-    if (item1.id && item2.id) {
+    if (item1.id && item2.id)
       return item1.id === item2.id
-    }
-    
+
     return false
   }
 

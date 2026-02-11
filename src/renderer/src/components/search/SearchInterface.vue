@@ -9,10 +9,10 @@ import { useSearchResultsStore } from '../../stores/search-results-store'
 import { useSelectionStore } from '../../stores/selection-store'
 import OpenSettingsButton from './OpenSettingsButton.vue'
 
-const emit = defineEmits(['toggle-search-mode'])
+const _emit = defineEmits(['toggle-search-mode'])
 const { t } = useI18n()
 const searchStore = useSearchResultsStore()
-const { filters, isLoading, isFilteredMode } = storeToRefs(searchStore)
+const { filters, isFilteredMode } = storeToRefs(searchStore)
 const { hasActiveFilters } = storeToRefs(searchStore)
 
 const searchInput = ref(null)

@@ -57,10 +57,10 @@ defineExpose({ scrollElementRef })
       <div
         ref="scrollElementRef"
         data-virtual-list
-        class="max-h-[40vh] overflow-visible scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent hover:scrollbar-thumb-gray-500 dark:hover:scrollbar-thumb-gray-500"
+        class="max-h-[40vh] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent hover:scrollbar-thumb-gray-500 dark:hover:scrollbar-thumb-gray-500"
       >
         <div
-          class="relative px-0.5"
+          class="relative px-2"
           :style="{
             height: `${virtualizer.getTotalSize()}px`,
           }"
@@ -68,7 +68,7 @@ defineExpose({ scrollElementRef })
           <div
             v-for="virtualRow in virtualizer.getVirtualItems()"
             :key="virtualRow.key"
-            class="absolute top-0 left-0 w-full"
+            class="absolute top-0 left-0 w-full px-1"
             :style="{
               height: `${virtualRow.size}px`,
               transform: `translateY(${virtualRow.start}px)`,
