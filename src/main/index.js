@@ -438,6 +438,25 @@ function initializeHandlers(indexer) {
   app._handlers = handlers
 }
 
+// === Single Instance Lock ===
+// Prevent multiple instances of the app
+const gotTheLock = app.requestSingleInstanceLock()
+
+if (!gotTheLock) {
+  // Another instance is already running, quit this one
+  app.quit()
+}
+else {
+  // This is the primary instance
+  app.on('second-instance', () => {
+    // When a second instance tries to start, focus the existing window
+    if (mainWindow) {
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  })
+}
+
 // === App Initialization ===
 app.whenReady().then(() => {
   // Set up error handlers using the crash reporter service
