@@ -23,6 +23,7 @@ export const IPC = {
     SHOW_APP_DATA_EXPLORER: 'disk-reader:show-app-data-explorer',
     COUNT_FOLDER_FILES: 'disk-reader:count-folder-files',
     GET_FILE_CONTENT: 'disk-reader:get-file-content',
+    OPEN_EXTERNAL: 'system:open-external',
     CLEAR_THUMBNAIL_CACHE: 'disk-reader:clear-thumbnail-cache',
     GET_THUMBNAIL_CACHE_STATS: 'disk-reader:get-thumbnail-cache-stats',
 
@@ -91,7 +92,6 @@ export const IPC = {
   SYSTEM: {
     // System info and updates
     GET_SYSTEM_INFO: 'system:get-info',
-    CHECK_FOR_UPDATES: 'system:check-updates',
     SET_AUTO_START: 'system:set-auto-start',
     GET_AUTO_START: 'system:get-auto-start',
     SHOW_NOTIFICATION: 'system:show-notification',

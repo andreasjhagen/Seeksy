@@ -170,7 +170,7 @@ export class DatabaseItemHandler extends BaseHandler {
    * Batch check if multiple items are in favorites
    * @param {Event} _ - The IPC event (unused)
    * @param {string[]} itemPaths - Array of paths to check
-   * @returns {Promise<Object<string, boolean>>} Map of path to favorite status
+   * @returns {Promise<{[key: string]: boolean}>} Map of path to favorite status
    */
   async handleFavoriteBatchCheck(_, itemPaths) {
     try {
@@ -202,7 +202,7 @@ export class DatabaseItemHandler extends BaseHandler {
    * Batch check if multiple items have notes
    * @param {Event} _ - The IPC event (unused)
    * @param {string[]} itemPaths - Array of paths to check
-   * @returns {Promise<Object<string, boolean>>} Map of path to notes status
+   * @returns {Promise<{[key: string]: boolean}>} Map of path to notes status
    */
   async handleNotesBatchCheck(_, itemPaths) {
     try {

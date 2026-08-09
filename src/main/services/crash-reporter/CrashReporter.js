@@ -130,6 +130,9 @@ class CrashReporterService {
   setupRendererHandlers(window, windowName) {
     // Detect when renderer process crashes
     window.webContents.on('render-process-gone', (event, details) => {
+      if (details.reason === 'clean-exit') {
+        return
+      }
       console.error(`Renderer process gone (${windowName}):`, details)
       this.writeCrashLog('renderer-crash', new Error(`Renderer crashed: ${details.reason}`), {
         windowName,

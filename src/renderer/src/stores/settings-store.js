@@ -82,24 +82,7 @@ const DEFAULT_SETTINGS = {
 export const useSettingsStore = defineStore('settings', () => {
   // Use default settings as initial state
   const settings = ref({ ...DEFAULT_SETTINGS })
-
-  // Create a batch update queue to reduce IPC calls
-  const updateQueue = new Map()
-  let updateTimer = null
-
-  /**
-   * Process batched settings updates
-   */
-  const processBatchUpdates = () => {
-    if (updateQueue.size === 0)
-      return
-
-    const updates = Object.fromEntries(updateQueue)
-    updateQueue.clear()
-
-    // Send all updates in a single IPC call
-    window.api.invoke(IPC_CHANNELS.SETTINGS_BATCH_UPDATE, updates)
-  }
+  const lastError = ref('')
 
   /**
    * Initialize settings from main process
@@ -146,6 +129,8 @@ export const useSettingsStore = defineStore('settings', () => {
    * @returns {Promise} - Result of the operation
    */
   const updateSetting = async (key, value) => {
+    const previousValue = structuredClone(getNestedValue(settings.value, key))
+    lastError.value = ''
     try {
       // Update local state immediately for responsive UI
       if (key.includes('.')) {
@@ -157,19 +142,17 @@ export const useSettingsStore = defineStore('settings', () => {
         settings.value[key] = value
       }
 
-      // Add to batch update queue
-      updateQueue.set(key, value)
-
-      // Debounce updates to reduce IPC calls
-      clearTimeout(updateTimer)
-      updateTimer = setTimeout(processBatchUpdates, 300)
-
-      // For immediate feedback when needed
-      return window.api.invoke(IPC_CHANNELS.SETTINGS_SET, key, value)
+      const result = await window.api.invoke(IPC_CHANNELS.SETTINGS_SET, key, value)
+      if (!result?.success) {
+        throw new Error(result?.error || `Unable to save setting "${key}"`)
+      }
+      return result
     }
     catch (error) {
+      setNestedValue(settings.value, key, previousValue)
       console.error(`Failed to update setting ${key}:`, error)
-      throw error // Propagate error to caller
+      lastError.value = error.message || `Unable to save setting "${key}"`
+      return { success: false, error: lastError.value }
     }
   }
 
@@ -179,28 +162,10 @@ export const useSettingsStore = defineStore('settings', () => {
    * @returns {Promise} - Result of the operation
    */
   const updateMultipleSettings = async (updates) => {
-    try {
-      // Update local state immediately
-      for (const [key, value] of Object.entries(updates)) {
-        if (key.includes('.')) {
-          setNestedValue(settings.value, key, value)
-        }
-        else {
-          settings.value[key] = value
-        }
-        updateQueue.set(key, value)
-      }
-
-      // Process updates with a shorter delay for multiple updates
-      clearTimeout(updateTimer)
-      updateTimer = setTimeout(processBatchUpdates, 100)
-
-      return { success: true }
-    }
-    catch (error) {
-      console.error('Failed to update multiple settings:', error)
-      throw error
-    }
+    const results = await Promise.all(
+      Object.entries(updates).map(([key, value]) => updateSetting(key, value)),
+    )
+    return { success: results.every(result => result.success) }
   }
 
   /**
@@ -216,27 +181,12 @@ export const useSettingsStore = defineStore('settings', () => {
     return settings.value[key] !== undefined ? settings.value[key] : defaultValue
   }
 
-  /**
-   * Reset settings to defaults
-   * @returns {Promise} - Result of the operation
-   */
-  const resetToDefaults = async () => {
-    try {
-      settings.value = { ...DEFAULT_SETTINGS }
-      return window.api.invoke(IPC_CHANNELS.SETTINGS_RESET)
-    }
-    catch (error) {
-      console.error('Failed to reset settings:', error)
-      throw error
-    }
-  }
-
   return {
     settings,
+    lastError,
     initialize,
     updateSetting,
     updateMultipleSettings,
     getSetting,
-    resetToDefaults,
   }
 })

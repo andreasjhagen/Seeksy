@@ -383,7 +383,7 @@ export class ThumbnailCache {
 
       return thumbnail
     }
-    catch (error) {
+    catch {
       // No cover art found or extraction failed - this is expected for many audio files
       return null
     }

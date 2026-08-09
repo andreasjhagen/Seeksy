@@ -57,13 +57,15 @@ export class SettingsHandler extends BaseHandler {
 
   async handleSettingSet(_, key, value) {
     try {
-      const result = await appSettings.setSetting(key, value)
-
       // Special handling for autostart feature
       if (key === 'autostart') {
-        await updateAutoStartStatus(value)
+        const autoStartResult = await updateAutoStartStatus(value)
+        if (!autoStartResult.success) {
+          throw new Error(autoStartResult.error || 'Failed to update auto-start')
+        }
       }
 
+      const result = appSettings.setSetting(key, value)
       return { success: true, value: result }
     }
     catch (error) {

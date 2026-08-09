@@ -24,7 +24,7 @@ async function findSteamPath() {
       await accessAsync(steamPath, fs.constants.F_OK)
       return steamPath
     }
-    catch (error) {
+    catch {
       // Path doesn't exist, continue to next
     }
   }

@@ -1,7 +1,7 @@
 {
   "name": "seeksy",
   "type": "module",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "A fast, invokable desktop search for files, folders and applications",
   "author": {
     "name": "Andreas Hagen",
@@ -9,15 +9,23 @@
   },
   "homepage": "https://github.com/andreasjhagen/seeksy",
   "main": "./out/main/index.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "test": "node --test",
+    "ensure:electron": "node node_modules/electron/install.js",
+    "prestart": "npm run ensure:electron",
     "start": "electron-vite preview",
+    "predev": "npm run ensure:electron",
     "dev": "electron-vite dev",
+    "predev:watch": "npm run ensure:electron",
     "dev:watch": "electron-vite dev --watch",
     "build": "electron-vite build",
-    "postinstall": "electron-builder install-app-deps && npm rebuild sharp",
+    "postinstall": "npm run ensure:electron && electron-builder install-app-deps && npm rebuild sharp",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win --publish=never",
     "build:mac": "npm run build && electron-builder --mac --publish=never",
@@ -30,18 +38,17 @@
     "@tailwindcss/vite": "^4.1.3",
     "@tanstack/vue-virtual": "^3.13.18",
     "@vueuse/core": "^13.0.0",
-    "better-sqlite3": "^11.9.1",
+    "better-sqlite3": "^13.0.3",
     "chokidar": "^4.0.3",
     "electron-store": "^10.0.1",
-    "electron-updater": "^6.7.3",
+    "electron-updater": "^6.8.9",
     "emojilib": "^4.0.1",
     "ffmpeg-static": "^5.3.0",
     "fluent-ffmpeg": "^2.1.3",
     "ini": "^5.0.0",
-    "marked": "^17.0.1",
     "material-symbols": "^0.29.2",
     "pinia": "^3.0.1",
-    "sharp": "^0.33.5",
+    "sharp": "^0.35.3",
     "vdf-parser": "^1.2.1",
     "vue-i18n": "^11.2.8",
     "vue-router": "^4.5.0"
@@ -52,7 +59,7 @@
     "@rushstack/eslint-patch": "^1.11.0",
     "@vitejs/plugin-vue": "^5.2.3",
     "@vue/eslint-config-prettier": "^10.2.0",
-    "electron": "^35.1.1",
+    "electron": "42.8.1",
     "electron-builder": "^26.4.0",
     "electron-devtools-installer": "^4.0.0",
     "electron-vite": "^3.1.0",
@@ -61,7 +68,7 @@
     "eslint-plugin-vue": "^10.0.0",
     "prettier": "^3.5.3",
     "tailwindcss": "^4.1.3",
-    "vite": "^6.2.3",
+    "vite": "^6.4.3",
     "vue": "^3.5.13"
   }
 }

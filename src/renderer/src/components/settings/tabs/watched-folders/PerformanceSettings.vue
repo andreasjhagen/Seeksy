@@ -20,7 +20,6 @@ const {
   batchSize,
   minBatchSize,
   maxBatchSize,
-  enableBatching,
 } = useAutoPerformance(processingDelay.value)
 
 // More efficient update function with debounce
@@ -76,19 +75,8 @@ async function updateBatchSize(value) {
 }
 
 // Handle mode switching
-async function toggleAutoMode(enabled) {
+function toggleAutoMode(enabled) {
   isAutoMode.value = enabled
-
-  // The backend will handle the appropriate delay updates
-  await window.api.invoke(IPC.BACKEND.INDEXER_SET_AUTO_PERFORMANCE, enabled)
-
-  // Get the updated settings after mode change
-  const settings = await window.api.invoke(IPC.BACKEND.INDEXER_GET_PERFORMANCE_SETTINGS)
-
-  // Always use the currentDelay value regardless of mode
-  // This allows users to start manual adjustments from the last auto value
-  processingDelay.value = settings.currentDelay
-  batchSize.value = settings.batchSize
 }
 </script>
 
@@ -146,12 +134,13 @@ async function toggleAutoMode(enabled) {
         <!-- Processing Delay Slider -->
         <div class="mb-5">
           <div class="flex items-center justify-between mb-1">
-            <label class="text-sm text-gray-600 dark:text-gray-400">
+            <label for="processing-delay" class="text-sm text-gray-600 dark:text-gray-400">
               {{ t('settings.performance.processingDelay') }} {{ processingDelay }}ms
             </label>
             <span class="text-xs text-gray-500">{{ t('settings.performance.delayRange', { min: minDelay, max: maxDelay }) }}</span>
           </div>
           <input
+            id="processing-delay"
             v-model.number="processingDelay"
             type="range"
             :min="minDelay"
@@ -168,12 +157,13 @@ async function toggleAutoMode(enabled) {
         <!-- Batch Size Slider (always visible in manual mode) -->
         <div>
           <div class="flex items-center justify-between mb-1">
-            <label class="text-sm text-gray-600 dark:text-gray-400">
+            <label for="batch-size" class="text-sm text-gray-600 dark:text-gray-400">
               {{ t('settings.performance.batchSize') }} {{ batchSize }} {{ t('settings.performance.filesUnit') }}
             </label>
             <span class="text-xs text-gray-500">{{ t('settings.performance.batchRange', { min: minBatchSize, max: maxBatchSize }) }}</span>
           </div>
           <input
+            id="batch-size"
             v-model.number="batchSize"
             type="range"
             :min="minBatchSize"

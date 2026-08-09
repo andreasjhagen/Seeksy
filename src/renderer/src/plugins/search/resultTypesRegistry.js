@@ -16,6 +16,11 @@ export const RESULT_TYPES = {
 /**
  * Create a standard context menu action object
  * @param {object} options - Action options
+ * @param {string} options.name - Translation key for the action label
+ * @param {string} options.group - Menu group used for separators
+ * @param {number} options.order - Sort order within the menu
+ * @param {Function} options.actionCall - Function invoked for the selected item
+ * @param {boolean} [options.keepMenuOpen] - Whether the menu stays open after the action
  * @returns {object} - Formatted context menu action
  */
 export function createContextMenuAction({ name, group, order, actionCall, keepMenuOpen = false }) {
@@ -69,9 +74,13 @@ const defaultResultTypes = [
     searchCall: async (query, filters, isFiltered) => {
       if (!query.trim() && !isFiltered)
         return []
-      return isFiltered
+      const response = await (isFiltered
         ? window.api.invoke(IPC_CHANNELS.INDEXER_FILTERED_SEARCH, { query, filters })
-        : window.api.invoke(IPC_CHANNELS.INDEXER_QUICK_SEARCH, query)
+        : window.api.invoke(IPC_CHANNELS.INDEXER_QUICK_SEARCH, query))
+      if (response?.error) {
+        throw new Error(response.message || response.error)
+      }
+      return response
     },
     content: [],
     gridCols: 1,
@@ -113,7 +122,11 @@ const defaultResultTypes = [
     searchCall: async (query, _filters, _isFiltered) => {
       if (!query.trim())
         return []
-      return window.api.invoke(IPC_CHANNELS.APP_SEARCH, query)
+      const response = await window.api.invoke(IPC_CHANNELS.APP_SEARCH, query)
+      if (response?.error) {
+        throw new Error(response.error)
+      }
+      return response
     },
     content: [],
     gridCols: 3,

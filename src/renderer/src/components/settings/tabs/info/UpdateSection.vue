@@ -1,5 +1,4 @@
 <script setup>
-import { marked } from 'marked'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { IPC_CHANNELS } from '../../../../../../main/ipc/ipcChannels'
@@ -12,12 +11,6 @@ defineProps({
 })
 
 const { t } = useI18n()
-
-// Configure marked for safe rendering
-marked.setOptions({
-  breaks: true, // Convert line breaks to <br>
-  gfm: true, // GitHub Flavored Markdown
-})
 
 // Update state
 const updateStatus = ref('idle') // 'idle', 'checking', 'available', 'downloading', 'ready', 'error'
@@ -38,13 +31,13 @@ const formattedChangelog = computed(() => {
   if (Array.isArray(notes)) {
     return notes.map(note => ({
       version: note.version,
-      note: marked.parse(note.note || ''),
+      note: note.note || '',
     }))
   }
 
   // Handle string format
   if (typeof notes === 'string') {
-    return [{ version: updateInfo.value.version, note: marked.parse(notes) }]
+    return [{ version: updateInfo.value.version, note: notes }]
   }
 
   return null
@@ -120,40 +113,44 @@ function installUpdate() {
 
 // Open GitHub releases page
 function openReleasesPage() {
-  window.open('https://github.com/andreasjhagen/Seeksy/releases', '_blank')
+  window.api.invoke(IPC_CHANNELS.OPEN_EXTERNAL, 'https://github.com/andreasjhagen/Seeksy/releases')
 }
 
 // Set up IPC listeners
 function setupListeners() {
-  window.api.on(IPC_CHANNELS.CHECKING_FOR_UPDATE, () => {
-    updateStatus.value = 'checking'
-  })
+  return [
+    window.api.on(IPC_CHANNELS.CHECKING_FOR_UPDATE, () => {
+      updateStatus.value = 'checking'
+    }),
 
-  window.api.on(IPC_CHANNELS.UPDATE_AVAILABLE, (data) => {
-    updateStatus.value = 'available'
-    updateInfo.value = data
-  })
+    window.api.on(IPC_CHANNELS.UPDATE_AVAILABLE, (data) => {
+      updateStatus.value = 'available'
+      updateInfo.value = data
+    }),
 
-  window.api.on(IPC_CHANNELS.UPDATE_NOT_AVAILABLE, () => {
-    updateStatus.value = 'idle'
-    updateInfo.value = null
-  })
+    window.api.on(IPC_CHANNELS.UPDATE_NOT_AVAILABLE, () => {
+      updateStatus.value = 'idle'
+      updateInfo.value = null
+    }),
 
-  window.api.on(IPC_CHANNELS.DOWNLOAD_PROGRESS, (data) => {
-    downloadProgress.value = data
-  })
+    window.api.on(IPC_CHANNELS.DOWNLOAD_PROGRESS, (data) => {
+      downloadProgress.value = data
+    }),
 
-  window.api.on(IPC_CHANNELS.UPDATE_DOWNLOADED, (data) => {
-    updateStatus.value = 'ready'
-    updateInfo.value = data
-    downloadProgress.value = null
-  })
+    window.api.on(IPC_CHANNELS.UPDATE_DOWNLOADED, (data) => {
+      updateStatus.value = 'ready'
+      updateInfo.value = data
+      downloadProgress.value = null
+    }),
 
-  window.api.on(IPC_CHANNELS.ERROR, (data) => {
-    updateStatus.value = 'error'
-    errorMessage.value = data.message || 'An error occurred'
-  })
+    window.api.on(IPC_CHANNELS.ERROR, (data) => {
+      updateStatus.value = 'error'
+      errorMessage.value = data.message || 'An error occurred'
+    }),
+  ]
 }
+
+let listenerDisposers = []
 
 // Get initial status
 async function getInitialStatus() {
@@ -174,18 +171,13 @@ async function getInitialStatus() {
 }
 
 onMounted(() => {
-  setupListeners()
+  listenerDisposers = setupListeners()
   getInitialStatus()
 })
 
 onUnmounted(() => {
-  // Remove listeners
-  window.api.removeAllListeners(IPC_CHANNELS.CHECKING_FOR_UPDATE)
-  window.api.removeAllListeners(IPC_CHANNELS.UPDATE_AVAILABLE)
-  window.api.removeAllListeners(IPC_CHANNELS.UPDATE_NOT_AVAILABLE)
-  window.api.removeAllListeners(IPC_CHANNELS.DOWNLOAD_PROGRESS)
-  window.api.removeAllListeners(IPC_CHANNELS.UPDATE_DOWNLOADED)
-  window.api.removeAllListeners(IPC_CHANNELS.ERROR)
+  listenerDisposers.forEach(dispose => dispose())
+  listenerDisposers = []
 })
 </script>
 
@@ -218,7 +210,7 @@ onUnmounted(() => {
           </div>
         </div>
         <button
-          class="px-4 py-2 text-sm font-medium text-white rounded-lg cursor-pointer bg-accent-600 hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+          class="px-4 py-2 text-sm font-medium text-accentForeground rounded-lg cursor-pointer bg-accent-600 hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
           @click="checkForUpdates"
         >
           {{ t('settings.info.checkForUpdates') }}
@@ -282,17 +274,14 @@ onUnmounted(() => {
               :key="index"
               class="pt-3"
             >
-              <div
-                class="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-300"
-                v-html="entry.note"
-              />
+              <pre class="whitespace-pre-wrap font-sans text-sm text-gray-600 dark:text-gray-300">{{ entry.note }}</pre>
             </div>
           </div>
         </div>
 
         <div class="flex items-center gap-3">
           <button
-            class="px-4 py-2 text-sm font-medium text-white rounded-lg cursor-pointer bg-accent-600 hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+            class="px-4 py-2 text-sm font-medium text-accentForeground rounded-lg cursor-pointer bg-accent-600 hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
             @click="downloadUpdate"
           >
             {{ t('settings.info.downloadUpdate') }}
@@ -380,10 +369,7 @@ onUnmounted(() => {
               :key="index"
               class="pt-3"
             >
-              <div
-                class="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-300"
-                v-html="entry.note"
-              />
+              <pre class="whitespace-pre-wrap font-sans text-sm text-gray-600 dark:text-gray-300">{{ entry.note }}</pre>
             </div>
           </div>
         </div>
@@ -424,7 +410,7 @@ onUnmounted(() => {
         </div>
         <div class="flex gap-3">
           <button
-            class="px-4 py-2 text-sm font-medium text-white rounded-lg cursor-pointer bg-accent-600 hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+            class="px-4 py-2 text-sm font-medium text-accentForeground rounded-lg cursor-pointer bg-accent-600 hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
             @click="checkForUpdates"
           >
             {{ t('settings.info.tryAgain') }}

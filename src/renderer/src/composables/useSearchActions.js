@@ -15,9 +15,12 @@ export function useSearchActions() {
   }
 
   const handleOpenFile = async (file) => {
-    await window.api.invoke(IPC_CHANNELS.OPEN_FILE, file.path)
-    await window.api.invoke(IPC_CHANNELS.HIDE_MAIN_WINDOW)
+    const opened = await window.api.invoke(IPC_CHANNELS.OPEN_FILE, file.path)
+    if (opened) {
+      await window.api.invoke(IPC_CHANNELS.HIDE_MAIN_WINDOW)
+    }
     restoreFocus()
+    return opened
   }
 
   const handleShowInDirectory = async (path) => {

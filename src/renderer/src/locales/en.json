@@ -214,7 +214,8 @@
       "resetAppDescription": "This will clear all settings and indexed data. This action cannot be undone.",
       "resetAppButton": "Reset App",
       "resetAppConfirmTitle": "Reset Application",
-      "resetAppConfirmMessage": "Are you sure you want to reset the application? This will clear all settings, indexed data, and favorites. This action cannot be undone."
+      "resetAppConfirmMessage": "Are you sure you want to reset the application? This will clear all settings, indexed data, and favorites. This action cannot be undone.",
+      "resetFailed": "Seeksy could not be reset. The application will restart to recover."
     }
   },
   "search": {
@@ -231,6 +232,7 @@
       "video": "Video",
       "from": "From:",
       "to": "To:",
+      "dateRangeError": "The start date must be on or before the end date.",
       "resetFilters": "Reset Filters"
     },
     "sections": {
@@ -242,6 +244,8 @@
       "title": "Edit Notes",
       "placeholder": "Enter notes here..."
     },
+    "partialError": "Some result sources could not be searched. Try again.",
+    "resultsLabel": "Search results",
     "noWatchedFolders": {
       "description": "Add folders in Settings to start searching your files.",
       "openSettings": "Open Settings"

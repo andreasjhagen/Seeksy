@@ -213,7 +213,8 @@
       "resetAppDescription": "Esto borrará todos los ajustes y datos indexados. Esta acción es irreversible.",
       "resetAppButton": "Restablecer app",
       "resetAppConfirmTitle": "Restablecer aplicación",
-      "resetAppConfirmMessage": "¿Estás seguro de que deseas restablecer la aplicación? Esto borrará todos los ajustes, datos indexados y favoritos. Esta acción es irreversible."
+      "resetAppConfirmMessage": "¿Estás seguro de que deseas restablecer la aplicación? Esto borrará todos los ajustes, datos indexados y favoritos. Esta acción es irreversible.",
+      "resetFailed": "No se pudo restablecer Seeksy. La aplicación se reiniciará para recuperarse."
     }
   },
   "search": {
@@ -230,6 +231,7 @@
       "video": "Video",
       "from": "Desde:",
       "to": "Hasta:",
+      "dateRangeError": "La fecha de inicio debe ser anterior o igual a la fecha de fin.",
       "resetFilters": "Restablecer filtros"
     },
     "sections": {
@@ -241,6 +243,8 @@
       "title": "Editar notas",
       "placeholder": "Ingresa tus notas aquí..."
     },
+    "partialError": "No se pudo buscar en algunas fuentes de resultados. Inténtalo de nuevo.",
+    "resultsLabel": "Resultados de búsqueda",
     "noWatchedFolders": {
       "description": "Añade carpetas en Configuración para comenzar a buscar tus archivos.",
       "openSettings": "Abrir configuración"

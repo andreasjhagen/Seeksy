@@ -105,7 +105,7 @@ export class UpdateHandler extends BaseHandler {
           try {
             resolve(JSON.parse(data))
           }
-          catch (e) {
+          catch {
             reject(new Error('Invalid JSON response'))
           }
         })

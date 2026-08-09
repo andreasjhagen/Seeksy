@@ -88,7 +88,8 @@ function handleContextMenu(event) {
 }
 
 function handleKeydown(event) {
-  if (event.key === 'Enter') {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
     emit('action', event)
   }
 }
@@ -108,6 +109,8 @@ const variantClasses = {
 <template>
   <div
     :title="title"
+    role="button"
+    :aria-label="title"
     class="relative z-10 transition-all duration-300 border rounded-lg cursor-pointer group origin-left focus:outline-hidden
            hover:z-20 hover:scale-105 hover:shadow-md
            bg-gray-50 dark:bg-gray-700 border-transparent

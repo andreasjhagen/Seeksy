@@ -39,14 +39,10 @@ export function useResultItemRendering(resultType) {
   }
 
   /**
-   * Get the tabindex attribute for a result item based on its position
-   * @param {number} index - The index of the item in the result list
+   * Get the tabindex attribute for a result item inside the composite results region
    * @returns {string} - The tabindex attribute value
    */
-  const getTabIndex = (index) => {
-    // If it's the first item, make it focusable by keyboard
-    return index === 0 ? '0' : '-1'
-  }
+  const getTabIndex = () => '-1'
 
   /**
    * Handle item focus event

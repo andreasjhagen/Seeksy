@@ -9,11 +9,10 @@ import FolderProgressCard from './FolderProgressCard.vue'
 import PerformanceSettings from './PerformanceSettings.vue'
 
 const { t } = useI18n()
-const { status, toggleGlobalPause, addWatchPath, removeWatchPath, updateWatcherStatus } = useWatcherStatus()
+const { status, toggleGlobalPause, addWatchPath, removeWatchPath, updateWatcherStatus, startStatusUpdates } = useWatcherStatus()
 
 const showDialog = ref(false)
 const selectedPaths = ref([]) // Changed to array for multiple paths
-const statusInterval = ref(null)
 const addFolderDialog = ref(null)
 // Single toggle for all folder details
 const showFolderDetails = ref(false)
@@ -21,6 +20,9 @@ const showFolderDetails = ref(false)
 // Remove folder confirmation modal state
 const showRemoveFolderModal = ref(false)
 const folderToRemove = ref(null)
+const showReplaceFoldersModal = ref(false)
+const replaceFoldersMessage = ref('')
+let resolveReplaceFolders = null
 
 // Removed folders notification state
 const removedFolders = ref([])
@@ -66,21 +68,27 @@ async function showAddDirectoryDialog() {
   }
 }
 
-// Utility function to check if a path is contained within another path
-function isSubpathOf(childPath, parentPath) {
-  // Normalize paths for comparison (handle slashes consistently)
-  const normalizedChild = childPath.replace(/[\\/]+/g, '/')
-  const normalizedParent = parentPath.replace(/[\\/]+/g, '/')
+function normalizeComparablePath(path) {
+  let normalized = path.replace(/[\\/]+/g, '/').replace(/\/$/, '')
+  if (navigator.platform.toLowerCase().includes('win')) {
+    normalized = normalized.toLowerCase()
+  }
+  return normalized
+}
 
-  // Check if the child path starts with parent path plus a slash
-  return normalizedChild !== normalizedParent
-    && normalizedChild.startsWith(`${normalizedParent}/`)
+function relativeDepth(childPath, parentPath) {
+  const child = normalizeComparablePath(childPath)
+  const parent = normalizeComparablePath(parentPath)
+  if (!child.startsWith(`${parent}/`))
+    return -1
+  return child.slice(parent.length + 1).split('/').filter(Boolean).length
 }
 
 // Function to validate paths before adding
-function validatePath(newPath) {
+function validatePath(newPath, newDepth) {
   // Check for exact duplicates
-  const exactMatch = status.value.folders.find(folder => folder.path === newPath)
+  const comparablePath = normalizeComparablePath(newPath)
+  const exactMatch = status.value.folders.find(folder => normalizeComparablePath(folder.path) === comparablePath)
   if (exactMatch) {
     return {
       valid: false,
@@ -90,9 +98,10 @@ function validatePath(newPath) {
   }
 
   // Check if path is a subfolder of an existing watched folder
-  const parentFolder = status.value.folders.find(folder =>
-    isSubpathOf(newPath, folder.path),
-  )
+  const parentFolder = status.value.folders.find((folder) => {
+    const depth = relativeDepth(newPath, folder.path)
+    return depth > 0 && (folder.depth === Infinity || folder.depth === -1 || depth <= folder.depth)
+  })
   if (parentFolder) {
     return {
       valid: false,
@@ -102,9 +111,10 @@ function validatePath(newPath) {
   }
 
   // Check if path is a parent folder of any existing watched folders
-  const childFolders = status.value.folders.filter(folder =>
-    isSubpathOf(folder.path, newPath),
-  )
+  const childFolders = status.value.folders.filter((folder) => {
+    const depth = relativeDepth(folder.path, newPath)
+    return depth > 0 && (newDepth === Infinity || newDepth === -1 || depth <= newDepth)
+  })
   if (childFolders.length > 0) {
     return {
       valid: true,
@@ -118,16 +128,39 @@ function validatePath(newPath) {
   return { valid: true, reason: 'valid' }
 }
 
+function confirmFolderReplacement(message) {
+  replaceFoldersMessage.value = message
+  showReplaceFoldersModal.value = true
+  return new Promise((resolve) => {
+    resolveReplaceFolders = resolve
+  })
+}
+
+function finishFolderReplacement(confirmed) {
+  showReplaceFoldersModal.value = false
+  resolveReplaceFolders?.(confirmed)
+  resolveReplaceFolders = null
+}
+
+async function restoreRemovedFolders(folders, warnings) {
+  for (const folder of folders) {
+    const result = await addWatchPath(folder.path, { depth: folder.depth })
+    if (!result.success) {
+      warnings.push(result.error || t('settings.watchedFolders.failedToAdd', { path: folder.path }))
+    }
+  }
+}
+
 async function handleConfirm({ paths, depth }) {
   if (paths && paths.length > 0) {
     try {
-      showDialog.value = false
       let hasErrors = false
       const warnings = []
 
       for (const path of paths) {
+        const removedChildFolders = []
         // Validate path first
-        const validation = validatePath(path)
+        const validation = validatePath(path, depth)
 
         if (!validation.valid && validation.reason === 'duplicate') {
           // Skip with a warning for duplicates
@@ -144,14 +177,23 @@ async function handleConfirm({ paths, depth }) {
         if (validation.valid && validation.reason === 'parent') {
           // If parent folder, ask user if they want to replace child folders
           const childPaths = validation.childFolders.map(f => f.path).join('\n- ')
-          const confirmReplace = window.confirm(
+          const confirmReplace = await confirmFolderReplacement(
             t('settings.watchedFolders.confirmReplaceMessage', { path, folders: `- ${childPaths}` }),
           )
 
           if (confirmReplace) {
             // Remove child folders first
-            for (const childFolder of validation.childFolders) {
-              await removeWatchPath(childFolder.path)
+            try {
+              for (const childFolder of validation.childFolders) {
+                await removeWatchPath(childFolder.path)
+                removedChildFolders.push(childFolder)
+              }
+            }
+            catch (error) {
+              hasErrors = true
+              warnings.push(error.message || t('settings.watchedFolders.failedToAdd', { path }))
+              await restoreRemovedFolders(removedChildFolders, warnings)
+              continue
             }
           }
           else {
@@ -171,6 +213,10 @@ async function handleConfirm({ paths, depth }) {
           else {
             warnings.push(t('settings.watchedFolders.failedToAdd', { path }))
           }
+
+          // Replacing children must be transactional from the user's perspective.
+          // Restore every successfully removed watch if the parent cannot be added.
+          await restoreRemovedFolders(removedChildFolders, warnings)
         }
       }
 
@@ -182,9 +228,9 @@ async function handleConfirm({ paths, depth }) {
       if (!hasErrors) {
         // Auto-expand folder details when new folders are successfully added
         showFolderDetails.value = true
+        showDialog.value = false
+        selectedPaths.value = []
       }
-
-      selectedPaths.value = []
     }
     catch (error) {
       addFolderDialog.value?.setError(error.message || 'Failed to add directories')
@@ -213,7 +259,7 @@ async function confirmRemoveDirectory() {
 onMounted(() => {
   updateWatcherStatus()
   fetchRemovedFolders()
-  statusInterval.value = setInterval(updateWatcherStatus, 250)
+  startStatusUpdates(500)
 })
 
 // Progress bar update
@@ -241,7 +287,6 @@ watch(globalProgress, async (newProgress) => {
 
 // Cleanup progress bar on unmount
 onBeforeUnmount(() => {
-  clearInterval(statusInterval.value)
   window.api.invoke(IPC.SYSTEM.SET_PROGRESS_BAR, { mode: 'none' })
 })
 </script>
@@ -285,7 +330,7 @@ onBeforeUnmount(() => {
         {{ t('settings.watchedFolders.description') }}
       </p>
       <button
-        class="px-4 py-2 text-sm font-medium text-white rounded-lg cursor-pointer bg-accent hover:bg-accent-700"
+        class="px-4 py-2 text-sm font-medium text-accentForeground rounded-lg cursor-pointer bg-accent hover:bg-accent-700"
         @click="showAddDirectoryDialog"
       >
         {{ t('settings.watchedFolders.addFolder') }}
@@ -329,8 +374,10 @@ onBeforeUnmount(() => {
         <!-- Folder summary section with toggle -->
         <div v-if="status.folders.length > 0">
           <!-- Folders summary header with chevron -->
-          <div
-            class="flex items-center justify-between mt-3 cursor-pointer dark:border-gray-700"
+          <button
+            type="button"
+            class="flex items-center justify-between w-full mt-3 text-left cursor-pointer rounded dark:border-gray-700"
+            :aria-expanded="showFolderDetails"
             @click="toggleFolderDetails"
           >
             <div class="flex items-center space-x-2">
@@ -348,7 +395,7 @@ onBeforeUnmount(() => {
               <span class="font-medium text-gray-900 dark:text-gray-100">{{ t('settings.watchedFolders.indexedFolders') }} ({{ status.folders.length
               }})</span>
             </div>
-          </div>
+          </button>
 
           <!-- Expandable folder details -->
           <div
@@ -385,6 +432,17 @@ onBeforeUnmount(() => {
       icon="folder_off"
       @confirm="confirmRemoveDirectory"
       @cancel="cancelRemoveDirectory"
+    />
+
+    <ConfirmationModal
+      :is-open="showReplaceFoldersModal"
+      :title="t('settings.watchedFolders.addFolder')"
+      :message="replaceFoldersMessage"
+      :confirm-text="t('common.confirm')"
+      variant="warning"
+      icon="folder_managed"
+      @confirm="finishFolderReplacement(true)"
+      @cancel="finishFolderReplacement(false)"
     />
   </div>
 

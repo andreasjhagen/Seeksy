@@ -16,7 +16,6 @@ export class SystemHandler extends BaseHandler {
     this.indexer = indexer
     this.registerHandlers({
       [IPC.SYSTEM.GET_SYSTEM_INFO]: this.handleGetSystemInfo.bind(this),
-      [IPC.SYSTEM.CHECK_FOR_UPDATES]: this.handleCheckForUpdates.bind(this),
       [IPC.SYSTEM.RESET_APPLICATION]: this.handleResetApplication.bind(this),
       [IPC.SYSTEM.SHOW_NOTIFICATION]: this.handleShowNotification.bind(this),
       [IPC.SYSTEM.SET_PROGRESS_BAR]: this.handleSetProgressBar.bind(this),
@@ -34,32 +33,29 @@ export class SystemHandler extends BaseHandler {
     }
   }
 
-  async handleCheckForUpdates() {
-    try {
-      // TODO: Implement actual update checking logic
-      return {
-        hasUpdate: false,
-        currentVersion: app.getVersion(),
-        latestVersion: app.getVersion(),
-        updateUrl: null,
-      }
-    }
-    catch (error) {
-      console.error('Update check failed:', error)
-      return { success: false, error: error.message, hasUpdate: false }
-    }
-  }
-
   async handleResetApplication() {
     try {
       await this.indexer.cleanup()
-      fileDB.resetDatabase()
+      const resetResult = fileDB.resetDatabase()
+      if (!resetResult.success) {
+        throw new Error(resetResult.message || 'Failed to reset the database')
+      }
       appSettings.reset()
       appSettings.store.set('version', app.getVersion())
-      return { success: true }
+      setTimeout(() => {
+        app.relaunch()
+        app.quit()
+      }, 250)
+      return { success: true, restarting: true }
     }
     catch (error) {
       console.error('Application reset failed:', error)
+      // cleanup() permanently tears down manager listeners, so restart to
+      // restore a healthy service graph even when the reset transaction fails.
+      setTimeout(() => {
+        app.relaunch()
+        app.quit()
+      }, 1000)
       return { success: false, error: error.message }
     }
   }
@@ -107,11 +103,12 @@ export class SystemHandler extends BaseHandler {
           window.setProgressBar(1, { mode: 'error' })
           break
         case 'normal':
-        default:
+        default: {
           // Ensure progress is between 0 and 1
           const normalizedProgress = Math.max(0, Math.min(1, progress || 0))
           window.setProgressBar(normalizedProgress)
           break
+        }
       }
 
       return { success: true }

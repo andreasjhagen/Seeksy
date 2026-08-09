@@ -19,9 +19,10 @@ const showClearCacheModal = ref(false)
 
 // Thumbnail cache stats
 const cacheStats = ref(null)
+const maintenanceError = ref('')
 
 function openExternalLink(url) {
-  window.open(url)
+  window.api.invoke(IPC_CHANNELS.OPEN_EXTERNAL, url)
 }
 
 function formatFileSize(bytes) {
@@ -42,16 +43,19 @@ function closeResetModal() {
 }
 
 async function confirmResetApplication() {
+  maintenanceError.value = ''
   try {
     const result = await window.api.invoke(IPC_CHANNELS.RESET_APPLICATION)
     if (result.success) {
       localStorage.clear()
-      await window.api.invoke(IPC_CHANNELS.HIDE_MAIN_WINDOW)
-      window.location.reload()
+    }
+    else {
+      maintenanceError.value = result.error || t('settings.info.resetFailed')
     }
   }
   catch (error) {
     console.error('Failed to reset application:', error)
+    maintenanceError.value = error.message || t('settings.info.resetFailed')
   }
   finally {
     showResetModal.value = false
@@ -180,7 +184,7 @@ onMounted(async () => {
               </p>
             </div>
             <button
-              class="px-4 py-2 text-sm font-medium text-white rounded-lg cursor-pointer bg-accent-600 hover:bg-accent-700"
+              class="px-4 py-2 text-sm font-medium text-accentForeground rounded-lg cursor-pointer bg-accent-600 hover:bg-accent-700"
               @click="openClearCacheModal"
             >
               {{ t('settings.info.clearCacheButton') }}
@@ -214,6 +218,10 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+
+    <p v-if="maintenanceError" class="p-3 mt-4 text-sm text-red-700 rounded-lg bg-red-50 dark:bg-red-900/30 dark:text-red-200" role="alert">
+      {{ maintenanceError }}
+    </p>
 
     <!-- Reset Application Modal -->
     <ConfirmationModal

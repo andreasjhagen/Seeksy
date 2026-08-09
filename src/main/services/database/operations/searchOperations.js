@@ -167,7 +167,8 @@ export const searchOperations = {
    * @param {Array<string>} [options.filters.tags] - Tags to filter by
    * @returns {Array} Array of matching items sorted by relevance
    */
-  filteredSearch({ query, filters }) {
+  filteredSearch(options) {
+    const { query, filters } = options
     // Build query dynamically based on filters
     const conditions = []
     const params = []

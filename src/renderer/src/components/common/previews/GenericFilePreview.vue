@@ -49,7 +49,7 @@ defineProps({
       </p>
 
       <button
-        class="px-4 py-2 mt-2 text-white transition-colors rounded cursor-pointer bg-accent hover:bg-accent-700"
+        class="px-4 py-2 mt-2 text-accentForeground transition-colors rounded-lg cursor-pointer bg-accent hover:bg-accent-700"
         @click="onOpenClick"
       >
         Open Document

@@ -28,6 +28,7 @@ const folderCount = ref(0)
 const showFileCountWarning = ref(false)
 const countComplete = ref(false)
 const FILE_COUNT_THRESHOLD = 20000
+let countRequestId = 0
 
 // Reset file count when depth changes
 watch(() => depth.value, async () => {
@@ -46,6 +47,7 @@ watch(() => props.isOpen, async (newVal) => {
 }, { immediate: true })
 
 function onClose() {
+  countRequestId += 1
   error.value = ''
   showFileCountWarning.value = false
   countComplete.value = false
@@ -64,6 +66,7 @@ async function checkFileCount() {
   if (props.selectedPaths.length === 0)
     return
 
+  const requestId = ++countRequestId
   error.value = ''
   loading.value = true
   countComplete.value = false
@@ -82,6 +85,9 @@ async function checkFileCount() {
         depth: depthValue,
       })
 
+      if (requestId !== countRequestId)
+        return
+
       if (result.error) {
         throw new Error(`Error with ${path}: ${result.error}`)
       }
@@ -90,17 +96,23 @@ async function checkFileCount() {
       totalFolders += result.folderCount || 0
     }
 
+    if (requestId !== countRequestId)
+      return
+
     fileCount.value = totalFiles
     folderCount.value = totalFolders
     showFileCountWarning.value = fileCount.value > FILE_COUNT_THRESHOLD
     countComplete.value = true
   }
   catch (err) {
+    if (requestId !== countRequestId)
+      return
     error.value = t('settings.watchedFolders.addDialog.checkError', { error: err.message })
     emit('error', error.value)
   }
   finally {
-    loading.value = false
+    if (requestId === countRequestId)
+      loading.value = false
   }
 }
 
@@ -128,7 +140,8 @@ defineExpose({ setError })
           <!-- Error Message -->
           <div
             v-if="error"
-            class="p-3 mb-4 text-sm text-red-600 bg-red-100 rounded-lg dark:bg-red-900/50 dark:text-red-400"
+            class="p-3 mb-4 text-sm whitespace-pre-line text-red-600 bg-red-100 rounded-lg dark:bg-red-900/50 dark:text-red-300"
+            role="alert"
           >
             {{ error }}
           </div>
@@ -137,6 +150,7 @@ defineExpose({ setError })
           <div
             v-if="loading"
             class="p-3 mb-4 text-sm text-blue-600 bg-blue-100 rounded-lg dark:bg-blue-900/50 dark:text-blue-400"
+            role="status"
           >
             <p class="font-medium">
               {{ t('settings.watchedFolders.addDialog.checkingContents') }}
@@ -185,10 +199,11 @@ defineExpose({ setError })
             </div>
           </div>
           <div class="mb-4">
-            <label class="block mb-2 text-sm text-gray-700 dark:text-gray-300">{{ t('settings.watchedFolders.addDialog.recursiveDepth') }}</label>
+            <label for="recursive-depth" class="block mb-2 text-sm text-gray-700 dark:text-gray-300">{{ t('settings.watchedFolders.addDialog.recursiveDepth') }}</label>
             <select
+              id="recursive-depth"
               v-model="depth"
-              class="w-full p-2 border rounded-sm dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600"
+              class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600"
               :disabled="loading"
             >
               <option value="1">
@@ -216,7 +231,7 @@ defineExpose({ setError })
           </div>
           <div class="mb-4">
             <button
-              class="w-full px-4 py-2 text-white bg-blue-500 rounded-sm cursor-pointer disabled:opacity-50 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
+              class="w-full px-4 py-2 text-white bg-blue-500 rounded-lg cursor-pointer disabled:opacity-50 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
               :disabled="loading || props.selectedPaths.length === 0"
               @click="checkFileCount"
             >
@@ -225,13 +240,13 @@ defineExpose({ setError })
           </div>
           <div class="flex justify-end space-x-2">
             <button
-              class="px-4 py-2 text-gray-600 border rounded-sm cursor-pointer dark:text-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+              class="px-4 py-2 text-gray-600 border rounded-lg cursor-pointer dark:text-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
               @click="onClose"
             >
               {{ t('common.cancel') }}
             </button>
             <button
-              class="px-4 py-2 text-white rounded-sm cursor-pointer bg-accent-500 disabled:opacity-50 hover:bg-accent dark:bg-accent dark:hover:bg-accent-700"
+              class="px-4 py-2 text-accentForeground rounded-lg cursor-pointer bg-accent-500 disabled:opacity-50 hover:bg-accent-600 dark:bg-accent dark:hover:bg-accent-700"
               :disabled="loading"
               @click="onConfirm"
             >

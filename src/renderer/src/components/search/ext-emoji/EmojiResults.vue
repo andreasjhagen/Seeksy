@@ -1,9 +1,8 @@
 <script setup>
-import { useContextMenu } from '../../../composables/useContextMenu'
 import BaseResultComponent from '../BaseResultComponent.vue'
 import EmojiResultItem from './EmojiResultItem.vue'
 
-const props = defineProps({
+defineProps({
   resultType: {
     type: String,
     required: true,
@@ -19,8 +18,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['copy', 'item-focus', 'contextmenu', 'toggle-collapse', 'section-reorder'])
-const contextMenu = useContextMenu()
-
 function handleContextMenu(event, emoji) {
   emit('contextmenu', event, emoji)
 }

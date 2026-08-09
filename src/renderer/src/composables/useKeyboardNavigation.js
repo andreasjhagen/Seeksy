@@ -50,8 +50,9 @@ export function useKeyboardNavigation() {
 
     // Filter by enabled search types in settings and not collapsed
     return orderedSections.filter((section) => {
+      const settingName = { disk: 'files', application: 'apps' }[section] || section
       const searchType = settingsStore.settings.includedSearchTypes?.find(
-        type => type.name === section,
+        type => type.name === settingName,
       )
       const isEnabled = searchType?.enabled !== false // default to true if not specified
       const isCollapsed = (settingsStore.settings.collapsedSections || []).includes(section)
@@ -345,7 +346,7 @@ export function useKeyboardNavigation() {
     // Only update if changed
     if (newIndex !== currentIndex) {
       selectionStore.setSelectedItem(items[newIndex], selectionStore.selectedSection)
-      scrollItemIntoView(items[0], false)
+      scrollItemIntoView(items[newIndex], false)
       return true
     }
 

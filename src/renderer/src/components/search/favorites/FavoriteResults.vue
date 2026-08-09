@@ -24,10 +24,6 @@ async function loadFavorites() {
   }
 }
 
-function handleItemEdited() {
-  loadFavorites()
-}
-
 function handleContextMenuEvent(event, item) {
   contextMenu.handleContextMenu(event, item)
 }
@@ -155,11 +151,9 @@ onMounted(() => {
   })
 })
 
-// Restore original callback on unmount if it exists
+// Restore the previous callback, including an intentionally empty callback.
 onBeforeUnmount(() => {
-  if (typeof originalCallback === 'function') {
-    contextMenu.setActionCompleteCallback(originalCallback)
-  }
+  contextMenu.setActionCompleteCallback(originalCallback)
 })
 </script>
 

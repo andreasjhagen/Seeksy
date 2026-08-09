@@ -1,6 +1,6 @@
 <script setup>
 import { storeToRefs } from 'pinia'
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { IPC_CHANNELS } from '../../../../main/ipc/ipcChannels'
 import { useKeyboardNavigation } from '../../composables/useKeyboardNavigation'
@@ -9,11 +9,23 @@ import { useSearchResultsStore } from '../../stores/search-results-store'
 import { useSelectionStore } from '../../stores/selection-store'
 import OpenSettingsButton from './OpenSettingsButton.vue'
 
+defineProps({
+  isLoading: {
+    type: Boolean,
+    default: false,
+  },
+})
 const _emit = defineEmits(['toggle-search-mode'])
 const { t } = useI18n()
 const searchStore = useSearchResultsStore()
 const { filters, isFilteredMode } = storeToRefs(searchStore)
 const { hasActiveFilters } = storeToRefs(searchStore)
+const hasInvalidDateRange = computed(() => Boolean(
+  filters.value.dateRange.from
+  && filters.value.dateRange.to
+  && filters.value.dateRange.from > filters.value.dateRange.to,
+))
+let disposeFocusSearch = null
 
 const searchInput = ref(null)
 const searchQuery = computed({
@@ -37,8 +49,10 @@ const fileTypeFilters = [
 
 onMounted(() => {
   focusSearchInput()
-  window.api.on(IPC_CHANNELS.FOCUS_SEARCH, focusSearchInput)
+  disposeFocusSearch = window.api.on(IPC_CHANNELS.FOCUS_SEARCH, focusSearchInput)
 })
+
+onBeforeUnmount(() => disposeFocusSearch?.())
 
 function focusSearchInput() {
   nextTick(() => {
@@ -61,6 +75,12 @@ function resetFilters() {
 function toggleFilter(filterType, value) {
   searchStore.toggleFilter(filterType, value)
   searchStore.search() // Use the unified search method
+}
+
+function handleDateFilterChange() {
+  if (!hasInvalidDateRange.value) {
+    searchStore.search()
+  }
 }
 
 function handleToggleMode() {
@@ -130,19 +150,27 @@ defineExpose({
             ref="searchInput"
             v-model="searchQuery"
             :placeholder="t('search.placeholder')"
+            :aria-label="t('search.placeholder')"
             class="flex-1 p-2 text-gray-800 placeholder-gray-400 bg-transparent border-none outline-hidden dark:text-gray-100 dark:placeholder-gray-500"
-            @input="searchStore.debouncedSearch"
             @keydown.enter="handleEnterKey"
             @keydown.down.prevent="handleFocusResults"
             @keydown.tab.prevent="handleFocusResults"
           >
           <div class="flex items-center gap-1">
+            <span
+              v-if="isLoading"
+              class="material-symbols-outlined animate-spin text-gray-400"
+              role="status"
+              aria-label="Searching"
+            >progress_activity</span>
             <button
               :title="t('tooltips.toggleFilteredSearch')"
+              :aria-label="t('tooltips.toggleFilteredSearch')"
+              :aria-pressed="isFilteredMode"
               type="button"
               class="flex items-center justify-center p-2 transition-colors rounded-lg cursor-pointer"
               :class="isFilteredMode
-                ? 'bg-accent-500 text-white hover:bg-accent-600'
+                ? 'bg-accent-500 text-accentForeground hover:bg-accent-600'
                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'"
               @click="handleToggleMode"
             >
@@ -168,9 +196,11 @@ defineExpose({
               class="flex items-center gap-1.5 px-3 py-1 text-sm font-medium transition-all duration-200 rounded-lg cursor-pointer"
               :class="
                 filters.type.includes(filterType.id)
-                  ? 'bg-accent-500 hover:bg-accent text-white shadow-xs'
+                  ? 'bg-accent-500 hover:bg-accent text-accentForeground shadow-xs'
                   : 'bg-white dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-500 border border-gray-200 dark:border-gray-500'
               "
+              type="button"
+              :aria-pressed="filters.type.includes(filterType.id)"
               @click="toggleFilter('type', filterType.id)"
             >
               <span class="material-symbols-outlined" style="font-size:14px">{{ filterType.icon }}</span>
@@ -182,27 +212,37 @@ defineExpose({
         <!-- Date Range -->
         <div class="flex gap-4">
           <div class="flex-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('search.filters.from') }}</label>
+            <label for="search-date-from" class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('search.filters.from') }}</label>
             <input
+              id="search-date-from"
               v-model="filters.dateRange.from"
               type="date"
               class="w-full p-2 mt-1 text-gray-700 bg-white border border-gray-200 rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-gray-200"
+              :aria-invalid="hasInvalidDateRange"
+              @change="handleDateFilterChange"
             >
           </div>
           <div class="flex-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('search.filters.to') }}</label>
+            <label for="search-date-to" class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('search.filters.to') }}</label>
             <input
+              id="search-date-to"
               v-model="filters.dateRange.to"
               type="date"
               class="w-full p-2 mt-1 text-gray-700 bg-white border border-gray-200 rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-gray-200"
+              :aria-invalid="hasInvalidDateRange"
+              @change="handleDateFilterChange"
             >
           </div>
         </div>
+        <p v-if="hasInvalidDateRange" class="text-sm text-red-600 dark:text-red-300" role="alert">
+          {{ t('search.filters.dateRangeError') }}
+        </p>
 
         <!-- Reset Filters -->
         <button
           v-if="hasActiveFilters"
           class="px-4 py-2 text-sm font-medium text-red-600 transition-colors duration-200 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800"
+          type="button"
           @click="resetFilters"
         >
           {{ t('search.filters.resetFilters') }}

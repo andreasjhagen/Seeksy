@@ -53,6 +53,8 @@ class AppSettingsStore extends EventEmitter {
           searchShortcut: 'CommandOrControl+Space',
           showFavorites: true,
           windowDisplay: 'cursor', // Supports cursor and primary
+          collapsedSections: [],
+          sectionOrder: [],
         },
       },
     })
@@ -113,9 +115,14 @@ class AppSettingsStore extends EventEmitter {
         searchShortcut: 'CommandOrControl+Space',
         showFavorites: true,
         windowDisplay: 'cursor',
+        collapsedSections: [],
+        sectionOrder: [],
       },
     }
     Object.entries(defaults).forEach(([key, value]) => this.store.set(key, value))
+    Object.entries(defaults.preferences).forEach(([key, value]) => {
+      this.emit('setting-changed', { key, value })
+    })
     this.emit('settings-reset')
     return true
   }

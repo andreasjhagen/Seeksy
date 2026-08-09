@@ -40,10 +40,15 @@ based on the config in the store, we have to force tailwind to always render the
     border-color: var(--color-gray-200, currentColor);
   }
 
-  //Buttons always pointer cursor
+  /* Buttons and other interactive controls use a consistent pointer cursor. */
   button:not(:disabled),
-  [role="button"]:not(:disabled) {
+  [role='button']:not(:disabled) {
     cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent-color-500, #1167b1);
+    outline-offset: 2px;
   }
 
   :root {
@@ -94,6 +99,13 @@ based on the config in the store, we have to force tailwind to always render the
     -moz-osx-font-smoothing: grayscale;
   }
 
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
   /* Global scrollbar styling */
   .scrollbar-thin {
     scrollbar-width: thin;
@@ -128,5 +140,16 @@ based on the config in the store, we have to force tailwind to always render the
 
   .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background-color: #6b7280;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

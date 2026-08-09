@@ -98,6 +98,8 @@ function stopRecording() {
       ref="inputRef"
       tabindex="0"
       class="shortcut-recorder"
+      role="button"
+      :aria-label="t('settings.preferences.searchShortcut')"
       :class="{ recording: isRecording }"
       @click="startRecording"
       @focus="startRecording"
@@ -130,8 +132,10 @@ function stopRecording() {
 
     <!-- Reset Button -->
     <button
+      type="button"
       class="reset-btn"
       :title="t('common.reset')"
+      :aria-label="t('common.reset')"
       @click="$emit('reset')"
     >
       <span class="reset-icon material-symbols-outlined">restart_alt</span>

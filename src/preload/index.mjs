@@ -1,28 +1,9 @@
 import { electronAPI } from '@electron-toolkit/preload'
 import { contextBridge, ipcRenderer } from 'electron'
 import { validChannels } from '../main/ipc/ipcChannels'
+import { createIpcApi } from './createIpcApi.js'
 
-// Create a more consistent API
-const api = {
-  invoke: (channel, ...args) => {
-    if (validChannels.includes(channel)) {
-      return ipcRenderer.invoke(channel, ...args)
-    }
-  },
-  send: (channel, ...args) => {
-    if (validChannels.includes(channel)) {
-      ipcRenderer.send(channel, ...args)
-    }
-  },
-  on: (channel, callback) => {
-    if (validChannels.includes(channel)) {
-      ipcRenderer.on(channel, (event, ...args) => callback(...args))
-      return () => ipcRenderer.removeListener(channel, callback)
-    }
-  },
-  removeListener: (channel, callback) => ipcRenderer.removeListener(channel, callback),
-  removeAllListeners: channel => ipcRenderer.removeAllListeners(channel),
-}
+const api = createIpcApi(ipcRenderer, validChannels)
 
 // Expose our safe APIs
 if (process.contextIsolated) {

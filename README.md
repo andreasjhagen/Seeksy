@@ -1,7 +1,7 @@
 # 🔍 Seeksy Search
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Node.js 16+](https://img.shields.io/badge/Node.js-16%2B-brightgreen)](https://nodejs.org)
+[![Node.js 22.12+](https://img.shields.io/badge/Node.js-22.12%2B-brightgreen)](https://nodejs.org)
 [![Made with Vue](https://img.shields.io/badge/Made%20with-Vue%203-42b883.svg)](https://vuejs.org/)
 [![Build App for Win/Mac/Linux](https://github.com/andreasjhagen/seeksy/actions/workflows/release.yml/badge.svg)](https://github.com/andreasjhagen/seeksy/actions/workflows/release.yml)
 
@@ -52,7 +52,7 @@ Runs seamlessly in the background, ready to open with **Ctrl + Space** (default 
 
 ### Prerequisites
 
-- Node.js 16+
+- Node.js 22.12+
 - npm, yarn or pnpm
 
 ### Installation

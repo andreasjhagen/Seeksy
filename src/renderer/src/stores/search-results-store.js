@@ -1,6 +1,8 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { RESULT_TYPES, resultTypesRegistry } from '../plugins/search/resultTypesRegistry'
 import { iconService } from '../services/IconService'
+import { normalizeSearchFilters } from '../utils/searchFilterUtils'
+import { useSettingsStore } from './settings-store'
 
 export { RESULT_TYPES } // Re-export for backward compatibility
 
@@ -32,6 +34,7 @@ function getDefaultState() {
       includeContent: false,
     },
     isLoading: false,
+    searchErrors: [],
     searchMode: SEARCH_MODES.QUICK,
     hasSearched: false,
     resultsUpdateCounter: 0, // Counter to trigger component updates
@@ -43,7 +46,7 @@ export const useSearchResultsStore = defineStore('searchResults', {
 
   getters: {
     hasActiveFilters: (state) => {
-      return state.searchMode === SEARCH_MODES.FILTERED || (
+      return (
         state.filters.type.length > 0
         || state.filters.tags.length > 0
         || state.filters.dateRange.from
@@ -61,7 +64,14 @@ export const useSearchResultsStore = defineStore('searchResults', {
     isFilteredMode: state => state.searchMode === SEARCH_MODES.FILTERED,
 
     hasAnyResults(state) {
-      return state.resultGroups.some(resultType => resultType.content.length > 0)
+      const settingsStore = useSettingsStore()
+      const enabledTypes = new Map(
+        settingsStore.settings.includedSearchTypes.map(type => [type.name, type.enabled]),
+      )
+      return state.resultGroups.some((resultType) => {
+        const settingName = { disk: 'files', application: 'apps' }[resultType.name] || resultType.name
+        return enabledTypes.get(settingName) !== false && resultType.content.length > 0
+      })
     },
 
     getAllResults: (state) => {
@@ -111,8 +121,15 @@ export const useSearchResultsStore = defineStore('searchResults', {
 
     // Search orchestrator with cancellation support
     async search() {
+      const { from, to } = this.filters.dateRange
+      if (this.isFilteredMode && from && to && from > to) {
+        this.clearResults()
+        this.hasSearched = true
+        return
+      }
+
       // Only clear results if there's no query AND no active filters
-      if (!this.query.trim() && !this.hasActiveFilters) {
+      if (!this.query.trim() && !(this.isFilteredMode && this.hasActiveFilters)) {
         this.clearResults()
         return
       }
@@ -122,16 +139,26 @@ export const useSearchResultsStore = defineStore('searchResults', {
 
       this.isLoading = true
       this.hasSearched = true
+      this.searchErrors = []
 
       try {
         const isFiltered = this.searchMode === SEARCH_MODES.FILTERED
 
         // Create a serializable copy of the filters
-        const serializableFilters = this.makeSerializable(this.filters)
+        const serializableFilters = this.makeSerializable(normalizeSearchFilters(this.filters))
+        const settingsStore = useSettingsStore()
+        const enabledTypes = new Map(
+          settingsStore.settings.includedSearchTypes.map(type => [type.name, type.enabled]),
+        )
 
         // Execute all search calls in parallel
         const searchPromises = this.resultGroups.map(async (resultType) => {
           try {
+            const settingName = { disk: 'files', application: 'apps' }[resultType.name] || resultType.name
+            if (enabledTypes.get(settingName) === false) {
+              return { resultType: resultType.name, results: [] }
+            }
+
             // Skip search for some result types based on conditions
             if (resultType.name === RESULT_TYPES.DISK && !isFiltered && !this.query.trim()) {
               return {
@@ -152,6 +179,7 @@ export const useSearchResultsStore = defineStore('searchResults', {
             return {
               resultType: resultType.name,
               results: [],
+              error: error.message || String(error),
             }
           }
         })
@@ -171,6 +199,9 @@ export const useSearchResultsStore = defineStore('searchResults', {
             targetType.content = results
           }
         })
+        this.searchErrors = searchResults
+          .filter(result => result.error)
+          .map(result => result.resultType)
 
         // Increment counter to help components react to result changes
         this.resultsUpdateCounter++
@@ -189,6 +220,7 @@ export const useSearchResultsStore = defineStore('searchResults', {
         // Only clear if this is still the current search
         if (searchId === currentSearchId) {
           this.clearResults()
+          this.searchErrors = ['all']
         }
       }
       finally {
@@ -248,6 +280,7 @@ export const useSearchResultsStore = defineStore('searchResults', {
         resultType.content = []
       })
       this.hasSearched = false
+      this.searchErrors = []
       this.resultsUpdateCounter++
     },
 

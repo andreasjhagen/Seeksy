@@ -16,7 +16,8 @@ async function openSettings() {
         {{ t('search.noWatchedFolders.description') }}
       </p>
       <button
-        class="px-4 py-2 text-sm text-white bg-blue-500 rounded-sm cursor-pointer hover:bg-blue-600"
+        type="button"
+        class="px-4 py-2 text-sm font-medium text-accentForeground bg-accent-600 rounded-lg cursor-pointer hover:bg-accent-700"
         @click="openSettings"
       >
         {{ t('search.noWatchedFolders.openSettings') }}

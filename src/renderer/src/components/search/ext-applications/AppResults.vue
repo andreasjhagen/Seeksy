@@ -2,7 +2,7 @@
 import BaseResultComponent from '../BaseResultComponent.vue'
 import AppResultItem from './AppResultItem.vue'
 
-const props = defineProps({
+defineProps({
   resultType: {
     type: String,
     required: true,

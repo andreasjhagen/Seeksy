@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { IPC_CHANNELS } from '../../../../../../main/ipc/ipcChannels'
 
-const props = defineProps({
+defineProps({
   value: {
     type: String,
     required: true,
@@ -73,11 +73,10 @@ function updateDisplaySetting(value) {
     </p>
 
     <div class="pl-2 space-y-3">
-      <div
+      <label
         v-for="option in windowDisplayOptions"
         :key="option.value"
         class="flex items-start cursor-pointer group"
-        @click="updateDisplaySetting(option.value)"
       >
         <div class="flex items-center h-5">
           <input
@@ -97,8 +96,7 @@ function updateDisplaySetting(value) {
             {{ option.icon }}
           </span>
           <div>
-            <label
-              :for="`window-display-${option.value}`"
+            <span
               class="font-medium text-gray-700 cursor-pointer dark:text-gray-300"
             >
               {{ option.label }}
@@ -108,13 +106,13 @@ function updateDisplaySetting(value) {
               >
                 ({{ t('settings.preferences.searchPositionOptions.primary') }})
               </span>
-            </label>
+            </span>
             <p class="text-gray-500 dark:text-gray-400">
               {{ option.description }}
             </p>
           </div>
         </div>
-      </div>
+      </label>
     </div>
   </div>
 </template>

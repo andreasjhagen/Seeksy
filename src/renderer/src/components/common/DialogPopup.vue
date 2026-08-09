@@ -3,7 +3,7 @@ import { Dialog, DialogPanel, DialogTitle } from '@headlessui/vue'
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-const props = defineProps({
+defineProps({
   title: {
     type: String,
     required: false,
@@ -71,13 +71,15 @@ defineExpose({ setError })
           </div>
           <div class="flex justify-end space-x-2">
             <button
+              type="button"
               class="px-4 py-2 text-gray-600 border rounded-sm dark:text-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
               @click="onClose"
             >
               {{ t('common.cancel') }}
             </button>
             <button
-              class="px-4 py-2 text-white rounded-sm bg-accent-500 disabled:opacity-50 hover:bg-accent dark:bg-accent dark:hover:bg-accent-700"
+              type="button"
+              class="px-4 py-2 text-accentForeground rounded-lg bg-accent-500 disabled:opacity-50 hover:bg-accent-600 dark:bg-accent dark:hover:bg-accent-700"
               @click="onConfirm"
             >
               {{ confirmButtonText || t('common.save') }}

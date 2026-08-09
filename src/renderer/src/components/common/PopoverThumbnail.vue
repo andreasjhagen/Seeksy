@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { IPC_CHANNELS } from '../../../../main/ipc/ipcChannels'
 import { formatFileSize, getContentType } from '../../../../utils/mimeTypeUtils'
 import AudioPreview from './previews/AudioPreview.vue'
@@ -46,6 +46,12 @@ const popoverRef = ref(null)
 const contentPreview = ref(null)
 const fileContent = ref(null)
 const isLoading = ref(false)
+
+watch(() => props.filePath, () => {
+  fileContent.value = null
+  contentPreview.value = null
+  showPopover.value = false
+})
 
 // Computed property to determine content type using the utility
 const contentType = computed(() => {

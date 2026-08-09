@@ -208,8 +208,9 @@ function onDrop(event) {
     @drop="onDrop"
   >
     <!-- Header row: fully clickable for collapse, fully draggable for reorder -->
-    <div
-      class="section-header"
+    <button
+      type="button"
+      class="section-header w-full"
       :class="{ 'opacity-60': isDragging }"
       :title="collapsed ? t('tooltips.expandSection') : t('tooltips.collapseSection')"
       draggable="true"
@@ -227,7 +228,7 @@ function onDrop(event) {
         <span v-if="collapsed" class="text-base leading-none material-symbols-outlined">expand_more</span>
         <span v-else class="text-base leading-none material-symbols-outlined">expand_less</span>
       </div>
-    </div>
+    </button>
 
     <div v-if="!collapsed" class="grid" :class="[gridCols, gridRows, gridGap]">
       <slot />
@@ -316,7 +317,9 @@ function onDrop(event) {
 
 /* Show drag handle and collapse toggle on hover */
 .section-header:hover .drag-handle,
-.section-header:hover .collapse-indicator {
+.section-header:hover .collapse-indicator,
+.section-header:focus-visible .drag-handle,
+.section-header:focus-visible .collapse-indicator {
   opacity: 1;
 }
 

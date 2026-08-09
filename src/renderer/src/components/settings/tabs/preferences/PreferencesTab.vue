@@ -63,11 +63,6 @@ async function updateShortcut(e) {
 
 const restoreDefaultShortcut = () => updateSetting('searchShortcut', 'CommandOrControl+Space')
 
-//  helper function for capitalization
-function capitalizeFirstLetter(string) {
-  return string.charAt(0).toUpperCase() + string.slice(1)
-}
-
 // Add toggle handler for search types
 function toggleSearchType(typeName) {
   const updatedTypes = settings.includedSearchTypes.map(type => ({
@@ -97,6 +92,13 @@ function changeLanguage(langCode) {
 
 <template>
   <div class="p-6 space-y-8 bg-white shadow-xs rounded-xl dark:bg-gray-800">
+    <div
+      v-if="settingsStore.lastError"
+      class="p-3 text-sm text-red-700 border border-red-200 rounded-lg bg-red-50 dark:bg-red-900/30 dark:border-red-800 dark:text-red-200"
+      role="alert"
+    >
+      {{ settingsStore.lastError }}
+    </div>
     <!-- UI Customization -->
     <div class="space-y-6">
       <h2
@@ -112,7 +114,7 @@ function changeLanguage(langCode) {
         @toggle="toggleDarkMode"
       />
 
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 class="text-gray-900 dark:text-gray-100">
             {{ t('settings.preferences.accentColor') }}
@@ -130,13 +132,16 @@ function changeLanguage(langCode) {
               ? 'ring-2 ring-gray-700 dark:ring-white'
               : 'ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-gray-400 dark:hover:ring-gray-500'"
             :style="{ backgroundColor: color.value }"
+            :aria-label="color.name"
+            :aria-pressed="settings.accentColor === color.value"
+            type="button"
             @click="updateSetting('accentColor', color.value)"
           />
         </div>
       </div>
 
       <!-- UI Scale Slider -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 class="text-gray-900 dark:text-gray-100">
             {{ t('settings.preferences.uiScale') }}
@@ -148,6 +153,8 @@ function changeLanguage(langCode) {
         <div class="flex items-center gap-3">
           <span class="text-sm text-gray-500 dark:text-gray-400">50%</span>
           <input
+            id="ui-scale"
+            :aria-label="t('settings.preferences.uiScale')"
             type="range"
             min="50"
             max="150"
@@ -158,6 +165,7 @@ function changeLanguage(langCode) {
           >
           <span class="text-sm text-gray-500 dark:text-gray-400">150%</span>
           <button
+            type="button"
             class="px-2 py-1 text-xs text-gray-600 transition-colors bg-gray-100 rounded hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
             @click="updateUIScale(100)"
           >
@@ -167,7 +175,7 @@ function changeLanguage(langCode) {
       </div>
 
       <!-- Language Selector -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 class="text-gray-900 dark:text-gray-100">
             {{ t('settings.preferences.language') }}
@@ -177,6 +185,7 @@ function changeLanguage(langCode) {
           </p>
         </div>
         <select
+          :aria-label="t('settings.preferences.language')"
           :value="settings.language"
           class="px-3 py-2 text-sm bg-gray-100 border border-gray-300 rounded-lg cursor-pointer dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-accent-500"
           @change="changeLanguage($event.target.value)"
@@ -250,7 +259,7 @@ function changeLanguage(langCode) {
         @toggle="toggleAutostart"
       />
 
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 class="text-gray-900 dark:text-gray-100">
             {{ t('settings.preferences.searchShortcut') }}

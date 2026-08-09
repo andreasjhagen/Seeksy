@@ -213,7 +213,8 @@
       "resetAppDescription": "Dies löscht alle Einstellungen und indexierten Daten. Diese Aktion kann nicht rückgängig gemacht werden.",
       "resetAppButton": "App zurücksetzen",
       "resetAppConfirmTitle": "Anwendung zurücksetzen",
-      "resetAppConfirmMessage": "Möchtest du die Anwendung wirklich zurücksetzen? Dies löscht alle Einstellungen, indexierten Daten und Favoriten. Diese Aktion kann nicht rückgängig gemacht werden."
+      "resetAppConfirmMessage": "Möchtest du die Anwendung wirklich zurücksetzen? Dies löscht alle Einstellungen, indexierten Daten und Favoriten. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "resetFailed": "Seeksy konnte nicht zurückgesetzt werden. Die Anwendung wird zur Wiederherstellung neu gestartet."
     }
   },
   "search": {
@@ -230,6 +231,7 @@
       "video": "Video",
       "from": "Von:",
       "to": "Bis:",
+      "dateRangeError": "Das Startdatum darf nicht nach dem Enddatum liegen.",
       "resetFilters": "Filter zurücksetzen"
     },
     "sections": {
@@ -241,6 +243,8 @@
       "title": "Notizen bearbeiten",
       "placeholder": "Notizen hier eingeben..."
     },
+    "partialError": "Einige Ergebnisquellen konnten nicht durchsucht werden. Versuche es erneut.",
+    "resultsLabel": "Suchergebnisse",
     "noWatchedFolders": {
       "description": "Füge in den Einstellungen Ordner hinzu, um deine Dateien zu durchsuchen.",
       "openSettings": "Einstellungen öffnen"

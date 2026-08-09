@@ -213,7 +213,8 @@
       "resetAppDescription": "Cela effacera tous les paramètres et données indexées. Cette action est irréversible.",
       "resetAppButton": "Réinitialiser l'application",
       "resetAppConfirmTitle": "Réinitialiser l'application",
-      "resetAppConfirmMessage": "Êtes-vous sûr de vouloir réinitialiser l'application ? Cela effacera tous les paramètres, données indexées et favoris. Cette action est irréversible."
+      "resetAppConfirmMessage": "Êtes-vous sûr de vouloir réinitialiser l'application ? Cela effacera tous les paramètres, données indexées et favoris. Cette action est irréversible.",
+      "resetFailed": "Seeksy n’a pas pu être réinitialisé. L’application va redémarrer pour récupérer."
     }
   },
   "search": {
@@ -230,6 +231,7 @@
       "video": "Vidéo",
       "from": "Du :",
       "to": "Au :",
+      "dateRangeError": "La date de début doit précéder ou être égale à la date de fin.",
       "resetFilters": "Réinitialiser les filtres"
     },
     "sections": {
@@ -241,6 +243,8 @@
       "title": "Modifier les notes",
       "placeholder": "Entrez vos notes ici..."
     },
+    "partialError": "Certaines sources de résultats n’ont pas pu être interrogées. Réessayez.",
+    "resultsLabel": "Résultats de recherche",
     "noWatchedFolders": {
       "description": "Ajoutez des dossiers dans les Paramètres pour commencer à rechercher vos fichiers.",
       "openSettings": "Ouvrir les paramètres"

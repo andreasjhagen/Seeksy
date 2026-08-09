@@ -20,6 +20,8 @@ export function useAutoPerformance(initialDelay = DEFAULT_DELAY) {
   const minBatchSize = ref(1)
   const maxBatchSize = ref(50)
   const enableBatching = ref(true)
+  let disposeStatusListener = null
+  let autoUpdateInterval = null
 
   // More efficient computed properties with direct property access
   const activeWatchers = computed(() =>
@@ -63,19 +65,17 @@ export function useAutoPerformance(initialDelay = DEFAULT_DELAY) {
     }
 
     // Start listening for status updates
-    window.api.on('indexer:status', (status) => {
-      activeWatchers.value = status.activeIndexingWatchers || 0
-      watchingWatchers.value = status.watchingWatchers || 0
-
+    disposeStatusListener = window.api.on(IPC.BACKEND.INDEXER_GET_STATUS, (newStatus) => {
       // Update computed delay from status updates
       if (isAutoMode.value) {
-        computedDelay.value = status.currentDelay || computedDelay.value
+        computedDelay.value = newStatus.currentDelay || computedDelay.value
       }
     })
   })
 
   onUnmounted(() => {
-    window.api.removeAllListeners('indexer:status')
+    disposeStatusListener?.()
+    clearInterval(autoUpdateInterval)
   })
 
   // Sync auto mode changes with backend
@@ -97,8 +97,6 @@ export function useAutoPerformance(initialDelay = DEFAULT_DELAY) {
   })
 
   // Update status periodically when in auto mode
-  let autoUpdateInterval = null
-
   watch(isAutoMode, (isAuto) => {
     if (autoUpdateInterval) {
       clearInterval(autoUpdateInterval)

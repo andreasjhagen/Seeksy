@@ -15,6 +15,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  tabindex: {
+    type: [String, Number],
+    default: -1,
+  },
 })
 
 const emit = defineEmits(['open-file', 'show-in-directory'])
@@ -79,6 +83,9 @@ function capitalizeFirstLetter(string) {
 <template>
   <div
     :title="itemTitle"
+    :tabindex="props.tabindex"
+    role="button"
+    :aria-label="displayName"
     class="group h-16 p-1.5 transition-all duration-300 border rounded-lg cursor-pointer focus:outline-hidden relative z-10
           bg-gray-50 dark:bg-gray-700
           hover:z-20 hover:scale-102 hover:shadow-md hover:bg-gray-100 hover:border-gray-300
@@ -87,8 +94,9 @@ function capitalizeFirstLetter(string) {
       'bg-accent-50 border-accent-300 ring-2 ring-accent-400 dark:bg-accent-700 dark:border-accent-800': isSelected,
       'border-transparent': !isSelected,
     }"
-    @click.stop="showInDirectory(file.path)"
+    @click.stop="openFile(file)"
     @keydown.enter="openFile(file)"
+    @keydown.space.prevent="openFile(file)"
   >
     <div class="flex items-start space-x-3">
       <!-- Left: Thumbnail/Icon -->
@@ -166,6 +174,7 @@ function capitalizeFirstLetter(string) {
           v-if="getFileType(file) !== 'directory'"
           class="p-1.5 cursor-pointer text-gray-900 flex items-center justify-center transition-colors rounded-lg bg-gray-200 hover:bg-gray-600 hover:text-white dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-accent shadow-xs"
           :title="t('tooltips.showInFolder')"
+          :aria-label="t('tooltips.showInFolder')"
           @click.stop="showInDirectory(file.path)"
         >
           <span class="material-symbols-outlined">folder</span>
@@ -173,7 +182,8 @@ function capitalizeFirstLetter(string) {
         <button
           class="p-1.5 cursor-pointer text-gray-900 flex items-center justify-center transition-colors rounded-lg bg-gray-200 hover:bg-gray-600 hover:text-white dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-accent shadow-xs"
           :title="getFileType(file) === 'directory' ? t('tooltips.openFolder') : t('tooltips.openFile')"
-          @click.stop="getFileType(file) === 'directory' ? showInDirectory(file.path) : openFile(file)"
+          :aria-label="getFileType(file) === 'directory' ? t('tooltips.openFolder') : t('tooltips.openFile')"
+          @click.stop="openFile(file)"
         >
           <span class="material-symbols-outlined">
             {{ getFileType(file) === 'directory' ? 'folder_open' : 'open_in_new' }}

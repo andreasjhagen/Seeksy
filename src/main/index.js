@@ -98,13 +98,14 @@ function createMainWindow() {
     webPreferences: {
       preload: join(__dirnamePath, '../preload/index.mjs'),
       sandbox: false,
-      nodeIntegration: true,
+      nodeIntegration: false,
       contextIsolation: true,
       devTools: is.dev,
     },
   })
 
   setupMainWindowEventHandlers()
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   crashReporterService.setupRendererHandlers(mainWindow, 'main')
   loadWindowContent(mainWindow)
 }
@@ -143,13 +144,14 @@ function createSettingsWindow() {
     webPreferences: {
       preload: join(__dirnamePath, '../preload/index.mjs'),
       sandbox: false,
-      nodeIntegration: true,
+      nodeIntegration: false,
       contextIsolation: true,
       devTools: is.dev,
     },
   })
 
   setupSettingsWindowEventHandlers()
+  settingsWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   crashReporterService.setupRendererHandlers(settingsWindow, 'settings')
   loadWindowContent(settingsWindow)
 
@@ -178,14 +180,6 @@ function loadWindowContent(window) {
   }
 }
 
-/**
- * Check if developer tools should be enabled
- * @returns {boolean} True if dev tools should be enabled
- */
-function shouldEnableDevTools() {
-  return is.dev
-}
-
 // === System Tray Management ===
 let updateAvailable = false
 let updateDownloaded = false
@@ -212,6 +206,10 @@ function getTrayIconPath() {
 function createTray() {
   const iconPath = getTrayIconPath()
   const systemTrayIcon = nativeImage.createFromPath(iconPath)
+
+  if (systemTrayIcon.isEmpty()) {
+    throw new Error(`Failed to load tray icon: ${iconPath}`)
+  }
 
   tray = new Tray(systemTrayIcon)
   updateTrayMenu()
@@ -294,7 +292,7 @@ function updateTrayMenu() {
     },
   })
 
-  const contextMenu = Menu.buildFromTemplate(menuTemplate)
+  const trayMenu = Menu.buildFromTemplate(menuTemplate)
 
   // Update tooltip to show status
   if (updateAvailable && !updateDownloaded) {
@@ -310,7 +308,7 @@ function updateTrayMenu() {
     tray.setToolTip(t('tooltip.default'))
   }
 
-  tray.setContextMenu(contextMenu)
+  tray.setContextMenu(trayMenu)
 }
 
 /**

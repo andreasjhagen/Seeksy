@@ -81,7 +81,7 @@ class LinuxAppIndexing {
       const { stdout } = await execPromise(`find "${dir}" -name "*.desktop" 2>/dev/null`)
       return stdout.split('\n').filter(Boolean)
     }
-    catch (error) {
+    catch {
       return []
     }
   }
@@ -425,7 +425,7 @@ class LinuxAppIndexing {
         if (iconFile)
           return iconFile
       }
-      catch (error) {
+      catch {
         continue
       }
     }
@@ -466,7 +466,7 @@ class LinuxAppIndexing {
         }
       }
     }
-    catch (error) {
+    catch {
       return null
     }
 

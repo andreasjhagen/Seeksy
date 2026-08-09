@@ -13,6 +13,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  tabindex: {
+    type: [String, Number],
+    default: -1,
+  },
 })
 
 const emit = defineEmits(['launch', 'context-menu'])
@@ -60,8 +64,8 @@ function handleContextMenu(event) {
             isSelected
               ? 'bg-accent-50 border-accent-300 ring-2 ring-accent-400 dark:bg-accent-700 dark:border-accent-800'
               : 'border-transparent',
-          ]" :title="`${displayName}\n${getDisplayPath(app)}`" :tabindex="props.tabindex || '0'" :app="JSON.stringify(app)"
-    :data-path="app.path" data-result-type="application" @click="handleClick" @keydown.enter="handleClick"
+          ]" :title="`${displayName}\n${getDisplayPath(app)}`" :tabindex="props.tabindex" role="button" :aria-label="displayName"
+    :data-path="app.path" data-result-type="application" @click="handleClick" @keydown.enter="handleClick" @keydown.space.prevent="handleClick"
     @contextmenu="handleContextMenu"
   >
     <!-- Indicators -->

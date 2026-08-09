@@ -11,6 +11,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  tabindex: {
+    type: [String, Number],
+    default: -1,
+  },
 })
 
 const emit = defineEmits(['copy', 'contextmenu'])
@@ -39,6 +43,7 @@ function handleContextMenu(event) {
 
 <template>
   <button
+    type="button"
     class="relative z-10 flex items-center justify-center p-2 text-2xl transition-all duration-300 bg-gray-50 border rounded-lg cursor-pointer group focus:outline-hidden
            hover:z-20 hover:scale-105 hover:shadow-md hover:bg-gray-100 hover:border-gray-300
            dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-700/80 dark:hover:border-gray-600"
@@ -47,12 +52,12 @@ function handleContextMenu(event) {
         ? 'bg-accent-50 border-accent-300 ring-2 ring-accent-400 dark:bg-accent-700 dark:border-accent-800'
         : 'border-gray-200',
     ]"
-    :tabindex="props.tabindex || '0'"
+    :tabindex="props.tabindex"
+    :aria-label="emoji.name"
     :emoji="JSON.stringify(emoji)"
     :data-char="emoji.char"
     data-result-type="emoji"
     @click="$emit('copy', emoji.char)"
-    @keydown.enter="$emit('copy', emoji.char)"
     @contextmenu="handleContextMenu"
   >
     <!-- Indicators -->

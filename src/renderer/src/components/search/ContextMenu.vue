@@ -1,11 +1,11 @@
 <script setup>
 import { onClickOutside } from '@vueuse/core'
-import { computed, getCurrentInstance, onMounted, ref, watchEffect } from 'vue'
+import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useContextMenu } from '../../composables/useContextMenu'
 import DialogPopup from '../common/DialogPopup.vue'
 
-const props = defineProps({
+defineProps({
   useOnlyCustomOptions: {
     type: Boolean,
     default: false,
@@ -18,6 +18,7 @@ const { t } = useI18n()
 
 const contextMenu = useContextMenu()
 const menuRef = ref(null)
+const adjustedMenuPosition = ref({ x: 0, y: 0 })
 
 // State management
 const selectedItem = ref(null)
@@ -29,8 +30,25 @@ const isMenuVisible = computed(() => contextMenu.showContextMenu.value)
 const menuPosition = computed(() => contextMenu.contextMenuPosition.value)
 const menuItems = computed(() => contextMenu.menuItems.value)
 
+watch(isMenuVisible, async (visible) => {
+  if (!visible)
+    return
+
+  adjustedMenuPosition.value = { ...menuPosition.value }
+  await nextTick()
+  const rect = menuRef.value?.getBoundingClientRect()
+  if (!rect)
+    return
+
+  adjustedMenuPosition.value = {
+    x: Math.max(8, Math.min(menuPosition.value.x, window.innerWidth - rect.width - 8)),
+    y: Math.max(8, Math.min(menuPosition.value.y, window.innerHeight - rect.height - 8)),
+  }
+  menuRef.value.querySelector('button')?.focus()
+})
+
 // Setup click outside handler when menu is visible
-watchEffect(() => {
+watchEffect((onCleanup) => {
   if (!isMenuVisible.value || !menuRef.value)
     return
 
@@ -41,7 +59,7 @@ watchEffect(() => {
     }
   })
 
-  return stop // Clean up handler when effect re-runs
+  onCleanup(stop)
 })
 
 /**
@@ -95,6 +113,10 @@ onMounted(() => {
   })
 })
 
+onBeforeUnmount(() => {
+  contextMenu.setActionCompleteCallback(null)
+})
+
 /**
  * Handle confirmation of notes dialog
  */
@@ -126,8 +148,10 @@ function handleNotesCancel() {
     <div
       ref="menuRef"
       class="context-menu fixed z-20 min-w-[200px] bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-1"
-      :style="{ left: `${menuPosition.x}px`, top: `${menuPosition.y}px` }"
+      role="menu"
+      :style="{ left: `${adjustedMenuPosition.x}px`, top: `${adjustedMenuPosition.y}px` }"
       @click.stop
+      @keydown.esc="contextMenu.closeMenu"
     >
       <template v-for="(item, index) in menuItems" :key="item.id || index">
         <!-- Separator -->
@@ -139,7 +163,9 @@ function handleNotesCancel() {
         <!-- Menu item -->
         <button
           v-else-if="!item.hidden"
-          class="flex items-center w-full gap-2 px-4 py-2 text-left text-black dark:text-gray-100 hover:text-white hover:bg-accent-500"
+          class="flex items-center w-full gap-2 px-4 py-2 text-left text-black dark:text-gray-100 hover:text-accentForeground hover:bg-accent-500"
+          type="button"
+          role="menuitem"
           @click="item.action"
         >
           <span v-if="item.icon" class="material-symbols-outlined">{{ item.icon }}</span>
@@ -159,6 +185,7 @@ function handleNotesCancel() {
         v-model="noteContent"
         class="w-full h-32 p-2 border rounded-sm dark:bg-gray-700 dark:border-gray-600"
         :placeholder="t('search.notes.placeholder')"
+        :aria-label="t('search.notes.title')"
       />
     </DialogPopup>
   </Teleport>

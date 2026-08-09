@@ -112,7 +112,8 @@ function isSectionCollapsed(sectionName) {
  * Check if a search type is enabled in settings
  */
 function isSearchTypeEnabled(typeName) {
-  return enabledSearchTypesMap.value.get(typeName) !== false
+  const settingName = { disk: 'files', application: 'apps' }[typeName] || typeName
+  return enabledSearchTypesMap.value.get(settingName) !== false
 }
 
 /**
@@ -270,7 +271,9 @@ watch(
   <div
     v-if="hasSearched"
     ref="resultsContainer"
-    class="p-6 space-y-3 overflow-y-auto bg-gray-200 shadow-md rounded-2xl dark:bg-gray-800 focus:outline-hidden scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent"
+    class="p-6 space-y-3 overflow-y-auto bg-gray-200 shadow-md rounded-2xl dark:bg-gray-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-accent-500 scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent"
+    role="region"
+    :aria-label="t('search.resultsLabel')"
     tabindex="0"
     @keydown.up.prevent="navigateVertical('up')"
     @keydown.down.prevent="navigateVertical('down')"
@@ -326,6 +329,14 @@ watch(
         </template>
       </template>
     </template>
+
+    <div
+      v-if="searchStore.searchErrors.length"
+      class="p-3 text-sm text-amber-800 border border-amber-200 rounded-lg bg-amber-50 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-200"
+      role="alert"
+    >
+      {{ t('search.partialError') }}
+    </div>
 
     <!-- No results message -->
     <div

@@ -1,6 +1,7 @@
 <script setup>
 import { useVirtualizer } from '@tanstack/vue-virtual'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useSelectionStore } from '../../../stores/selection-store'
 import BaseResultComponent from '../BaseResultComponent.vue'
 import DiskResultItem from './DiskResultItem.vue'
 
@@ -18,6 +19,7 @@ const props = defineProps({
 const emit = defineEmits(['contextmenu', 'open-file', 'show-in-directory', 'item-focus', 'toggle-collapse', 'section-reorder'])
 const baseComponentRef = ref(null)
 const scrollElementRef = ref(null)
+const selectionStore = useSelectionStore()
 
 // Get disk results from the base component
 const diskResults = computed(() => {
@@ -32,6 +34,16 @@ const virtualizer = useVirtualizer({
   getScrollElement: () => scrollElementRef.value,
   estimateSize: () => 68, // Height of item (64) + gap (4)
   overscan: 10,
+})
+
+watch(() => selectionStore.selectedItem, (selectedItem) => {
+  if (selectionStore.selectedSection !== props.resultType || !selectedItem)
+    return
+
+  const index = diskResults.value.findIndex(item => item.path === selectedItem.path)
+  if (index >= 0) {
+    virtualizer.value.scrollToIndex(index, { align: 'auto' })
+  }
 })
 
 function handleItemFocusEvent(item) {

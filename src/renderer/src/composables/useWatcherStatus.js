@@ -13,6 +13,8 @@ export function useWatcherStatus() {
 
   // Status update timer
   let statusUpdateTimer = null
+  let delayedStatusTimer = null
+  let disposeStatusListener = null
 
   async function updateWatcherStatus() {
     try {
@@ -31,7 +33,7 @@ export function useWatcherStatus() {
 
   // Setup a status update listener that the main process can trigger
   function setupStatusListener() {
-    window.api.on(IPC.BACKEND.INDEXER_GET_STATUS, async (_event) => {
+    disposeStatusListener = window.api.on(IPC.BACKEND.INDEXER_GET_STATUS, async () => {
       await updateWatcherStatus()
     })
   }
@@ -61,7 +63,8 @@ export function useWatcherStatus() {
       await updateWatcherStatus()
 
       // Double-check status after a brief delay to ensure changes are applied
-      setTimeout(async () => {
+      clearTimeout(delayedStatusTimer)
+      delayedStatusTimer = setTimeout(async () => {
         await updateWatcherStatus()
       }, 500)
 
@@ -165,7 +168,8 @@ export function useWatcherStatus() {
 
   // Cleanup the status listener
   function cleanupStatusListener() {
-    window.api.removeAllListeners(IPC.BACKEND.INDEXER_GET_STATUS)
+    disposeStatusListener?.()
+    disposeStatusListener = null
   }
 
   // Setup lifecycle hooks
@@ -177,6 +181,7 @@ export function useWatcherStatus() {
 
   onUnmounted(() => {
     stopStatusUpdates()
+    clearTimeout(delayedStatusTimer)
     cleanupStatusListener() // Clean up IPC listener to prevent memory leak
   })
 

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { app, dialog, shell } from 'electron'
@@ -6,6 +6,7 @@ import { getContentType, getMimeType } from '../../../utils/mimeTypeUtils.js'
 import FileIconExtractor from '../../services/disk-reader/FileIconExtractor.js'
 import { ThumbnailCache } from '../../services/disk-reader/ThumbnailCache'
 import { countFolderContent } from '../../services/disk-reader/utils/countFiles'
+import { readTextPreview } from '../../utils/filePreview.js'
 import { BaseHandler } from '../BaseHandler'
 import { IPC } from '../ipcChannels'
 
@@ -13,7 +14,7 @@ const thumbnailCache = new ThumbnailCache({
   expiry: 24 * 60 * 60 * 1000,
   thumbnailSize: 256,
 })
-
+const MAX_INLINE_PREVIEW_BYTES = 20 * 1024 * 1024
 export class DiskReaderHandler extends BaseHandler {
   constructor() {
     super()
@@ -26,6 +27,7 @@ export class DiskReaderHandler extends BaseHandler {
       [IPC.FRONTEND.GET_FILE_ICON]: this.handleGetFileIcon.bind(this),
       [IPC.FRONTEND.COUNT_FOLDER_FILES]: this.handleCountFolderFiles.bind(this),
       [IPC.FRONTEND.GET_FILE_CONTENT]: this.handleGetFileContent.bind(this),
+      [IPC.FRONTEND.OPEN_EXTERNAL]: this.handleOpenExternal.bind(this),
       [IPC.FRONTEND.CLEAR_THUMBNAIL_CACHE]: this.handleClearThumbnailCache.bind(this),
       [IPC.FRONTEND.GET_THUMBNAIL_CACHE_STATS]: this.handleGetThumbnailCacheStats.bind(this),
     })
@@ -53,7 +55,10 @@ export class DiskReaderHandler extends BaseHandler {
 
   async handleOpenFile(_, filePath) {
     try {
-      await shell.openPath(filePath)
+      const errorMessage = await shell.openPath(filePath)
+      if (errorMessage) {
+        throw new Error(errorMessage)
+      }
       return true
     }
     catch (error) {
@@ -64,6 +69,9 @@ export class DiskReaderHandler extends BaseHandler {
 
   async handleShowInExplorer(_, path) {
     try {
+      if (!existsSync(path)) {
+        throw new Error('The requested path does not exist')
+      }
       shell.showItemInFolder(path)
       return true
     }
@@ -81,6 +89,21 @@ export class DiskReaderHandler extends BaseHandler {
     catch (error) {
       console.error('Error showing app data folder:', error)
       return false
+    }
+  }
+
+  async handleOpenExternal(_, url) {
+    try {
+      const parsedUrl = new URL(url)
+      if (parsedUrl.protocol !== 'https:') {
+        throw new Error('Only secure web links are allowed')
+      }
+      await shell.openExternal(parsedUrl.toString())
+      return { success: true }
+    }
+    catch (error) {
+      console.error('Failed to open external link:', error)
+      return { success: false, error: error.message }
     }
   }
 
@@ -123,7 +146,7 @@ export class DiskReaderHandler extends BaseHandler {
       // Special handling for .url files (Windows Internet Shortcuts)
       if (ext === '.url') {
         try {
-          const content = readFileSync(filePath, { encoding: 'utf-8', flag: 'r' })
+          const content = await readTextPreview(filePath)
           const urlMatch = content.match(/URL=(.+)/i)
           const url = urlMatch ? urlMatch[1].trim() : ''
 
@@ -149,17 +172,23 @@ export class DiskReaderHandler extends BaseHandler {
 
       // Handle text files
       if (contentType === 'text') {
-        // Read only the first portion of the file for performance
-        const content = readFileSync(filePath, { encoding: 'utf-8', flag: 'r' }).slice(0, 5000)
-        const isTruncated = content.length === 5000
         return {
           type: 'text',
-          content: isTruncated ? `${content}...\n\n[Content truncated. Open file to see more]` : content,
+          content: await readTextPreview(filePath),
         }
       }
 
       // Handle images - load full image
       else if (contentType === 'image') {
+        if (stats.size > MAX_INLINE_PREVIEW_BYTES) {
+          return {
+            type: 'unknown',
+            fileType: ext.substring(1).toUpperCase(),
+            fileSize: stats.size,
+            name: path.basename(filePath),
+            path: filePath,
+          }
+        }
         const buffer = await fs.readFile(filePath)
         const base64Data = buffer.toString('base64')
         return {
@@ -190,6 +219,15 @@ export class DiskReaderHandler extends BaseHandler {
 
       // Handle audio files
       else if (contentType === 'audio') {
+        if (stats.size > MAX_INLINE_PREVIEW_BYTES) {
+          return {
+            type: 'unknown',
+            fileType: ext.substring(1).toUpperCase(),
+            fileSize: stats.size,
+            name: path.basename(filePath),
+            path: filePath,
+          }
+        }
         const buffer = await fs.readFile(filePath)
         const base64Data = buffer.toString('base64')
 
@@ -198,7 +236,7 @@ export class DiskReaderHandler extends BaseHandler {
         try {
           coverArt = await thumbnailCache.generateThumbnail(filePath)
         }
-        catch (error) {
+        catch {
           // Cover art extraction failed, continue without it
           console.debug('No cover art found for audio file:', filePath)
         }

@@ -7,14 +7,6 @@ const props = defineProps({
   folder: {
     type: Object,
     required: true,
-    default: () => ({
-      path: '',
-      depth: Infinity,
-      totalFiles: 0,
-      processedFiles: 0,
-      state: 'initializing',
-      isPaused: false,
-    }),
   },
 })
 
@@ -126,6 +118,11 @@ async function onPauseResume() {
       <!-- Inline progress bar - narrow -->
       <div class="w-16 h-1.5 bg-gray-200 rounded-full dark:bg-gray-700 shrink-0 hidden md:block">
         <div
+          role="progressbar"
+          :aria-label="folderName"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          :aria-valuenow="progress"
           class="h-full transition-all duration-300 rounded-full"
           :class="[progressBarClass, props.folder.isPaused ? 'opacity-50' : '']"
           :style="{ width: `${progress}%` }"

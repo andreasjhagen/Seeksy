@@ -24,6 +24,6 @@ export const router = createRouter({
   routes,
 })
 
-router.afterEach((to, from) => {
+router.afterEach((to) => {
   document.title = to.meta.title || 'Seeksy'
 })

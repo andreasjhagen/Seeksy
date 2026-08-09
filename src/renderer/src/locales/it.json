@@ -213,7 +213,8 @@
       "resetAppDescription": "Questo cancellerà tutte le impostazioni e i dati indicizzati. Questa azione è irreversibile.",
       "resetAppButton": "Reimposta app",
       "resetAppConfirmTitle": "Reimposta applicazione",
-      "resetAppConfirmMessage": "Sei sicuro di voler reimpostare l'applicazione? Questo cancellerà tutte le impostazioni, i dati indicizzati e i preferiti. Questa azione è irreversibile."
+      "resetAppConfirmMessage": "Sei sicuro di voler reimpostare l'applicazione? Questo cancellerà tutte le impostazioni, i dati indicizzati e i preferiti. Questa azione è irreversibile.",
+      "resetFailed": "Non è stato possibile reimpostare Seeksy. L’applicazione verrà riavviata per il ripristino."
     }
   },
   "search": {
@@ -230,6 +231,7 @@
       "video": "Video",
       "from": "Da:",
       "to": "A:",
+      "dateRangeError": "La data di inizio deve precedere o coincidere con la data di fine.",
       "resetFilters": "Reimposta filtri"
     },
     "sections": {
@@ -241,6 +243,8 @@
       "title": "Modifica note",
       "placeholder": "Inserisci le note qui..."
     },
+    "partialError": "Non è stato possibile cercare in alcune fonti. Riprova.",
+    "resultsLabel": "Risultati di ricerca",
     "noWatchedFolders": {
       "description": "Aggiungi cartelle nelle Impostazioni per iniziare a cercare i tuoi file.",
       "openSettings": "Apri impostazioni"

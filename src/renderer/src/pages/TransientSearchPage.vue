@@ -1,15 +1,13 @@
 <script setup>
 import { onClickOutside } from '@vueuse/core'
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { IPC_CHANNELS } from '../../../main/ipc/ipcChannels'
 import ContextMenu from '../components/search/ContextMenu.vue'
 import FavoriteResults from '../components/search/favorites/FavoriteResults.vue'
 import NoWatchedFolders from '../components/search/NoWatchedFolders.vue'
 import SearchInterface from '../components/search/SearchInterface.vue'
 import SearchResults from '../components/search/SearchResults.vue'
-import { useContextMenu } from '../composables/useContextMenu'
 import { useKeyboardNavigation } from '../composables/useKeyboardNavigation'
-import { useSearchActions } from '../composables/useSearchActions'
 import { useWatcherStatus } from '../composables/useWatcherStatus'
 import { useSearchResultsStore } from '../stores/search-results-store'
 import { useSelectionStore } from '../stores/selection-store'
@@ -19,9 +17,7 @@ const searchStore = useSearchResultsStore()
 const selectionStore = useSelectionStore()
 const searchInterface = ref(null)
 const settingsStore = useSettingsStore()
-const contextMenu = useContextMenu()
-const { handleOpenFile, handleShowInDirectory, handleLaunch, handleCopyEmoji } = useSearchActions()
-const { focusResults, initializeSelection } = useKeyboardNavigation()
+const { initializeSelection } = useKeyboardNavigation()
 
 const hasResults = computed(() => {
   return (
@@ -38,7 +34,7 @@ const searchContainer = ref(null)
 
 onClickOutside(
   searchContainer,
-  (event) => {
+  () => {
     window.api.invoke(IPC_CHANNELS.HIDE_MAIN_WINDOW)
   },
   {
@@ -88,15 +84,10 @@ onMounted(async () => {
 
   // Set up global keyboard event listener
   window.addEventListener('keydown', handleKeyDown)
-
-  // Clean up event listener
-  return () => {
-    window.removeEventListener('keydown', handleKeyDown)
-  }
 })
 
 // Update status when window shows - Use an async function to properly handle the Promise
-window.api.on(IPC_CHANNELS.SHOW_MAIN_WINDOW, async () => {
+const disposeShowMainWindow = window.api.on(IPC_CHANNELS.SHOW_MAIN_WINDOW, async () => {
   resetAnimation()
   console.log('Window shown, updating watcher status')
 
@@ -114,6 +105,11 @@ window.api.on(IPC_CHANNELS.SHOW_MAIN_WINDOW, async () => {
   catch (error) {
     console.error('Error updating watcher status:', error)
   }
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+  disposeShowMainWindow()
 })
 </script>
 

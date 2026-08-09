@@ -6,10 +6,10 @@ import { ref } from 'vue'
  *
  * @param {Function} fn - The function to debounce
  * @param {number} wait - Milliseconds to wait before invoking the function
- * @param {object} options - Options object
+ * @param {object} _options - Options object (reserved for future behavior)
  * @returns {Function} The debounced function
  */
-export function useDebounce(fn, wait = 300, options = {}) {
+export function useDebounce(fn, wait = 300, _options = {}) {
   const timeoutRef = ref(null)
 
   const debounced = function (...args) {

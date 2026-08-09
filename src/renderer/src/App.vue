@@ -6,7 +6,7 @@ import { provideContextMenuService } from './composables/useContextMenu'
 import { useSearchResultsStore } from './stores/search-results-store'
 import { useSelectionStore } from './stores/selection-store'
 import { useSettingsStore } from './stores/settings-store'
-import { generateColorPalette } from './utils/colorUtils'
+import { generateColorPalette, getContrastForeground } from './utils/colorUtils'
 
 const contentRef = ref(null)
 const initializationStatus = ref('pending')
@@ -14,6 +14,7 @@ const router = useRouter()
 const settingsStore = useSettingsStore()
 const selectionStore = useSelectionStore()
 const searchStore = useSearchResultsStore()
+const listenerDisposers = []
 
 // Provide the context menu service to the entire application
 // This function call sets up the Vue provide/inject
@@ -38,6 +39,7 @@ watch(
       })
       // Set the default accent color to the 500 shade
       document.documentElement.style.setProperty('--accent-color', palette[500])
+      document.documentElement.style.setProperty('--accent-color-foreground', getContrastForeground(palette[600]))
     }
   },
   { immediate: true },
@@ -58,27 +60,27 @@ watch(
 // Sets up global redirectors for window navigation
 // we are sending them from the main process to the different windows, so we can have two different ones.
 function setupWindowRedirection() {
-  window.api.on(IPC_CHANNELS.SHOW_SETTINGS_PAGE, (data) => {
+  listenerDisposers.push(window.api.on(IPC_CHANNELS.SHOW_SETTINGS_PAGE, (data) => {
     // Support tabIndex parameter to navigate to specific settings tab (e.g., from tray "Update Available")
     const query = data?.tabIndex !== undefined ? { tab: data.tabIndex } : {}
     router.push({ name: 'settings', query })
-  })
-  window.api.on(IPC_CHANNELS.SHOW_SEARCH_PAGE, () => router.push({ name: 'search' }))
+  }))
+  listenerDisposers.push(window.api.on(IPC_CHANNELS.SHOW_SEARCH_PAGE, () => router.push({ name: 'search' })))
 }
 
 // Sets up handlers specific to the search window
 function setupSearchWindowHandlers() {
-  window.api.on(IPC_CHANNELS.SEARCH_KEYCOMBO_DOWN, async () => {
+  listenerDisposers.push(window.api.on(IPC_CHANNELS.SEARCH_KEYCOMBO_DOWN, async () => {
     await window.api.invoke(IPC_CHANNELS.SHOW_MAIN_WINDOW)
-  })
+  }))
 
-  window.api.on(IPC_CHANNELS.SEARCH_WINDOW_FOCUS_LOST, async () => {
+  listenerDisposers.push(window.api.on(IPC_CHANNELS.SEARCH_WINDOW_FOCUS_LOST, async () => {
     // Cancel any pending search operations to prevent stale results
     searchStore.cancelPendingSearch()
     // Always clear and reinitialize selection when focusing results
     selectionStore.clearSelection()
     await window.api.invoke(IPC_CHANNELS.HIDE_MAIN_WINDOW)
-  })
+  }))
 }
 
 // --- Global Keyboard Event Handlers ---
@@ -131,6 +133,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   // Remove global keydown listener
   window.removeEventListener('keydown', handleEscapeKey)
+  listenerDisposers.splice(0).forEach(dispose => dispose())
 })
 </script>
 

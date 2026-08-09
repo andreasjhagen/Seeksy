@@ -16,6 +16,7 @@ import { is } from '@electron-toolkit/utils'
 import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { createLogger } from '../../utils/logger.js'
+import { syncAppVersionMetadata } from './appVersionMetadata.js'
 import { applicationsOperations } from './operations/applicationsOperations.js'
 import { emojisOperations } from './operations/emojisOperations.js'
 import { favoritesOperations } from './operations/favoritesOperations.js'
@@ -88,51 +89,16 @@ class FileDatabase {
   // Check and update app version in database
   _checkAppVersion() {
     try {
-      // Create app_metadata table if not exists
-      this.db.exec(`
-        CREATE TABLE IF NOT EXISTS app_metadata (
-          key TEXT PRIMARY KEY,
-          value TEXT
-        );
-      `)
-
       const currentVersion = app.getVersion()
-      const stmt = this.db.prepare('SELECT value FROM app_metadata WHERE key = ?')
-      const row = stmt.get('app_version')
+      const previousVersion = syncAppVersionMetadata(this.db, currentVersion)
 
-      if (row) {
-        if (row.value !== currentVersion) {
-          logger.warn(`Version update detected: ${row.value} -> ${currentVersion}, clearing database`)
-
-          // Version mismatch: clear tables in a transaction for atomicity
-          this.db.transaction(() => {
-            this.db.exec(`
-              DELETE FROM files;
-              DELETE FROM folders;
-              DELETE FROM tags;
-              DELETE FROM file_tags;
-              DELETE FROM applications;
-              DELETE FROM emojis;
-            `)
-
-            // Update version in database
-            this.db
-              .prepare('UPDATE app_metadata SET value = ? WHERE key = ?')
-              .run(currentVersion, 'app_version')
-          })()
-
-          logger.success('Database cleared successfully due to version update')
-        }
-        else {
-          logger.debug(`Database version matches app version: ${currentVersion}`)
-        }
+      if (previousVersion && previousVersion !== currentVersion) {
+        logger.info(`Application version updated: ${previousVersion} -> ${currentVersion}`)
+      }
+      else if (previousVersion) {
+        logger.debug(`Database version matches app version: ${currentVersion}`)
       }
       else {
-        // First run: insert current version
-        this.db
-          .prepare('INSERT INTO app_metadata (key, value) VALUES (?, ?)')
-          .run('app_version', currentVersion)
-
         logger.info(`First run: Initialized database with version ${currentVersion}`)
       }
     }

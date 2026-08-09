@@ -44,3 +44,20 @@ export function generateColorPalette(baseColor) {
     return acc
   }, {})
 }
+
+export function getContrastForeground(backgroundColor) {
+  const rgb = hexToRgb(backgroundColor)
+  if (!rgb)
+    return '#ffffff'
+
+  const luminance = [rgb.r, rgb.g, rgb.b]
+    .map((channel) => {
+      const value = channel / 255
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+    })
+    .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0)
+
+  const whiteContrast = 1.05 / (luminance + 0.05)
+  const blackContrast = (luminance + 0.05) / 0.05
+  return blackContrast > whiteContrast ? '#111827' : '#ffffff'
+}

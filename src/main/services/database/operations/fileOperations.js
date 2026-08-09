@@ -280,7 +280,7 @@ export const fileOperations = {
   },
 
   // Stub function for image similarity - to maintain API compatibility
-  findSimilarImages(path, { threshold = 0.9, limit = 10 } = {}) {
+  findSimilarImages(path, { threshold: _threshold = 0.9, limit: _limit = 10 } = {}) {
     return {
       success: false,
       error: 'Image similarity feature is not available - image_metadata table not found in the database',

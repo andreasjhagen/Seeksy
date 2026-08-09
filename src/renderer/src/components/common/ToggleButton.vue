@@ -28,8 +28,12 @@ defineEmits(['toggle'])
       </p>
     </div>
     <button
-      class="relative inline-flex items-center h-6 rounded-full cursor-pointer w-11"
+      type="button"
+      role="switch"
+      class="relative inline-flex items-center h-6 rounded-full cursor-pointer w-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500"
       :class="value ? 'bg-accent' : 'bg-gray-300 dark:bg-gray-400'"
+      :aria-checked="value"
+      :aria-label="title"
       @click="$emit('toggle')"
     >
       <span
