@@ -76,6 +76,7 @@ const DEFAULT_SETTINGS = {
   showFavorites: true,
   windowDisplay: 'cursor',
   sectionOrder: [],
+  onboardingCompleted: false,
 }
 
 // This store is used to manage the application settings and serves as bridge to the electron settings API

@@ -10,6 +10,12 @@ const routes = [
     },
   },
   {
+    path: '/onboarding',
+    name: 'onboarding',
+    component: () => import('../pages/OnboardingPage.vue'),
+    meta: { title: 'Welcome to Seeksy' },
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('../pages/SettingsPage.vue'),

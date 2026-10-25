@@ -50,6 +50,7 @@ let settingsWindow = null
 let tray = null
 let indexerInstance = null
 let isIndexingPaused = false
+let needsOnboarding = false
 
 // Get icon path based on platform
 function getIconPath() {
@@ -153,11 +154,13 @@ function createSettingsWindow() {
   setupSettingsWindowEventHandlers()
   settingsWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   crashReporterService.setupRendererHandlers(settingsWindow, 'settings')
-  loadWindowContent(settingsWindow)
+  loadWindowContent(settingsWindow, needsOnboarding ? '/onboarding' : undefined)
 
   // When settings window is loaded, send message to show settings page
   settingsWindow.webContents.on('did-finish-load', () => {
-    settingsWindow.webContents.send(IPC.WINDOW.SHOW_SETTINGS_PAGE)
+    if (!needsOnboarding) {
+      settingsWindow.webContents.send(IPC.WINDOW.SHOW_SETTINGS_PAGE)
+    }
   })
 }
 
@@ -170,13 +173,13 @@ function setupSettingsWindowEventHandlers() {
 }
 
 // === Shared Window Functions ===
-function loadWindowContent(window) {
+function loadWindowContent(window, initialRoute) {
   if (is.dev && process.env.ELECTRON_RENDERER_URL) {
-    window.loadURL(process.env.ELECTRON_RENDERER_URL)
+    window.loadURL(initialRoute ? `${process.env.ELECTRON_RENDERER_URL}#${initialRoute}` : process.env.ELECTRON_RENDERER_URL)
     installVueDevTools()
   }
   else {
-    window.loadFile(join(__dirnamePath, '../renderer/index.html'))
+    window.loadFile(join(__dirnamePath, '../renderer/index.html'), initialRoute ? { hash: initialRoute } : undefined)
   }
 }
 
@@ -469,6 +472,17 @@ app.whenReady().then(() => {
   // Initialize language for main process (tray menu, etc.)
   initializeMainProcessLanguage()
 
+  // An existing indexed folder means this installation has already been set up.
+  if (!appSettings.getSetting('onboardingCompleted') && fileDB.getWatchedFolders().length > 0) {
+    appSettings.setSetting('onboardingCompleted', true)
+  }
+  needsOnboarding = !appSettings.getSetting('onboardingCompleted')
+  // Keep in sync so a reload of the settings window doesn't route back to onboarding
+  appSettings.on('setting-changed', ({ key, value }) => {
+    if (key === 'onboardingCompleted')
+      needsOnboarding = !value
+  })
+
   // Initialize services
   const indexer = new IndexController(fileDB)
   indexerInstance = indexer // Store reference globally for tray menu access
@@ -487,6 +501,13 @@ app.whenReady().then(() => {
   // Create windows
   createMainWindow()
   createSettingsWindow()
+
+  if (needsOnboarding) {
+    settingsWindow.once('ready-to-show', () => {
+      settingsWindow.show()
+      settingsWindow.focus()
+    })
+  }
 
   // Initialize app components
   initializeHandlers(indexer)
@@ -530,10 +551,6 @@ app.whenReady().then(() => {
 
   // Initialize the application
   initializeAppIndexing()
-
-  // Hide windows until explicitly shown
-  mainWindow.hide()
-  settingsWindow.hide()
 
   // Set the app icon for macOS
   if (process.platform === 'darwin') {

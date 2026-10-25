@@ -87,6 +87,9 @@ function setupSearchWindowHandlers() {
 // Handles the escape key press to navigate between search and settings pages
 function handleEscapeKey(event) {
   if (event.key === 'Escape') {
+    // Onboarding lives in the settings window and must be finished explicitly
+    if (router.currentRoute.value.name === 'onboarding')
+      return
     const isSettingsPage = router.currentRoute.value.name === 'settings'
     if (isSettingsPage) {
       // If on settings page, navigate to search page

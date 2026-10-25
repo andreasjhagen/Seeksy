@@ -11,7 +11,7 @@
 
 A desktop search application, inspired by the macOS Spotlight, built with Electron and Vue. It offers fast file search, an application launcher and can also function as an emoji picker.
 
-Runs seamlessly in the background, ready to open with **Ctrl + Space** (default shortcut). Fully customizable via the settings menu, accessible through the gear icon or the tray icon's context menu.
+On first launch, Seeksy opens a setup screen where you can choose a folder to index, set the search shortcut, and choose whether to start on boot. After setup it runs in the background, ready to open with **Ctrl + Space** (default shortcut). You can change these options later in Settings, accessible through the gear icon or the tray icon's context menu.
 
 ![Unified Search Interface](./docs/img/search.png)
 

@@ -55,6 +55,7 @@ class AppSettingsStore extends EventEmitter {
           windowDisplay: 'cursor', // Supports cursor and primary
           collapsedSections: [],
           sectionOrder: [],
+          onboardingCompleted: false,
         },
       },
     })
@@ -117,6 +118,7 @@ class AppSettingsStore extends EventEmitter {
         windowDisplay: 'cursor',
         collapsedSections: [],
         sectionOrder: [],
+        onboardingCompleted: false,
       },
     }
     Object.entries(defaults).forEach(([key, value]) => this.store.set(key, value))
